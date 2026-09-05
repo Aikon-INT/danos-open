@@ -1,0 +1,22 @@
+name: danos-acl-test
+prefix: __CLAB_LABEL_
+
+topology:
+  defaults:
+    kind: linux
+    image: danos-open:latest
+
+  nodes:
+    r1:
+      binds:
+        - /etc/danos/r1/frr.conf:/etc/frr/frr.conf
+    h1:
+      kind: linux
+      image: alpine:latest
+    h2:
+      kind: linux
+      image: alpine:latest
+
+  links:
+    - endpoints: ["h1:eth1", "r1:eth1"]
+    - endpoints: ["r1:eth2", "h2:eth1"]

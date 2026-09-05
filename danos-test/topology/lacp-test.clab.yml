@@ -1,0 +1,19 @@
+name: danos-lacp-test
+prefix: __CLAB_LABEL_
+
+topology:
+  defaults:
+    kind: linux
+    image: danos-open:latest
+
+  nodes:
+    r1:
+      binds:
+        - /etc/danos/r1/frr.conf:/etc/frr/frr.conf
+    r2:
+      binds:
+        - /etc/danos/r2/frr.conf:/etc/frr/frr.conf
+
+  links:
+    - endpoints: ["r1:eth1", "r2:eth1"]
+    - endpoints: ["r1:eth2", "r2:eth2"]
