@@ -1,0 +1,3 @@
+usr/include/danos/*
+usr/lib/*/libdanos-*.a
+usr/lib/*/cmake/danos/*

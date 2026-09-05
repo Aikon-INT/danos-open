@@ -1,0 +1,12 @@
+danos-open (0.1.0-1) unstable; urgency=low
+
+  * Initial release
+  * DPA API v0.1 with capability discovery and transaction model
+  * Core engine: object registry, state store, transaction, event bus, reconciler
+  * FIB adapter: ZAPI v6 parser and DPA mapper
+  * VPP backend: capability advertisement and object mapper
+  * Management plane: CLI and gNMI-like REST/JSON server
+  * YANG models: interface, route, vrf, acl, qos, bfd
+  * 33 unit tests + 11 conformance tests, all passing
+
+ -- DANOS-Open Project <i-danos@users.noreply.github.com>  Fri, 06 Sep 2026 00:00:00 +0000

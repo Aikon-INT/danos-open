@@ -1,0 +1,37 @@
+Source: danos-open
+Section: net
+Priority: optional
+Maintainer: DANOS-Open Project <i-danos@users.noreply.github.com>
+Build-Depends: debhelper-compat (= 13),
+               cmake (>= 3.16),
+               gcc (>= 13),
+               libc6-dev,
+               libpthread-stubs0-dev
+Standards-Version: 4.6.0
+Homepage: https://github.com/Aikon-INT/danos-open
+Vcs-Git: https://github.com/Aikon-INT/danos-open.git
+Vcs-Browser: https://github.com/Aikon-INT/danos-open
+
+Package: danos-open
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends},
+         frr (>= 10.2),
+         vpp (>= 24.06)
+Description: Disaggregated Network Operating System (Open)
+ DANOS-Open is a Software-First, ASIC-SDK-Free Disaggregated NOS
+ built with Linux, FRR, VPP, DPDK, and P4.
+ .
+ This package contains:
+  - danos-dpa: Data Plane Abstraction API library
+  - danos-core: Core engine (object registry, state store, transactions)
+  - danos-fib: FRR FIB adapter (ZAPI parser + mapper)
+  - danos-vpp: VPP backend (capability + mapper)
+  - danos-mgmt: Management plane (CLI + gNMI-like REST server)
+  - danos-models: YANG models
+  - danos-test: Conformance and unit tests
+
+Package: danos-open-dev
+Architecture: any
+Depends: danos-open (= ${binary:Version}), ${misc:Depends}
+Description: Development files for DANOS-Open
+ Header files and static libraries for DANOS-Open development.

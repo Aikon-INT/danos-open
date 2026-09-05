@@ -1,0 +1,3 @@
+usr/lib/*/libdanos-*.so*
+usr/bin/*
+usr/share/danos/*

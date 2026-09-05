@@ -1,0 +1,19 @@
+#!/usr/bin/make -f
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	dh_auto_configure -- -DCMAKE_BUILD_TYPE=Release -DDANOS_BUILD_TESTS=OFF
+
+override_dh_auto_install:
+	dh_auto_install
+	# Install headers
+	install -d $(CURDIR)/debian/danos-open-dev/usr/include/danos
+	cp -r danos-dpa/include/danos/* $(CURDIR)/debian/danos-open-dev/usr/include/danos/
+	cp -r danos-core/include/danos/* $(CURDIR)/debian/danos-open-dev/usr/include/danos/
+
+override_dh_auto_test:
+	# Skip tests during package build (run separately)
