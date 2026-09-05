@@ -1,0 +1,53 @@
+# Build artifacts
+build/
+*.o
+*.a
+*.so
+*.so.*
+*.dylib
+*.exe
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+install_manifest.txt
+compile_commands.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+
+# Protobuf generated
+*.pb.c
+*.pb.h
+*_pb2.py
+
+# Logs
+*.log
+
+# Coverage
+*.gcov
+*.gcda
+*.gcno
+coverage/
+
+# Packaging
+*.deb
+*.rpm
+*.tar.gz
+*.zip
+
+# Secrets
+*.pem
+*.key
+.env

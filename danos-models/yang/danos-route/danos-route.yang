@@ -1,0 +1,37 @@
+module danos-route {
+  yang-version 1.1;
+  namespace "urn:danos:route";
+  prefix drt;
+
+  import danos-types { prefix dt; }
+
+  description
+    "DANOS-Open route model.
+     Copyright (c) 2026 DANOS-Open Project. Apache-2.0.";
+
+  revision 2026-09-05 {
+    description "Initial version for v0.1.";
+  }
+
+  container routing {
+    list vrf {
+      key "vrf-id";
+      leaf vrf-id { type dt:vrf-id; }
+      leaf name { type string; }
+      leaf ipv4-active { type boolean; default true; }
+      leaf ipv6-active { type boolean; default true; }
+
+      container routes {
+        list route {
+          key "prefix protocol";
+          leaf prefix { type dt:ip-prefix; }
+          leaf protocol { type dt:route-protocol; }
+          leaf admin-distance { type dt:admin-distance; }
+          leaf metric { type uint32; }
+          leaf nhgroup-id { type uint64; }
+          leaf blackhole { type boolean; default false; }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main, v0.1]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-x86_64:
+    name: Build & Test (x86_64)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake python3
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build -j$(nproc)
+      - name: Test
+        run: cd build && ctest --output-on-failure
+
+  build-aarch64:
+    name: Build (aarch64 cross)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install cross toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu cmake
+      - name: Configure (cross)
+        run: |
+          cmake -B build-arm \
+            -DCMAKE_TOOLCHAIN_FILE=cmake/aarch64.cmake \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DDANOS_BUILD_TESTS=OFF
+      - name: Build (cross)
+        run: cmake --build build-arm -j$(nproc)
+
+  conformance:
+    name: DPA Conformance
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          cmake -B build && cmake --build build -j$(nproc)
+      - name: Run conformance
+        run: ./build/danos-test/conformance_test

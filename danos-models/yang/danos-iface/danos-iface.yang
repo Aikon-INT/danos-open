@@ -1,0 +1,54 @@
+module danos-iface {
+  yang-version 1.1;
+  namespace "urn:danos:iface";
+  prefix dif;
+
+  import danos-types { prefix dt; }
+
+  description
+    "DANOS-Open interface model.
+     Copyright (c) 2026 DANOS-Open Project. Apache-2.0.";
+
+  revision 2026-09-05 {
+    description "Initial version for v0.1.";
+  }
+
+  typedef if-type {
+    type enumeration {
+      enum phys   { value 1; }
+      enum subif  { value 2; }
+      enum bond   { value 3; }
+      enum loopbk { value 4; }
+      enum vxlan  { value 5; }
+      enum gre    { value 6; }
+      enum bridge { value 7; }
+    }
+  }
+
+  container interfaces {
+    list interface {
+      key "ifindex";
+      leaf ifindex { type dt:ifindex; }
+      leaf name { type string { length "1..63"; } }
+      leaf type { type if-type; }
+      leaf mtu { type uint16 { range "68..9216"; } default 1500; }
+      leaf mac { type string { pattern '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'; } }
+      leaf admin-up { type boolean; default false; }
+      leaf parent-ifindex { type dt:ifindex; }
+      leaf outer-vlan { type dt:vlan-id; }
+      leaf inner-vlan { type dt:vlan-id; }
+
+      /* Operational state (read-only) */
+      container state {
+        config false;
+        leaf link-up { type boolean; }
+        leaf rx-packets { type uint64; }
+        leaf tx-packets { type uint64; }
+        leaf rx-bytes   { type uint64; }
+        leaf tx-bytes   { type uint64; }
+        leaf rx-drops   { type uint64; }
+        leaf tx-drops   { type uint64; }
+      }
+    }
+  }
+}

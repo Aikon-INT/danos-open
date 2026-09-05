@@ -1,0 +1,33 @@
+module danos-bfd {
+  yang-version 1.1;
+  namespace "urn:danos:bfd";
+  prefix dbfd;
+
+  import danos-types { prefix dt; }
+
+  description
+    "DANOS-Open BFD model.
+     Copyright (c) 2026 DANOS-Open Project. Apache-2.0.";
+
+  revision 2026-09-05 {
+    description "Initial version for v0.1.";
+  }
+
+  container bfd {
+    list session {
+      key "id";
+      leaf id { type uint64; }
+      leaf remote { type string; }
+      leaf ifindex { type dt:ifindex; }
+      leaf desired-tx-ms { type uint32; default 300; }
+      leaf required-rx-ms { type uint32; default 300; }
+      leaf detect-mult { type uint32 { range "3..50"; } default 3; }
+      leaf admin-up { type boolean; default true; }
+
+      container state {
+        config false;
+        leaf session-up { type boolean; }
+      }
+    }
+  }
+}

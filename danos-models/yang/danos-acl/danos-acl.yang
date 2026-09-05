@@ -1,0 +1,58 @@
+module danos-acl {
+  yang-version 1.1;
+  namespace "urn:danos:acl";
+  prefix dacl;
+
+  import danos-types { prefix dt; }
+
+  description
+    "DANOS-Open ACL model.
+     Copyright (c) 2026 DANOS-Open Project. Apache-2.0.";
+
+  revision 2026-09-05 {
+    description "Initial version for v0.1.";
+  }
+
+  typedef acl-action {
+    type enumeration {
+      enum permit   { value 1; }
+      enum deny     { value 2; }
+      enum mirror   { value 3; }
+      enum redirect { value 4; }
+      enum police   { value 5; }
+      enum set-dscp { value 6; }
+    }
+  }
+
+  container acl {
+    list table {
+      key "table-id";
+      leaf table-id { type uint64; }
+      leaf name { type string; }
+      leaf bind-ifindex { type dt:ifindex; }
+      leaf ingress { type boolean; default true; }
+
+      list rule {
+        key "rule-id";
+        leaf rule-id { type uint64; }
+        leaf priority { type uint32; }
+        leaf action { type acl-action; }
+
+        container match {
+          leaf ether-type { type uint16; }
+          leaf src-mac { type string; }
+          leaf dst-mac { type string; }
+          leaf vlan-id { type dt:vlan-id; }
+          leaf src-ip { type dt:ip-prefix; }
+          leaf dst-ip { type dt:ip-prefix; }
+          leaf l4-proto { type uint8; }
+          leaf l4-src-port-start { type uint16; }
+          leaf l4-src-port-end   { type uint16; }
+          leaf l4-dst-port-start { type uint16; }
+          leaf l4-dst-port-end   { type uint16; }
+          leaf dscp { type uint8; }
+        }
+      }
+    }
+  }
+}

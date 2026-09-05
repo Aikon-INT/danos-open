@@ -1,0 +1,514 @@
+// DANOS-Open DPA Protobuf IDL
+// Version: v0.1
+// License: Apache-2.0
+//
+// This IDL is the cross-process / cross-language equivalent of danos_dpa.h.
+// It is used by:
+//   - gNMI server (management plane)
+//   - FRR FIB Adapter (control plane, separate process)
+//   - Backend adapters (VPP / OVS / P4, separate processes)
+//   - Telemetry & audit collectors
+//
+// Conventions:
+//   - All mutating RPCs take a Transaction context.
+//   - All responses include a Status.
+//   - Object IDs are backend-allocated and opaque to the caller.
+
+syntax = "proto3";
+
+package danos.dpa.v1;
+
+option go_package = "github.com/danos-open/dpa/v1;dpa_v1";
+option java_package = "org.danos.dpa.v1";
+
+// =========================================================================
+// Common types
+// =========================================================================
+
+message Version {
+  uint32 major = 1;
+  uint32 minor = 2;
+  uint32 patch = 3;
+}
+
+enum Status {
+  OK                  = 0;
+  INVALID_ARG         = 1;
+  NOT_FOUND           = 2;
+  EXISTS              = 3;
+  NO_MEMORY           = 4;
+  NO_CAPACITY         = 5;
+  NOT_SUPPORTED       = 6;
+  PERMISSION          = 7;
+  TX_CONFLICT         = 10;
+  TX_TIMEOUT          = 11;
+  TX_ABORTED          = 12;
+  TX_ROLLBACK         = 13;
+  TX_INVALID          = 14;
+  BACKEND_DOWN        = 20;
+  BACKEND_BUSY        = 21;
+  BACKEND_IO          = 22;
+  VERIFY_FAIL         = 30;
+  PARTIAL             = 31;
+  VERSION             = 40;
+  CAPABILITY          = 41;
+  INTERNAL            = 99;
+}
+
+message StatusResult {
+  Status code = 1;
+  string message = 2;  // human-readable detail
+}
+
+enum AddressFamily {
+  AF_UNSPEC = 0;
+  AF_IPV4   = 4;
+  AF_IPV6   = 6;
+}
+
+message IpAddress {
+  AddressFamily af = 1;
+  bytes addr = 2;  // 4 bytes for IPv4, 16 bytes for IPv6, network order
+}
+
+message IpPrefix {
+  IpAddress addr = 1;
+  uint32 prefix_len = 2;
+}
+
+// =========================================================================
+// Object types & capabilities
+// =========================================================================
+
+enum ObjectType {
+  OBJ_UNSPEC    = 0;
+  OBJ_IFACE     = 1;
+  OBJ_VLAN      = 2;
+  OBJ_VRF       = 3;
+  OBJ_ROUTE     = 4;
+  OBJ_NEXTHOP   = 5;
+  OBJ_NHGROUP   = 6;
+  OBJ_ACL       = 7;
+  OBJ_QOS       = 8;
+  OBJ_MPLS_LSP  = 9;
+  OBJ_TUNNEL    = 10;
+  OBJ_EVPN      = 11;
+  OBJ_MULTICAST = 12;
+  OBJ_BFD       = 13;
+}
+
+message Capability {
+  ObjectType type = 1;
+  bool supported = 2;
+  uint32 max_count = 3;       // 0 = unlimited
+  repeated string features = 4;
+  string constraints_json = 5;  // per-field constraints
+}
+
+message BackendInfo {
+  string name = 1;            // "vpp", "ovs-dpdk", "p4-dpdk"
+  Version api_version = 2;
+  repeated Capability capabilities = 3;
+}
+
+// =========================================================================
+// Transaction
+// =========================================================================
+
+enum TxState {
+  TX_OPEN      = 0;
+  TX_PREPARE   = 1;
+  TX_VALIDATE  = 2;
+  TX_COMMIT    = 3;
+  TX_VERIFY    = 4;
+  TX_DONE      = 5;
+  TX_ABORT     = 6;
+  TX_ROLLBACK  = 7;
+}
+
+message TxContext {
+  uint64 id = 1;              // transaction ID
+  TxState state = 2;
+  uint64 start_ns = 3;
+  uint64 deadline_ns = 4;
+  string initiator = 5;       // "cli", "gnmi", "frr-zebra"
+}
+
+message TxTimeouts {
+  uint64 prepare_ms = 1;      // default 100
+  uint64 commit_ms = 2;       // default 500
+  uint64 verify_ms = 3;       // default 1000
+}
+
+// =========================================================================
+// Object: Interface
+// =========================================================================
+
+enum IfType {
+  IF_UNSPEC  = 0;
+  IF_PHYS    = 1;
+  IF_SUBIF   = 2;
+  IF_BOND    = 3;
+  IF_LOOPBK  = 4;
+  IF_VXLAN   = 5;
+  IF_GRE     = 6;
+  IF_BRIDGE  = 7;
+}
+
+message Interface {
+  uint32 ifindex = 1;
+  string name = 2;
+  IfType type = 3;
+  uint32 mtu = 4;
+  bytes mac = 5;              // 6 bytes
+  bool admin_up = 6;
+  bool link_up = 7;           // oper, read-only
+  uint32 parent_ifindex = 8;
+  uint32 outer_vlan = 9;
+  uint32 inner_vlan = 10;
+}
+
+// =========================================================================
+// Object: VRF
+// =========================================================================
+
+message Vrf {
+  uint32 vrf_id = 1;
+  string name = 2;
+  bool ipv4_active = 3;
+  bool ipv6_active = 4;
+}
+
+// =========================================================================
+// Object: NextHop
+// =========================================================================
+
+enum NhFlag {
+  NH_FLAG_NONE      = 0;
+  NH_FLAG_ECMP      = 1;
+  NH_FLAG_BACKUP    = 2;
+  NH_FLAG_MPLS_POP  = 4;
+  NH_FLAG_MPLS_PUSH = 8;
+  NH_FLAG_TUNNEL    = 16;
+}
+
+message NextHop {
+  uint64 id = 1;
+  IpAddress gateway = 2;
+  uint32 ifindex = 3;
+  uint32 weight = 4;
+  uint32 flags = 5;           // bitmask of NhFlag
+  repeated uint32 labels = 6; // MPLS label stack
+}
+
+message NhGroup {
+  uint64 id = 1;
+  repeated uint64 nh_ids = 2;
+  uint32 flags = 3;
+}
+
+// =========================================================================
+// Object: Route
+// =========================================================================
+
+enum RouteProtocol {
+  ROUTE_PROTO_UNSPEC    = 0;
+  ROUTE_PROTO_KERNEL    = 1;
+  ROUTE_PROTO_STATIC    = 2;
+  ROUTE_PROTO_BGP       = 3;
+  ROUTE_PROTO_OSPF      = 4;
+  ROUTE_PROTO_ISIS      = 5;
+  ROUTE_PROTO_CONNECTED = 6;
+}
+
+enum RouteFlag {
+  ROUTE_FLAG_NONE       = 0;
+  ROUTE_FLAG_BLACKHOLE  = 1;
+  ROUTE_FLAG_MULTICAST  = 2;
+}
+
+message Route {
+  uint32 vrf_id = 1;
+  IpPrefix prefix = 2;
+  RouteProtocol protocol = 3;
+  uint32 admin_distance = 4;
+  uint32 metric = 5;
+  uint64 nhgroup_id = 6;
+  uint32 flags = 7;
+}
+
+// =========================================================================
+// Object: ACL
+// =========================================================================
+
+enum AclAction {
+  ACL_ACTION_PERMIT   = 0;
+  ACL_ACTION_DENY     = 1;
+  ACL_ACTION_MIRROR   = 2;
+  ACL_ACTION_REDIRECT = 3;
+  ACL_ACTION_POLICE   = 4;
+  ACL_ACTION_SET_DSCP = 5;
+}
+
+message AclMatch {
+  uint32 fields_mask = 1;
+  uint32 ether_type = 2;
+  bytes src_mac = 3;
+  bytes dst_mac = 4;
+  uint32 vlan_id = 5;
+  IpPrefix src_ip = 6;
+  IpPrefix dst_ip = 7;
+  uint32 l4_proto = 8;
+  uint32 l4_src_port_start = 9;
+  uint32 l4_src_port_end = 10;
+  uint32 l4_dst_port_start = 11;
+  uint32 l4_dst_port_end = 12;
+  uint32 dscp = 13;
+}
+
+message AclActionParams {
+  AclAction action = 1;
+  uint32 redirect_ifindex = 2;
+  uint64 police_rate_kbps = 3;
+  uint32 set_dscp = 4;
+}
+
+message AclRule {
+  uint64 rule_id = 1;
+  uint32 priority = 2;
+  AclMatch match = 3;
+  AclActionParams action = 4;
+}
+
+message AclTable {
+  uint64 table_id = 1;
+  string name = 2;
+  uint32 bind_ifindex = 3;
+  bool ingress = 4;
+}
+
+// =========================================================================
+// Object: QoS Policy
+// =========================================================================
+
+message QosPolicy {
+  uint64 policy_id = 1;
+  string name = 2;
+  uint64 cir_bps = 3;
+  uint64 cb_bytes = 4;
+  uint64 pir_bps = 5;
+  uint64 pb_bytes = 6;
+  uint32 conform_dscp = 7;
+  uint32 exceed_dscp = 8;
+  uint32 violate_dscp = 9;
+}
+
+// =========================================================================
+// Object: BFD
+// =========================================================================
+
+message BfdSession {
+  uint64 id = 1;
+  IpAddress remote = 2;
+  uint32 ifindex = 3;
+  uint32 desired_tx_ms = 4;
+  uint32 required_rx_ms = 5;
+  uint32 detect_mult = 6;
+  bool admin_up = 7;
+  bool session_up = 8;
+}
+
+// =========================================================================
+// Reconciliation
+// =========================================================================
+
+message ReconcileConfig {
+  uint64 reconcile_period_ms = 1;
+  uint32 max_retries = 2;
+  uint64 backoff_initial_ms = 3;
+  uint64 backoff_max_ms = 4;
+  uint32 antiflap_window_ms = 5;
+  uint32 antiflap_max_count = 6;
+}
+
+message ReconcileStats {
+  uint64 total_runs = 1;
+  uint64 total_diffs = 2;
+  uint64 total_repairs = 3;
+  uint64 total_failures = 4;
+  uint64 total_flaps = 5;
+}
+
+// =========================================================================
+// Events
+// =========================================================================
+
+enum EventType {
+  EVENT_UNSPEC       = 0;
+  EVENT_OBJ_CREATED  = 1;
+  EVENT_OBJ_UPDATED  = 2;
+  EVENT_OBJ_DELETED  = 3;
+  EVENT_TX_COMMITTED = 4;
+  EVENT_TX_ROLLBACK  = 5;
+  EVENT_RECONCILE    = 6;
+  EVENT_BACKEND_DOWN = 7;
+  EVENT_BACKEND_UP   = 8;
+  EVENT_CAPABILITY   = 9;
+}
+
+message Event {
+  EventType type = 1;
+  uint64 timestamp_ns = 2;
+  ObjectType obj_type = 3;
+  uint64 obj_id = 4;
+  uint64 tx_id = 5;
+  string message = 6;
+}
+
+// =========================================================================
+// DPA Service (gRPC)
+// =========================================================================
+
+service DpaService {
+  // --- Version & capability ---
+  rpc GetVersion(VersionRequest) returns (VersionResponse);
+  rpc GetBackends(GetBackendsRequest) returns (stream BackendInfo);
+  rpc QueryCapability(CapabilityRequest) returns (CapabilityResponse);
+
+  // --- Transaction ---
+  rpc TxBegin(TxBeginRequest) returns (TxBeginResponse);
+  rpc TxPrepare(TxPrepareRequest) returns (StatusResult);
+  rpc TxValidate(TxValidateRequest) returns (StatusResult);
+  rpc TxCommit(TxCommitRequest) returns (StatusResult);
+  rpc TxVerify(TxVerifyRequest) returns (StatusResult);
+  rpc TxAbort(TxAbortRequest) returns (StatusResult);
+  rpc TxRollback(TxRollbackRequest) returns (StatusResult);
+
+  // --- Interface ---
+  rpc IfaceCreate(IfaceCreateRequest) returns (StatusResult);
+  rpc IfaceUpdate(IfaceUpdateRequest) returns (StatusResult);
+  rpc IfaceDelete(IfaceDeleteRequest) returns (StatusResult);
+  rpc IfaceRead(IfaceReadRequest) returns (IfaceReadResponse);
+  rpc IfaceDump(IfaceDumpRequest) returns (stream Interface);
+
+  // --- VRF ---
+  rpc VrfCreate(VrfCreateRequest) returns (StatusResult);
+  rpc VrfDelete(VrfDeleteRequest) returns (StatusResult);
+  rpc VrfDump(VrfDumpRequest) returns (stream Vrf);
+
+  // --- NextHop ---
+  rpc NhCreate(NhCreateRequest) returns (StatusResult);
+  rpc NhDelete(NhDeleteRequest) returns (StatusResult);
+
+  // --- NhGroup ---
+  rpc NhGroupCreate(NhGroupCreateRequest) returns (StatusResult);
+  rpc NhGroupDelete(NhGroupDeleteRequest) returns (StatusResult);
+
+  // --- Route ---
+  rpc RouteCreate(RouteCreateRequest) returns (StatusResult);
+  rpc RouteDelete(RouteDeleteRequest) returns (StatusResult);
+  rpc RouteRead(RouteReadRequest) returns (RouteReadResponse);
+  rpc RouteDump(RouteDumpRequest) returns (stream Route);
+
+  // --- ACL ---
+  rpc AclTableCreate(AclTableCreateRequest) returns (StatusResult);
+  rpc AclTableDelete(AclTableDeleteRequest) returns (StatusResult);
+  rpc AclRuleAdd(AclRuleAddRequest) returns (StatusResult);
+  rpc AclRuleDelete(AclRuleDeleteRequest) returns (StatusResult);
+
+  // --- QoS ---
+  rpc QosPolicyCreate(QosPolicyCreateRequest) returns (StatusResult);
+  rpc QosPolicyDelete(QosPolicyDeleteRequest) returns (StatusResult);
+  rpc QosPolicyBind(QosPolicyBindRequest) returns (StatusResult);
+
+  // --- BFD ---
+  rpc BfdCreate(BfdCreateRequest) returns (StatusResult);
+  rpc BfdDelete(BfdDeleteRequest) returns (StatusResult);
+
+  // --- Reconciliation ---
+  rpc ReconcileTrigger(ReconcileTriggerRequest) returns (StatusResult);
+  rpc ReconcileGetStats(ReconcileStatsRequest) returns (ReconcileStats);
+
+  // --- Events (streaming) ---
+  rpc EventSubscribe(EventSubscribeRequest) returns (stream Event);
+}
+
+// --- Request/Response wrappers (TxContext carried in every mutation) ---
+
+message VersionRequest {}
+message VersionResponse { Version version = 1; }
+message GetBackendsRequest {}
+
+message CapabilityRequest {
+  string backend_name = 1;  // empty = any
+  ObjectType type = 2;
+}
+message CapabilityResponse {
+  StatusResult status = 1;
+  Capability cap = 2;
+}
+
+message TxBeginRequest {
+  string initiator = 1;
+  TxTimeouts timeouts = 2;
+}
+message TxBeginResponse {
+  StatusResult status = 1;
+  TxContext tx = 2;
+}
+
+message TxPrepareRequest  { uint64 tx_id = 1; }
+message TxValidateRequest { uint64 tx_id = 1; }
+message TxCommitRequest   { uint64 tx_id = 1; }
+message TxVerifyRequest   { uint64 tx_id = 1; }
+message TxAbortRequest    { uint64 tx_id = 1; }
+message TxRollbackRequest { uint64 tx_id = 1; }
+
+message IfaceCreateRequest { uint64 tx_id = 1; Interface iface = 2; }
+message IfaceUpdateRequest { uint64 tx_id = 1; Interface iface = 2; }
+message IfaceDeleteRequest { uint64 tx_id = 1; uint32 ifindex = 2; }
+message IfaceReadRequest   { uint64 tx_id = 1; uint32 ifindex = 2; }
+message IfaceReadResponse  { StatusResult status = 1; Interface iface = 2; }
+message IfaceDumpRequest   { uint64 tx_id = 1; }
+
+message VrfCreateRequest { uint64 tx_id = 1; Vrf vrf = 2; }
+message VrfDeleteRequest { uint64 tx_id = 1; uint32 vrf_id = 2; }
+message VrfDumpRequest   { uint64 tx_id = 1; }
+
+message NhCreateRequest     { uint64 tx_id = 1; NextHop nh = 2; }
+message NhDeleteRequest     { uint64 tx_id = 1; uint64 id = 2; }
+message NhGroupCreateRequest{ uint64 tx_id = 1; NhGroup grp = 2; }
+message NhGroupDeleteRequest{ uint64 tx_id = 1; uint64 id = 2; }
+
+message RouteCreateRequest { uint64 tx_id = 1; Route route = 2; }
+message RouteDeleteRequest {
+  uint64 tx_id = 1;
+  uint32 vrf_id = 2;
+  IpPrefix prefix = 3;
+  RouteProtocol proto = 4;
+}
+message RouteReadRequest {
+  uint64 tx_id = 1;
+  uint32 vrf_id = 2;
+  IpPrefix prefix = 3;
+  RouteProtocol proto = 4;
+}
+message RouteReadResponse { StatusResult status = 1; Route route = 2; }
+message RouteDumpRequest  { uint64 tx_id = 1; uint32 vrf_id = 2; }
+
+message AclTableCreateRequest { uint64 tx_id = 1; AclTable tbl = 2; }
+message AclTableDeleteRequest { uint64 tx_id = 1; uint64 table_id = 2; }
+message AclRuleAddRequest     { uint64 tx_id = 1; uint64 table_id = 2; AclRule rule = 3; }
+message AclRuleDeleteRequest  { uint64 tx_id = 1; uint64 table_id = 2; uint64 rule_id = 3; }
+
+message QosPolicyCreateRequest { uint64 tx_id = 1; QosPolicy p = 2; }
+message QosPolicyDeleteRequest { uint64 tx_id = 1; uint64 policy_id = 2; }
+message QosPolicyBindRequest   { uint64 tx_id = 1; uint64 policy_id = 2; uint32 ifindex = 3; bool ingress = 4; }
+
+message BfdCreateRequest { uint64 tx_id = 1; BfdSession bfd = 2; }
+message BfdDeleteRequest { uint64 tx_id = 1; uint64 id = 2; }
+
+message ReconcileTriggerRequest { ObjectType type = 1; }
+message ReconcileStatsRequest   { ObjectType type = 1; }
+
+message EventSubscribeRequest { uint32 event_mask = 1; }
