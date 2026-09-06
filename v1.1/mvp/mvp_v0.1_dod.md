@@ -296,3 +296,23 @@
 - vpp_mapper, vpp_api
 - cli, gnmi, netconf
 - conformance, perf_baseline, bgp_converge, sw_fwd_baseline
+
+---
+
+## v1.1 评审 P0 改进动作落实（2026-09-06）
+
+> 对应 `DANOS-Open_Review_and_Enhancement_v1.1.md` §九 P0 清单。
+
+| # | 改进动作 | 状态 | 落实位置 |
+|---|---------|------|---------|
+| 1 | 修复仓库结构不一致（§3.1） | [x] | 7 个缺失模块目录 + README 已创建；顶层 README 表格对齐 v1.1 仓库结构 |
+| 2 | 补全 DPA API 规范（§4.1） | [x] | `v1.1/dpa-spec/`（C ABI + Protobuf + 错误码 + 版本） |
+| 3 | 补全 MVP v0.1 DoD（§7.1） | [x] | 本文档 |
+| 4 | 新增风险评估章节（§6） | [x] | `v1.1/risk/risk_assessment.md` |
+| 5 | 新增安全架构章节（§20） | [x] | `v1.1/security/security_architecture.md` + `danos-security/` |
+| 6 | 新增 HA 设计章节（§21） | [x] | `v1.1/ha/ha_design.md` + `danos-ha/` |
+| 7 | 新增可观测性章节（§22） | [x] | `v1.1/observability/observability_telemetry.md` + `danos-observability/` |
+| 8 | 明确 Capability 与 DPA Object 关系（§3.4） | [x] | `v1.1/capability/`（待补 schema 示例） |
+
+**v1.1 P0 改进动作：8/8 完成**
+
