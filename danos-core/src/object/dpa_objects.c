@@ -332,3 +332,73 @@ danos_status_t danos_mpls_lsp_read(danos_tx_t *tx, danos_mpls_label_t in_label,
     return danos_object_read(get_default_store(), DANOS_OBJ_MPLS_LSP,
                              in_label, out, &sz);
 }
+
+/* =========================================================================
+ * Tunnel CRUD (v0.2)
+ * ========================================================================= */
+danos_status_t danos_tunnel_create(danos_tx_t *tx, const danos_tunnel_t *tun)
+{
+    (void)tx;
+    if (!tun) return DANOS_ERR_INVALID_ARG;
+    return danos_object_create(get_default_store(), DANOS_OBJ_TUNNEL,
+                               tun->id, tun, sizeof(*tun));
+}
+
+danos_status_t danos_tunnel_update(danos_tx_t *tx, const danos_tunnel_t *tun)
+{
+    (void)tx;
+    if (!tun) return DANOS_ERR_INVALID_ARG;
+    return danos_object_update(get_default_store(), DANOS_OBJ_TUNNEL,
+                               tun->id, tun, sizeof(*tun));
+}
+
+danos_status_t danos_tunnel_delete(danos_tx_t *tx, danos_obj_id_t id)
+{
+    (void)tx;
+    return danos_object_delete(get_default_store(), DANOS_OBJ_TUNNEL, id);
+}
+
+danos_status_t danos_tunnel_read(danos_tx_t *tx, danos_obj_id_t id,
+                                 danos_tunnel_t *out)
+{
+    (void)tx;
+    if (!out) return DANOS_ERR_INVALID_ARG;
+    size_t sz = sizeof(*out);
+    return danos_object_read(get_default_store(), DANOS_OBJ_TUNNEL,
+                             id, out, &sz);
+}
+
+/* =========================================================================
+ * EVPN EVI CRUD (v0.2)
+ * ========================================================================= */
+danos_status_t danos_evpn_evi_create(danos_tx_t *tx, const danos_evpn_evi_t *evi)
+{
+    (void)tx;
+    if (!evi) return DANOS_ERR_INVALID_ARG;
+    return danos_object_create(get_default_store(), DANOS_OBJ_EVPN,
+                               evi->evi, evi, sizeof(*evi));
+}
+
+danos_status_t danos_evpn_evi_update(danos_tx_t *tx, const danos_evpn_evi_t *evi)
+{
+    (void)tx;
+    if (!evi) return DANOS_ERR_INVALID_ARG;
+    return danos_object_update(get_default_store(), DANOS_OBJ_EVPN,
+                               evi->evi, evi, sizeof(*evi));
+}
+
+danos_status_t danos_evpn_evi_delete(danos_tx_t *tx, uint32_t evi)
+{
+    (void)tx;
+    return danos_object_delete(get_default_store(), DANOS_OBJ_EVPN, evi);
+}
+
+danos_status_t danos_evpn_evi_read(danos_tx_t *tx, uint32_t evi,
+                                   danos_evpn_evi_t *out)
+{
+    (void)tx;
+    if (!out) return DANOS_ERR_INVALID_ARG;
+    size_t sz = sizeof(*out);
+    return danos_object_read(get_default_store(), DANOS_OBJ_EVPN,
+                             evi, out, &sz);
+}

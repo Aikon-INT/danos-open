@@ -113,6 +113,7 @@ typedef struct {
 
 /* Object type enumeration (extensible via capability) */
 typedef enum {
+    DANOS_OBJ_INVALID      = 0,    /* sentinel: "all types" for subscriptions */
     DANOS_OBJ_IFACE        = 1,
     DANOS_OBJ_VLAN         = 2,
     DANOS_OBJ_VRF          = 3,
@@ -510,6 +511,13 @@ typedef struct {
     uint32_t            gre_key;        /* for GRE */
 } danos_tunnel_t;
 
+/* Tunnel CRUD (v0.2). Keyed by id. */
+danos_status_t danos_tunnel_create(danos_tx_t *tx, const danos_tunnel_t *tun);
+danos_status_t danos_tunnel_update(danos_tx_t *tx, const danos_tunnel_t *tun);
+danos_status_t danos_tunnel_delete(danos_tx_t *tx, danos_obj_id_t id);
+danos_status_t danos_tunnel_read(danos_tx_t *tx, danos_obj_id_t id,
+                                 danos_tunnel_t *out);
+
 /* =========================================================================
  * 14. Object: EVPN (v0.2+; declared here for ABI stability)
  * ========================================================================= */
@@ -522,6 +530,13 @@ typedef struct {
     danos_vni_t     vni;
     bool            irb;                /* L3VNI / IRB enabled */
 } danos_evpn_evi_t;
+
+/* EVPN EVI CRUD (v0.2). Keyed by evi. */
+danos_status_t danos_evpn_evi_create(danos_tx_t *tx, const danos_evpn_evi_t *evi);
+danos_status_t danos_evpn_evi_update(danos_tx_t *tx, const danos_evpn_evi_t *evi);
+danos_status_t danos_evpn_evi_delete(danos_tx_t *tx, uint32_t evi);
+danos_status_t danos_evpn_evi_read(danos_tx_t *tx, uint32_t evi,
+                                   danos_evpn_evi_t *out);
 
 /* =========================================================================
  * 15. Object: Multicast (v0.2+; declared here for ABI stability)

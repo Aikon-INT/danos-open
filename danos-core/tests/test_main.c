@@ -1,5 +1,7 @@
 /* Core test runner: aggregates all core tests */
 extern int test_object(void);
+extern int test_tunnel_crud(void);
+extern int test_evpn_crud(void);
 extern int test_state(void);
 extern int test_transaction(void);
 extern int test_event(void);
@@ -11,6 +13,8 @@ int main(void)
 {
     int failed = 0;
     if (test_object()       != 0) failed++;
+    if (test_tunnel_crud()  != 0) failed++;
+    if (test_evpn_crud()    != 0) failed++;
     if (test_state()        != 0) failed++;
     if (test_transaction()  != 0) failed++;
     if (test_event()        != 0) failed++;

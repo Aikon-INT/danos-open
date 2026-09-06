@@ -305,3 +305,229 @@ void danos_gnmi_stop(danos_gnmi_ctx_t *ctx)
     }
     ctx->running = false;
 }
+
+/* =========================================================================
+ * gNMI Subscribe (v0.2)
+ *
+ * Subscription list + per-subscription notification queue. The event-bus
+ * callback enqueues a JSON-encoded notification; danos_gnmi_subscribe_poll()
+ * drains the queue.
+ * ========================================================================= */
+
+typedef struct danos_gnmi_sub_entry {
+    danos_gnmi_sub_t      meta;
+    danos_gnmi_queue_t    queue;
+    struct danos_gnmi_sub_entry *next;
+} danos_gnmi_sub_entry_t;
+
+static danos_gnmi_sub_entry_t *g_subs = NULL;
+static bool g_subs_inited = false;
+
+/* Forward decl for event callback */
+static void gnmi_event_cb(const danos_event_t *event, void *user);
+
+/* Find subscription entry by id */
+static danos_gnmi_sub_entry_t *sub_find(uint64_t id)
+{
+    for (danos_gnmi_sub_entry_t *e = g_subs; e; e = e->next) {
+        if (e->meta.id == id) return e;
+    }
+    return NULL;
+}
+
+/* Enqueue a JSON string (takes ownership of `json`) */
+static void queue_push(danos_gnmi_queue_t *q, char *json)
+{
+    if (q->count >= DANOS_GNMI_QUEUE_SIZE) {
+        /* Drop oldest */
+        free(q->entries[q->head]);
+        q->entries[q->head] = NULL;
+        q->head = (q->head + 1) % DANOS_GNMI_QUEUE_SIZE;
+        q->count--;
+        q->dropped++;
+    }
+    q->entries[q->tail] = json;
+    q->tail = (q->tail + 1) % DANOS_GNMI_QUEUE_SIZE;
+    q->count++;
+}
+
+/* Dequeue one JSON string (caller frees). Returns NULL if empty. */
+static char *queue_pop(danos_gnmi_queue_t *q)
+{
+    if (q->count == 0) return NULL;
+    char *json = q->entries[q->head];
+    q->entries[q->head] = NULL;
+    q->head = (q->head + 1) % DANOS_GNMI_QUEUE_SIZE;
+    q->count--;
+    return json;
+}
+
+/* Map obj_type to JSON name */
+static const char *obj_type_name(danos_obj_type_t t)
+{
+    switch (t) {
+        case DANOS_OBJ_IFACE:    return "interface";
+        case DANOS_OBJ_VLAN:     return "vlan";
+        case DANOS_OBJ_VRF:      return "vrf";
+        case DANOS_OBJ_ROUTE:    return "route";
+        case DANOS_OBJ_NEXTHOP:  return "nexthop";
+        case DANOS_OBJ_NHGROUP:  return "nhgroup";
+        case DANOS_OBJ_ACL:      return "acl";
+        case DANOS_OBJ_QOS:      return "qos";
+        case DANOS_OBJ_MPLS_LSP: return "mpls_lsp";
+        case DANOS_OBJ_TUNNEL:   return "tunnel";
+        case DANOS_OBJ_EVPN:     return "evpn_evi";
+        case DANOS_OBJ_MULTICAST:return "mcast";
+        case DANOS_OBJ_BFD:      return "bfd";
+        default:                 return "unknown";
+    }
+}
+
+/* Map event type to JSON name */
+static const char *event_type_name(danos_event_type_t t)
+{
+    switch (t) {
+        case DANOS_EVENT_OBJ_CREATED:  return "created";
+        case DANOS_EVENT_OBJ_UPDATED:  return "updated";
+        case DANOS_EVENT_OBJ_DELETED:  return "deleted";
+        case DANOS_EVENT_TX_COMMITTED: return "tx_committed";
+        case DANOS_EVENT_TX_ROLLBACK:  return "tx_rollback";
+        case DANOS_EVENT_RECONCILE:    return "reconcile";
+        case DANOS_EVENT_BACKEND_DOWN: return "backend_down";
+        case DANOS_EVENT_BACKEND_UP:   return "backend_up";
+        case DANOS_EVENT_CAPABILITY:   return "capability";
+        default:                       return "unknown";
+    }
+}
+
+/* Event bus callback: enqueue JSON notification to matching subscriptions */
+static void gnmi_event_cb(const danos_event_t *event, void *user)
+{
+    /* `user` is the subscription entry pointer */
+    danos_gnmi_sub_entry_t *e = (danos_gnmi_sub_entry_t *)user;
+    if (!e) return;
+
+    /* Filter by obj_type (INVALID = all) */
+    if (e->meta.obj_type != DANOS_OBJ_INVALID &&
+        (int)e->meta.obj_type != (int)event->obj_type) {
+        return;
+    }
+
+    /* Build JSON notification */
+    char *json = malloc(256);
+    if (!json) return;
+    snprintf(json, 256,
+        "{\"type\": \"%s\", \"obj_type\": \"%s\", \"obj_id\": %llu, "
+        "\"ts_ns\": %llu}",
+        event_type_name(event->type),
+        obj_type_name(event->obj_type),
+        (unsigned long long)event->obj_id,
+        (unsigned long long)event->timestamp_ns);
+    queue_push(&e->queue, json);
+}
+
+void danos_gnmi_subscribe_init(void)
+{
+    if (g_subs_inited) return;
+    g_subs = NULL;
+    g_subs_inited = true;
+}
+
+void danos_gnmi_subscribe_fini(void)
+{
+    danos_gnmi_sub_entry_t *e = g_subs;
+    while (e) {
+        danos_gnmi_sub_entry_t *next = e->next;
+        danos_event_unsubscribe(e->meta.id);
+        for (size_t i = 0; i < DANOS_GNMI_QUEUE_SIZE; i++) {
+            free(e->queue.entries[i]);
+        }
+        free(e);
+        e = next;
+    }
+    g_subs = NULL;
+    g_subs_inited = false;
+}
+
+uint64_t danos_gnmi_subscribe(danos_obj_type_t obj_type, uint32_t mask)
+{
+    if (!g_subs_inited) danos_gnmi_subscribe_init();
+    if (mask == 0) return 0;
+
+    danos_gnmi_sub_entry_t *e = calloc(1, sizeof(*e));
+    if (!e) return 0;
+    e->meta.obj_type = obj_type;
+    e->meta.mask = mask;
+
+    /* Register with event bus, passing entry pointer as user data */
+    e->meta.id = danos_event_subscribe((danos_event_type_t)mask,
+                                       gnmi_event_cb, e);
+    if (e->meta.id == 0) {
+        free(e);
+        return 0;
+    }
+
+    /* Link into list */
+    e->next = g_subs;
+    g_subs = e;
+    return e->meta.id;
+}
+
+void danos_gnmi_unsubscribe(uint64_t sub_id)
+{
+    danos_gnmi_sub_entry_t **pp = &g_subs;
+    while (*pp) {
+        if ((*pp)->meta.id == sub_id) {
+            danos_gnmi_sub_entry_t *e = *pp;
+            *pp = e->next;
+            danos_event_unsubscribe(e->meta.id);
+            for (size_t i = 0; i < DANOS_GNMI_QUEUE_SIZE; i++) {
+                free(e->queue.entries[i]);
+            }
+            free(e);
+            return;
+        }
+        pp = &(*pp)->next;
+    }
+}
+
+char *danos_gnmi_subscribe_poll(uint64_t sub_id)
+{
+    danos_gnmi_sub_entry_t *e = sub_find(sub_id);
+    if (!e) return strdup("{\"error\": \"invalid subscription\"}");
+
+    /* Drain queue into a JSON array */
+    size_t buf_size = 256;
+    char *buf = malloc(buf_size);
+    if (!buf) return NULL;
+    size_t pos = 0;
+    buf[pos++] = '[';
+
+    bool first = true;
+    char *json;
+    while ((json = queue_pop(&e->queue)) != NULL) {
+        size_t json_len = strlen(json);
+        size_t needed = pos + json_len + 4;  /* comma + null */
+        if (needed >= buf_size) {
+            buf_size = needed * 2;
+            char *new_buf = realloc(buf, buf_size);
+            if (!new_buf) { free(json); free(buf); return NULL; }
+            buf = new_buf;
+        }
+        if (!first) buf[pos++] = ',';
+        memcpy(buf + pos, json, json_len);
+        pos += json_len;
+        free(json);
+        first = false;
+    }
+    buf[pos++] = ']';
+    buf[pos] = '\0';
+    return buf;
+}
+
+size_t danos_gnmi_subscribe_count(void)
+{
+    size_t n = 0;
+    for (danos_gnmi_sub_entry_t *e = g_subs; e; e = e->next) n++;
+    return n;
+}

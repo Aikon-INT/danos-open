@@ -118,6 +118,52 @@ int test_gnmi_server_lifecycle(void)
     return 0;
 }
 
+/* v0.2: gNMI Subscribe */
+int test_gnmi_subscribe(void)
+{
+    danos_gnmi_subscribe_init();
+    assert(danos_gnmi_subscribe_count() == 0);
+
+    /* Subscribe to all object-created events */
+    uint64_t sub1 = danos_gnmi_subscribe(DANOS_OBJ_INVALID,
+                                          DANOS_EVENT_OBJ_CREATED);
+    assert(sub1 > 0);
+    assert(danos_gnmi_subscribe_count() == 1);
+
+    /* Subscribe to interface updates only */
+    uint64_t sub2 = danos_gnmi_subscribe(DANOS_OBJ_IFACE,
+                                          DANOS_EVENT_OBJ_UPDATED);
+    assert(sub2 > 0);
+    assert(danos_gnmi_subscribe_count() == 2);
+
+    /* Invalid mask → returns 0 */
+    uint64_t sub3 = danos_gnmi_subscribe(DANOS_OBJ_IFACE, 0);
+    assert(sub3 == 0);
+    assert(danos_gnmi_subscribe_count() == 2);
+
+    /* Poll empty queue → "[]" */
+    char *resp = danos_gnmi_subscribe_poll(sub1);
+    assert(resp != NULL);
+    assert(strcmp(resp, "[]") == 0);
+    free(resp);
+
+    /* Poll invalid subscription */
+    resp = danos_gnmi_subscribe_poll(99999);
+    assert(resp != NULL);
+    assert(strstr(resp, "error") != NULL);
+    free(resp);
+
+    /* Unsubscribe */
+    danos_gnmi_unsubscribe(sub1);
+    assert(danos_gnmi_subscribe_count() == 1);
+    danos_gnmi_unsubscribe(sub2);
+    assert(danos_gnmi_subscribe_count() == 0);
+
+    danos_gnmi_subscribe_fini();
+    printf("[PASS] test_gnmi_subscribe: subscribe/unsubscribe/poll\n");
+    return 0;
+}
+
 int main(void)
 {
     int failed = 0;
@@ -126,6 +172,7 @@ int main(void)
     if (test_gnmi_set_route() != 0) failed++;
     if (test_gnmi_not_found() != 0) failed++;
     if (test_gnmi_server_lifecycle() != 0) failed++;
+    if (test_gnmi_subscribe() != 0) failed++;
     printf("=== gnmi_test: %s ===\n",
            failed == 0 ? "ALL PASSED" : "FAILURES");
     return failed;

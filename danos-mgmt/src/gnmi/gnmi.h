@@ -21,6 +21,8 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>      /* size_t */
+#include <danos/dpa.h>   /* danos_obj_type_t, danos_event_type_t */
 
 #ifdef __cplusplus
 extern "C" {
@@ -48,6 +50,55 @@ void danos_gnmi_stop(danos_gnmi_ctx_t *ctx);
  * Returns NULL on error. */
 char *danos_gnmi_handle_request(const char *method, const char *path,
                                 const char *body);
+
+/* =========================================================================
+ * gNMI Subscribe (v0.2)
+ *
+ * Implements gNMI Subscribe RPC semantics over the DPA event bus.
+ * A subscription registers a callback for events matching (obj_type, mask).
+ * The server pushes JSON-encoded notifications to the subscriber.
+ *
+ * In production, this would be a streaming gRPC RPC. Here we provide a
+ * synchronous "poll" model: danos_gnmi_subscribe_poll() drains queued
+ * events for a subscription into a JSON array.
+ * ========================================================================= */
+
+typedef struct danos_gnmi_sub {
+    uint64_t                 id;          /* subscription id (from event bus) */
+    uint32_t                 mask;        /* event mask */
+    danos_obj_type_t         obj_type;    /* filter, or DANOS_OBJ_INVALID for all */
+    struct danos_gnmi_sub   *next;
+} danos_gnmi_sub_t;
+
+/* Per-subscription notification queue (ring buffer, v0.2 simplified) */
+#define DANOS_GNMI_QUEUE_SIZE 64
+
+typedef struct {
+    char    *entries[DANOS_GNMI_QUEUE_SIZE];  /* JSON-encoded notifications */
+    size_t   head;
+    size_t   tail;
+    size_t   count;
+    uint64_t dropped;       /* notifications dropped due to full queue */
+} danos_gnmi_queue_t;
+
+/* Subscribe to events. Returns subscription id (>0) or 0 on error.
+ * `obj_type` = DANOS_OBJ_INVALID means all object types.
+ * `mask` is a bitmask of danos_event_type_t. */
+uint64_t danos_gnmi_subscribe(danos_obj_type_t obj_type, uint32_t mask);
+
+/* Unsubscribe by id. */
+void danos_gnmi_unsubscribe(uint64_t sub_id);
+
+/* Poll queued notifications for a subscription as a JSON array.
+ * Caller must free the returned string. Returns "[]" if empty. */
+char *danos_gnmi_subscribe_poll(uint64_t sub_id);
+
+/* Get number of active subscriptions. */
+size_t danos_gnmi_subscribe_count(void);
+
+/* Initialize/shutdown the subscribe subsystem. */
+void danos_gnmi_subscribe_init(void);
+void danos_gnmi_subscribe_fini(void);
 
 #ifdef __cplusplus
 }
