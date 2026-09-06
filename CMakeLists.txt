@@ -11,6 +11,11 @@ option(DANOS_BUILD_VPP   "Build VPP backend" ON)
 option(DANOS_BUILD_FIB   "Build FRR FIB adapter" ON)
 option(DANOS_BUILD_MGMT  "Build management plane" ON)
 
+# Enable testing early so add_test() in subdirectories is registered
+if(DANOS_BUILD_TESTS)
+  enable_testing()
+endif()
+
 # Common flags
 add_compile_options(
   -Wall -Wextra -Wpedantic -Werror
@@ -39,7 +44,6 @@ if(DANOS_BUILD_MGMT)
 endif()
 
 if(DANOS_BUILD_TESTS)
-  enable_testing()
   add_subdirectory(danos-test)
 endif()
 

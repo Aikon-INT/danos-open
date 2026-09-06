@@ -20,9 +20,9 @@
 #include <arpa/inet.h>
 
 #define MOCK_SOCK "/tmp/danos_mock_zebra.sock"
-#define MOCK_BIN  "mock_zebra"
 
 static pid_t g_mock_pid = -1;
+static char  g_mock_bin[1024] = "mock_zebra";  /* resolved in main() */
 
 static int start_mock_zebra(void)
 {
@@ -30,7 +30,7 @@ static int start_mock_zebra(void)
     if (g_mock_pid < 0) return -1;
     if (g_mock_pid == 0) {
         /* child */
-        execl(MOCK_BIN, MOCK_BIN, MOCK_SOCK, NULL);
+        execl(g_mock_bin, g_mock_bin, MOCK_SOCK, NULL);
         perror("execl");
         _exit(1);
     }
@@ -71,9 +71,21 @@ static int connect_to_mock(void)
     return -1;
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
     int failed = 0;
+
+    /* Resolve mock_zebra path: same directory as this test binary */
+    if (argc > 0 && argv[0][0] != '\0') {
+        char *slash = strrchr(argv[0], '/');
+        if (slash) {
+            size_t dir_len = (size_t)(slash - argv[0]) + 1;
+            if (dir_len + strlen("mock_zebra") < sizeof(g_mock_bin)) {
+                memcpy(g_mock_bin, argv[0], dir_len);
+                strcpy(g_mock_bin + dir_len, "mock_zebra");
+            }
+        }
+    }
 
     /* Start mock zebra */
     if (start_mock_zebra() != 0) {
