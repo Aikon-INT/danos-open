@@ -367,6 +367,8 @@ DANOS-Open 不是"没有 ASIC SDK 的 SONiC"，而是"以成熟开源积木 + DP
 
 ## 附录 B. FRR ZAPI → DPA 映射表（P1，v0.2 前完成）
 
+> 详细映射表见 `v1.1/p1-enhancements/appendix_b_zapi_mapping.md`。
+
 | ZAPI 消息 | DPA 对象 | DPA 操作 |
 |-----------|---------|---------|
 | ZEBRA_ROUTE_ADD | Route + NHGroup | create/update |
@@ -379,6 +381,8 @@ DANOS-Open 不是"没有 ASIC SDK 的 SONiC"，而是"以成熟开源积木 + DP
 
 ## 附录 C. 依赖版本兼容矩阵
 
+> 详细矩阵与 ABI 兼容性见 `v1.1/p1-enhancements/appendix_c_dependency_matrix.md`。
+
 | DANOS-Open | FRR | VPP | DPDK | OVS | P4Runtime | Linux |
 |-----------|-----|-----|------|-----|-----------|-------|
 | v0.1 | 10.x | 24.x | 23.x | - | - | 6.6+ |
@@ -387,6 +391,8 @@ DANOS-Open 不是"没有 ASIC SDK 的 SONiC"，而是"以成熟开源积木 + DP
 | v0.4 | 10.x | 24.x | 23.x | 3.x | 1.x | 6.6+ |
 
 ## 附录 D. RFC 对齐表
+
+> 完整 RFC 对齐表见 `v1.1/p1-enhancements/appendix_d_rfc_alignment.md`。
 
 | 功能 | RFC |
 |------|-----|

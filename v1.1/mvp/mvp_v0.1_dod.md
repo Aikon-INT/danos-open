@@ -316,3 +316,25 @@
 
 **v1.1 P0 改进动作：8/8 完成**
 
+---
+
+## v1.1 评审 P1 改进动作落实（2026-09-06）
+
+> 对应 `DANOS-Open_Review_and_Enhancement_v1.1.md` §九 P1 清单（v0.2 前完成）。
+> 详细文档见 `v1.1/p1-enhancements/`。
+
+| # | 改进动作 | 状态 | 落实位置 |
+|---|---------|------|---------|
+| 9 | FRR ZAPI → DPA 映射表（§4.2） | [x] | `v1.1/p1-enhancements/appendix_b_zapi_mapping.md`（13 消息映射，6 已实现/7 待实现，字段级映射） |
+| 10 | VPP Backend 实现路径（§4.3） | [x] | `v1.1/p1-enhancements/vpp_backend_implementation.md`（控制通道+对象映射+性能+容错） |
+| 11 | 事务模型增强（§4.4） | [x] | `v1.1/p1-enhancements/transaction_model_enhanced.md`（并发+隔离+超时+嵌套+持久化+回滚） |
+| 12 | Reconciliation 算法增强（§4.5） | [x] | `v1.1/p1-enhancements/reconciler_algorithm_enhanced.md`（触发+算法+退避+防震荡+收敛性证明） |
+| 13 | 对象模型展开（§5.2） | [x] | `v1.1/p1-enhancements/object_model_expanded.md`（ACL/QoS/Multicast/MPLS/Tunnel 字段+关系图） |
+| 14 | 标准对齐表（§5.3） | [x] | `v1.1/p1-enhancements/appendix_d_rfc_alignment.md`（9 类 40+ RFC） |
+| 15 | 依赖版本矩阵（§4.6） | [x] | `v1.1/p1-enhancements/appendix_c_dependency_matrix.md`（跨版本矩阵+ABI 兼容性+升级策略） |
+| 16 | 生命周期与升级章节（§2.1 第 23 章） | [x] | `v1.1/p1-enhancements/lifecycle_upgrade.md`（滚动升级+A/B+回滚+镜像+兼容性） |
+
+**v1.1 P1 改进动作：8/8 完成**
+
+**v1.1 评审改进动作总计：P0 8/8 + P1 8/8 = 16/16 完成**
+
