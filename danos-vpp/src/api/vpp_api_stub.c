@@ -51,7 +51,16 @@ typedef struct {
     uint32_t last_msg_size;
 } vpp_api_ctx_impl_t;
 
+/* Mock stat segment: named counters */
+#define VPP_MOCK_STAT_MAX 64
+typedef struct {
+    char    name[128];
+    uint64_t value;
+    bool    used;
+} vpp_mock_stat_t;
+
 static vpp_api_ctx_impl_t g_ctx;
+static vpp_mock_stat_t    g_mock_stats[VPP_MOCK_STAT_MAX];
 static bool g_initialized = false;
 
 static uint64_t now_ns(void)
@@ -255,7 +264,14 @@ uint64_t danos_vpp_api_stat_query(const char *name)
 {
     if (!name) return 0;
     if (g_ctx.state == VPP_API_MOCK) {
-        /* Mock: return hash of name as fake counter */
+        /* Mock: look up registered counter first */
+        for (int i = 0; i < VPP_MOCK_STAT_MAX; i++) {
+            if (g_mock_stats[i].used &&
+                strcmp(g_mock_stats[i].name, name) == 0) {
+                return g_mock_stats[i].value;
+            }
+        }
+        /* Fallback: return hash of name as fake counter */
         uint64_t h = 0;
         for (const char *p = name; *p; p++) {
             h = h * 31 + (uint64_t)(unsigned char)*p;
@@ -264,6 +280,50 @@ uint64_t danos_vpp_api_stat_query(const char *name)
     }
     /* In production: query stat segment shared memory */
     return 0;
+}
+
+/* Mock stat segment: register/set a named counter */
+void danos_vpp_api_stat_set(const char *name, uint64_t value)
+{
+    if (!name) return;
+    /* Find existing entry */
+    for (int i = 0; i < VPP_MOCK_STAT_MAX; i++) {
+        if (g_mock_stats[i].used &&
+            strcmp(g_mock_stats[i].name, name) == 0) {
+            g_mock_stats[i].value = value;
+            return;
+        }
+    }
+    /* Find free slot */
+    for (int i = 0; i < VPP_MOCK_STAT_MAX; i++) {
+        if (!g_mock_stats[i].used) {
+            snprintf(g_mock_stats[i].name, sizeof(g_mock_stats[i].name), "%s", name);
+            g_mock_stats[i].value = value;
+            g_mock_stats[i].used = true;
+            return;
+        }
+    }
+    /* Table full: silently drop */
+}
+
+/* Mock stat segment: list all counters */
+int danos_vpp_api_stat_list(const char **names, uint64_t *values, int max_entries)
+{
+    int count = 0;
+    for (int i = 0; i < VPP_MOCK_STAT_MAX && count < max_entries; i++) {
+        if (g_mock_stats[i].used) {
+            if (names)  names[count] = g_mock_stats[i].name;
+            if (values) values[count] = g_mock_stats[i].value;
+            count++;
+        }
+    }
+    return count;
+}
+
+/* Mock stat segment: reset all counters */
+void danos_vpp_api_stat_reset(void)
+{
+    memset(g_mock_stats, 0, sizeof(g_mock_stats));
 }
 
 /* =========================================================================

@@ -31,6 +31,15 @@ int  danos_vpp_api_recv(uint8_t *buf, uint32_t buf_size);
 /* Stat segment */
 uint64_t danos_vpp_api_stat_query(const char *name);
 
+/* Mock stat segment: register/set a named counter (for testing) */
+void danos_vpp_api_stat_set(const char *name, uint64_t value);
+
+/* Mock stat segment: list all counters (returns count, fills names/values if non-NULL) */
+int  danos_vpp_api_stat_list(const char **names, uint64_t *values, int max_entries);
+
+/* Mock stat segment: reset all counters */
+void danos_vpp_api_stat_reset(void);
+
 /* Status */
 bool danos_vpp_api_is_connected(void);
 void danos_vpp_api_get_stats(uint64_t *msgs_sent, uint64_t *msgs_received,

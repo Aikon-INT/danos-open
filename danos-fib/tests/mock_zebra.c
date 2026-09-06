@@ -29,14 +29,17 @@ static void sighandler(int sig)
     if (g_server_fd >= 0) close(g_server_fd);
 }
 
-/* Build a ZAPI ROUTE_ADD message */
-static int build_route_add(uint8_t *buf, size_t buf_size)
+/* Build a ZAPI ROUTE_ADD message with configurable prefix */
+static int build_route_add_n(uint8_t *buf, size_t buf_size, int route_idx)
 {
+    /* Use 10.X.Y.0/24 where X=high byte, Y=low byte for uniqueness up to 65536 */
+    uint8_t prefix_hi = (uint8_t)((route_idx >> 8) & 0xFF);
+    uint8_t prefix_lo = (uint8_t)(route_idx & 0xFF);
     uint8_t payload[] = {
         0x00, 0x00, 0x00, 0x00,  /* vrf_id=0 */
         0x04,                      /* family=IPv4 */
         0x18,                      /* prefix_len=24 */
-        0x0A, 0x00, 0x00, 0x00,   /* 10.0.0.0 */
+        0x0A, prefix_hi, prefix_lo, 0x00,   /* 10.X.Y.0 */
         0x01,                      /* proto=static */
         0x01,                      /* admin_dist=1 */
         0x00, 0x00, 0x00, 0x00,   /* metric=0 */
@@ -76,6 +79,17 @@ static int build_iface_add(uint8_t *buf, size_t buf_size)
 int main(int argc, char *argv[])
 {
     const char *sock_path = (argc > 1) ? argv[1] : "/tmp/mock_zebra.sock";
+    int num_routes = 1;  /* default: 1 route */
+
+    /* Parse optional --routes N argument */
+    for (int i = 2; i < argc; i++) {
+        if (strcmp(argv[i], "--routes") == 0 && i + 1 < argc) {
+            num_routes = atoi(argv[i + 1]);
+            if (num_routes < 1) num_routes = 1;
+            if (num_routes > 10000) num_routes = 10000;
+            i++;
+        }
+    }
 
     signal(SIGINT, sighandler);
     signal(SIGTERM, sighandler);
@@ -109,7 +123,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    printf("mock_zebra listening on %s\n", sock_path);
+    printf("mock_zebra listening on %s (routes=%d)\n", sock_path, num_routes);
     fflush(stdout);
 
     while (g_running) {
@@ -129,17 +143,27 @@ int main(int argc, char *argv[])
             printf("sent INTERFACE_ADD (%d bytes)\n", n);
         }
 
-        usleep(100000);  /* 100ms */
+        usleep(10000);  /* 10ms */
 
-        /* Send ROUTE_ADD */
-        n = build_route_add(buf, sizeof(buf));
-        if (n > 0) {
-            send(client_fd, buf, n, 0);
-            printf("sent ROUTE_ADD (%d bytes)\n", n);
+        /* Send N ROUTE_ADD messages */
+        for (int r = 0; r < num_routes && g_running; r++) {
+            n = build_route_add_n(buf, sizeof(buf), r);
+            if (n > 0) {
+                send(client_fd, buf, n, 0);
+            }
         }
+        printf("sent %d ROUTE_ADD messages\n", num_routes);
 
-        /* Keep connection open briefly */
-        usleep(500000);  /* 500ms */
+        /* Keep connection open until client closes or timeout */
+        for (int w = 0; w < 50 && g_running; w++) {
+            usleep(100000);  /* 100ms per iteration, 5s max */
+            /* Check if client closed */
+            uint8_t probe;
+            ssize_t r = recv(client_fd, &probe, 1, MSG_PEEK | MSG_DONTWAIT);
+            if (r == 0 || (r < 0 && errno != EAGAIN && errno != EWOULDBLOCK)) {
+                break;  /* client closed */
+            }
+        }
         close(client_fd);
         printf("client disconnected\n");
         break;  /* one client then exit */

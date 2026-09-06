@@ -160,10 +160,18 @@ danos_status_t danos_nhgroup_read(danos_tx_t *tx, danos_obj_id_t id, danos_nhgro
 static danos_obj_id_t route_key(danos_vrf_id_t vrf, const danos_ip_prefix_t *p,
                                 danos_route_proto_t proto)
 {
-    /* Simple hash: combine vrf, prefix, proto */
-    uint64_t h = (uint64_t)vrf * 100003 + (uint64_t)proto;
-    for (int i = 0; i < 16; i++) h = h * 31 + p->addr.addr[i];
-    h = h * 31 + p->prefix_len;
+    /* FNV-1a hash: good distribution for IP prefixes */
+    uint64_t h = 14695981039346656037ULL;  /* FNV offset basis */
+    h ^= (uint64_t)vrf;
+    h *= 1099511628211ULL;  /* FNV prime */
+    for (int i = 0; i < 16; i++) {
+        h ^= p->addr.addr[i];
+        h *= 1099511628211ULL;
+    }
+    h ^= p->prefix_len;
+    h *= 1099511628211ULL;
+    h ^= (uint64_t)proto;
+    h *= 1099511628211ULL;
     return h;
 }
 

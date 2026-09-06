@@ -73,11 +73,57 @@ int test_disconnect(void)
     return 0;
 }
 
+int test_stat_named_counters(void)
+{
+    danos_vpp_api_init();
+    danos_vpp_api_enable_mock();
+    danos_vpp_api_stat_reset();
+
+    /* Register named counters (simulating VPP stat segment paths) */
+    danos_vpp_api_stat_set("/sys/node/ip4-input", 1000000);
+    danos_vpp_api_stat_set("/sys/node/ip4-output", 950000);
+    danos_vpp_api_stat_set("/eth0/tx", 500000);
+    danos_vpp_api_stat_set("/eth0/rx", 510000);
+    danos_vpp_api_stat_set("/err/ip4-input/unknown", 42);
+
+    /* Query registered counters */
+    assert(danos_vpp_api_stat_query("/sys/node/ip4-input") == 1000000);
+    assert(danos_vpp_api_stat_query("/sys/node/ip4-output") == 950000);
+    assert(danos_vpp_api_stat_query("/eth0/tx") == 500000);
+    assert(danos_vpp_api_stat_query("/eth0/rx") == 510000);
+    assert(danos_vpp_api_stat_query("/err/ip4-input/unknown") == 42);
+
+    /* Update existing counter */
+    danos_vpp_api_stat_set("/eth0/tx", 600000);
+    assert(danos_vpp_api_stat_query("/eth0/tx") == 600000);
+
+    /* List counters */
+    int count = danos_vpp_api_stat_list(NULL, NULL, 100);
+    assert(count == 5);
+
+    uint64_t values[10];
+    const char *names[10];
+    count = danos_vpp_api_stat_list(names, values, 10);
+    assert(count == 5);
+
+    /* Unregistered counter falls back to hash */
+    uint64_t v = danos_vpp_api_stat_query("/not/registered");
+    assert(v != 0);
+
+    /* Reset */
+    danos_vpp_api_stat_reset();
+    assert(danos_vpp_api_stat_list(NULL, NULL, 100) == 0);
+
+    printf("[PASS] test_stat_named_counters: named stat registration/query\n");
+    return 0;
+}
+
 int main(void)
 {
     int failed = 0;
     if (test_mock_mode() != 0) failed++;
     if (test_stat_query() != 0) failed++;
+    if (test_stat_named_counters() != 0) failed++;
     if (test_disconnect() != 0) failed++;
     printf("=== vpp_api_test: %s ===\n",
            failed == 0 ? "ALL PASSED" : "FAILURES");

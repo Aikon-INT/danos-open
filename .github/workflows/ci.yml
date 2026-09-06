@@ -24,8 +24,8 @@ jobs:
         run: |
           TEST_COUNT=$(ctest --test-dir build -N 2>&1 | grep "Total Tests:" | awk '{print $3}')
           echo "Registered tests: $TEST_COUNT"
-          if [ "$TEST_COUNT" -lt 16 ]; then
-            echo "ERROR: expected at least 16 tests, got $TEST_COUNT"
+          if [ "$TEST_COUNT" -lt 19 ]; then
+            echo "ERROR: expected at least 19 tests, got $TEST_COUNT"
             exit 1
           fi
       - name: Test
