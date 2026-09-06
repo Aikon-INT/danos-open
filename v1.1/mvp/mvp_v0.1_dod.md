@@ -312,7 +312,7 @@
 | 5 | 新增安全架构章节（§20） | [x] | `v1.1/security/security_architecture.md` + `danos-security/` |
 | 6 | 新增 HA 设计章节（§21） | [x] | `v1.1/ha/ha_design.md` + `danos-ha/` |
 | 7 | 新增可观测性章节（§22） | [x] | `v1.1/observability/observability_telemetry.md` + `danos-observability/` |
-| 8 | 明确 Capability 与 DPA Object 关系（§3.4） | [x] | `v1.1/capability/`（待补 schema 示例） |
+| 8 | 明确 Capability 与 DPA Object 关系（§3.4） | [x] | `v1.1/capability/capability_schema.md` + `danos-models/yang/danos-capability/danos-capability.yang`（YANG+Protobuf 双发 schema，7 YANG 模型全部验证通过） |
 
 **v1.1 P0 改进动作：8/8 完成**
 

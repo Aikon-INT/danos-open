@@ -1,0 +1,82 @@
+module danos-capability {
+  yang-version 1.1;
+  namespace "urn:danos:capability";
+  prefix dcap;
+
+  import danos-types { prefix dt; }
+
+  description
+    "DANOS-Open capability model.
+     Capability is metadata of DPA ObjectType, reported by backends at
+     registration and queryable via gNMI/NETCONF. Semantically equivalent
+     to the Protobuf Capability message in danos-dpa/dpa.proto.
+     Copyright (c) 2026 DANOS-Open Project. Apache-2.0.";
+
+  revision 2026-09-06 {
+    description "Initial version for v0.1 (v1.1 §3.4).";
+  }
+
+  typedef object-type {
+    type enumeration {
+      enum iface     { value 1; }
+      enum vlan      { value 2; }
+      enum vrf       { value 3; }
+      enum route     { value 4; }
+      enum nexthop   { value 5; }
+      enum nhgroup   { value 6; }
+      enum acl       { value 7; }
+      enum qos       { value 8; }
+      enum mpls-lsp  { value 9; }
+      enum tunnel    { value 10; }
+      enum evpn      { value 11; }
+      enum multicast { value 12; }
+      enum bfd       { value 13; }
+    }
+    description "DPA object type. Matches danos_obj_type_t in danos_dpa.h.";
+  }
+
+  container backends {
+    config false;
+    description
+      "Registered DPA backends and their capability profiles.
+       Read-only; populated by backends at registration via
+       danos_backend_register().";
+
+    list backend {
+      key "name";
+      leaf name {
+        type string { length "1..63"; }
+        description "Backend name, e.g. 'vpp', 'ovs-dpdk', 'p4-dpdk'.";
+      }
+      container api-version {
+        description "DPA API version the backend implements.";
+        leaf major { type uint16; }
+        leaf minor { type uint16; }
+        leaf patch { type uint16; }
+      }
+      list capability {
+        key "object-type";
+        description
+          "Capability declaration for one DPA object type.";
+        leaf object-type { type object-type; }
+        leaf supported { type boolean; }
+        leaf max-count {
+          type uint32;
+          description "Maximum object instances. 0 = unlimited.";
+        }
+        leaf-list features {
+          type string;
+          description
+            "Fine-grained feature flags, e.g. 'ipv4', 'evpn-mh', 'irb'.";
+        }
+        leaf constraints-json {
+          type string;
+          description
+            "Per-field constraints, JSON-encoded. Aligns with
+             danos_capability_t.constraints_json in danos_dpa.h and
+             Capability.constraints_json in dpa.proto.";
+        }
+      }
+    }
+  }
+}
