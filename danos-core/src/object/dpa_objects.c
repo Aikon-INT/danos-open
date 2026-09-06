@@ -402,3 +402,61 @@ danos_status_t danos_evpn_evi_read(danos_tx_t *tx, uint32_t evi,
     return danos_object_read(get_default_store(), DANOS_OBJ_EVPN,
                              evi, out, &sz);
 }
+
+/* =========================================================================
+ * Multicast mroute CRUD (v0.2)
+ *
+ * Composite key: (vrf_id << 32) | group_hash, where group_hash is the
+ * first 4 bytes of the group address interpreted as uint32. This is a
+ * v0.2 simplification; production would use a proper hash.
+ * ========================================================================= */
+static danos_obj_id_t mroute_key(danos_vrf_id_t vrf_id,
+                                 const danos_ip_addr_t *group)
+{
+    uint32_t g = 0;
+    if (group) {
+        g = ((uint32_t)group->addr[0] << 24) |
+            ((uint32_t)group->addr[1] << 16) |
+            ((uint32_t)group->addr[2] << 8)  |
+            ((uint32_t)group->addr[3]);
+    }
+    return ((danos_obj_id_t)vrf_id << 32) | g;
+}
+
+danos_status_t danos_mroute_create(danos_tx_t *tx, const danos_mroute_t *mr)
+{
+    (void)tx;
+    if (!mr) return DANOS_ERR_INVALID_ARG;
+    return danos_object_create(get_default_store(), DANOS_OBJ_MULTICAST,
+                               mroute_key(mr->vrf_id, &mr->group),
+                               mr, sizeof(*mr));
+}
+
+danos_status_t danos_mroute_update(danos_tx_t *tx, const danos_mroute_t *mr)
+{
+    (void)tx;
+    if (!mr) return DANOS_ERR_INVALID_ARG;
+    return danos_object_update(get_default_store(), DANOS_OBJ_MULTICAST,
+                               mroute_key(mr->vrf_id, &mr->group),
+                               mr, sizeof(*mr));
+}
+
+danos_status_t danos_mroute_delete(danos_tx_t *tx, danos_vrf_id_t vrf_id,
+                                   const danos_ip_addr_t *group)
+{
+    (void)tx;
+    if (!group) return DANOS_ERR_INVALID_ARG;
+    return danos_object_delete(get_default_store(), DANOS_OBJ_MULTICAST,
+                               mroute_key(vrf_id, group));
+}
+
+danos_status_t danos_mroute_read(danos_tx_t *tx, danos_vrf_id_t vrf_id,
+                                 const danos_ip_addr_t *group,
+                                 danos_mroute_t *out)
+{
+    (void)tx;
+    if (!group || !out) return DANOS_ERR_INVALID_ARG;
+    size_t sz = sizeof(*out);
+    return danos_object_read(get_default_store(), DANOS_OBJ_MULTICAST,
+                             mroute_key(vrf_id, group), out, &sz);
+}

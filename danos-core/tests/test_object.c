@@ -148,3 +148,56 @@ int test_evpn_crud(void)
     printf("[PASS] test_evpn_crud: EVPN EVI create/read/update/delete\n");
     return 0;
 }
+
+/* v0.2: Multicast mroute CRUD via DPA public API */
+int test_mroute_crud(void)
+{
+    danos_tx_t tx = {0};
+    assert(danos_tx_begin(&tx, "test", NULL) == DANOS_OK);
+
+    /* Create (*,G) mroute: vrf=0, group=239.1.1.1, RPF if=1, 2 OIFs */
+    danos_mroute_t mr;
+    memset(&mr, 0, sizeof(mr));
+    mr.vrf_id = 0;
+    mr.source.af = DANOS_AF_UNSPEC;          /* (*,G) */
+    mr.group.af = DANOS_AF_IPV4;
+    mr.group.addr[0] = 239; mr.group.addr[1] = 1;
+    mr.group.addr[2] = 1;   mr.group.addr[3] = 1;
+    mr.incoming_if = 1;
+    mr.oif_count = 2;
+    mr.oif_list[0] = 10;
+    mr.oif_list[1] = 11;
+
+    danos_status_t st = danos_mroute_create(&tx, &mr);
+    assert(st == DANOS_OK);
+
+    /* Read back */
+    danos_mroute_t out;
+    st = danos_mroute_read(&tx, 0, &mr.group, &out);
+    assert(st == DANOS_OK);
+    assert(out.vrf_id == 0);
+    assert(out.incoming_if == 1);
+    assert(out.oif_count == 2);
+    assert(out.oif_list[0] == 10);
+    assert(out.oif_list[1] == 11);
+
+    /* Update: add a third OIF */
+    mr.oif_count = 3;
+    mr.oif_list[2] = 12;
+    st = danos_mroute_update(&tx, &mr);
+    assert(st == DANOS_OK);
+    st = danos_mroute_read(&tx, 0, &mr.group, &out);
+    assert(st == DANOS_OK);
+    assert(out.oif_count == 3);
+    assert(out.oif_list[2] == 12);
+
+    /* Delete */
+    st = danos_mroute_delete(&tx, 0, &mr.group);
+    assert(st == DANOS_OK);
+    st = danos_mroute_read(&tx, 0, &mr.group, &out);
+    assert(st == DANOS_ERR_NOT_FOUND);
+
+    danos_tx_commit(&tx);
+    printf("[PASS] test_mroute_crud: mroute create/read/update/delete\n");
+    return 0;
+}

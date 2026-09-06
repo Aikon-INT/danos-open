@@ -551,6 +551,16 @@ typedef struct {
     danos_ifindex_t    oif_list[64];    /* outgoing interface list */
 } danos_mroute_t;
 
+/* Multicast mroute CRUD (v0.2). Keyed by composite (vrf_id, group).
+ * For (*,G) routes, source.af = DANOS_AF_UNSPEC. */
+danos_status_t danos_mroute_create(danos_tx_t *tx, const danos_mroute_t *mr);
+danos_status_t danos_mroute_update(danos_tx_t *tx, const danos_mroute_t *mr);
+danos_status_t danos_mroute_delete(danos_tx_t *tx, danos_vrf_id_t vrf_id,
+                                   const danos_ip_addr_t *group);
+danos_status_t danos_mroute_read(danos_tx_t *tx, danos_vrf_id_t vrf_id,
+                                 const danos_ip_addr_t *group,
+                                 danos_mroute_t *out);
+
 /* =========================================================================
  * 16. Object: BFD Session
  * ========================================================================= */

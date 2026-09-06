@@ -83,7 +83,9 @@ typedef struct {
 
 /* Subscribe to events. Returns subscription id (>0) or 0 on error.
  * `obj_type` = DANOS_OBJ_INVALID means all object types.
- * `mask` is a bitmask of danos_event_type_t. */
+ * `mask` is a bitmask: bit N set => subscribe to event type N.
+ *   e.g. (1u << DANOS_EVENT_OBJ_CREATED) | (1u << DANOS_EVENT_OBJ_UPDATED)
+ *   or 0xFFFF for all events. */
 uint64_t danos_gnmi_subscribe(danos_obj_type_t obj_type, uint32_t mask);
 
 /* Unsubscribe by id. */
