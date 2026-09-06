@@ -200,6 +200,122 @@ danos_status_t zapi_map_bfd(const zapi_message_t *msg, danos_tx_t *tx,
 }
 
 /* =========================================================================
+ * ZEBRA_INTERFACE_SET_MTU → DPA Interface update (MTU field)
+ *
+ * ZAPI payload: [ifindex:4][mtu:4]
+ *
+ * Reads existing interface, updates MTU, writes back. If interface does not
+ * exist, returns NOT_FOUND (FRR should not send SET_MTU before INTERFACE_ADD).
+ * ========================================================================= */
+danos_status_t zapi_map_interface_set_mtu(const zapi_message_t *msg,
+                                          danos_tx_t *tx)
+{
+    if (!msg || !tx) return DANOS_ERR_INVALID_ARG;
+
+    zapi_decoder_t d;
+    zapi_decoder_init(&d, msg->payload, msg->payload_size);
+
+    uint32_t ifindex, mtu;
+    if (zapi_decode_u32(&d, &ifindex) != 0) return DANOS_ERR_INVALID_ARG;
+    if (zapi_decode_u32(&d, &mtu) != 0)     return DANOS_ERR_INVALID_ARG;
+
+    /* Read existing interface, update MTU, write back */
+    danos_iface_t iface;
+    danos_status_t st = danos_iface_read(tx, ifindex, &iface);
+    if (st != DANOS_OK) return st;
+    iface.mtu = (uint16_t)mtu;
+    return danos_iface_update(tx, &iface);
+}
+
+/* =========================================================================
+ * ZEBRA_INTERFACE_UP / ZEBRA_INTERFACE_DOWN → DPA Interface update (admin_up)
+ *
+ * ZAPI payload: [ifindex:4]
+ * ========================================================================= */
+danos_status_t zapi_map_interface_set_admin(const zapi_message_t *msg,
+                                            danos_tx_t *tx,
+                                            bool admin_up)
+{
+    if (!msg || !tx) return DANOS_ERR_INVALID_ARG;
+
+    zapi_decoder_t d;
+    zapi_decoder_init(&d, msg->payload, msg->payload_size);
+
+    uint32_t ifindex;
+    if (zapi_decode_u32(&d, &ifindex) != 0) return DANOS_ERR_INVALID_ARG;
+
+    /* Read existing interface, update admin_up, write back */
+    danos_iface_t iface;
+    danos_status_t st = danos_iface_read(tx, ifindex, &iface);
+    if (st != DANOS_OK) return st;
+    iface.admin_up = admin_up;
+    return danos_iface_update(tx, &iface);
+}
+
+/* =========================================================================
+ * ZEBRA_NEXTHOP_LOOKUP → DPA NH read
+ *
+ * ZAPI payload: [vrf_id:4][family:1][gateway:4or16]
+ *
+ * v0.1 limitation: DPA NH objects are identified by backend-allocated obj_id,
+ * not by (gateway, ifindex) tuple. This mapper performs a best-effort lookup
+ * by reading NH id=1 (the simplified single-NH model from ROUTE_ADD).
+ * A full implementation requires an NH index by (vrf, gateway), planned v0.2.
+ * Here we return the NH if it exists, NOT_FOUND otherwise.
+ * ========================================================================= */
+danos_status_t zapi_map_nexthop_lookup(const zapi_message_t *msg,
+                                       danos_tx_t *tx,
+                                       danos_nexthop_t *out_nh)
+{
+    if (!msg || !tx || !out_nh) return DANOS_ERR_INVALID_ARG;
+
+    zapi_decoder_t d;
+    zapi_decoder_init(&d, msg->payload, msg->payload_size);
+
+    uint32_t vrf_id;
+    uint8_t  family;
+    if (zapi_decode_u32(&d, &vrf_id) != 0)  return DANOS_ERR_INVALID_ARG;
+    if (zapi_decode_u8(&d, &family) != 0)   return DANOS_ERR_INVALID_ARG;
+
+    /* Read gateway bytes (validated for family but not used in v0.1 lookup) */
+    uint8_t gateway[16];
+    size_t gw_bytes = (family == 4) ? 4 : 16;
+    if (zapi_decode_bytes(&d, gateway, gw_bytes) != 0)
+        return DANOS_ERR_INVALID_ARG;
+
+    /* v0.1 simplified: NH id=1 is the single NH created by ROUTE_ADD.
+     * Full (vrf, gateway) index is a v0.2 enhancement. */
+    (void)vrf_id;
+    return danos_nh_read(tx, 1, out_nh);
+}
+
+/* =========================================================================
+ * ZEBRA_REDISTRIBUTE_ADD → no-op (handled by FRR via subsequent ROUTE_ADD)
+ *
+ * ZAPI payload: [protocol:1]
+ *
+ * FRR sends REDISTRIBUTE_ADD to signal that a protocol's routes should be
+ * redistributed into zebra. The actual route updates arrive as subsequent
+ * ZEBRA_ROUTE_ADD messages, which zapi_map_route handles. This mapper
+ * acknowledges the command without performing a DPA operation.
+ * ========================================================================= */
+danos_status_t zapi_map_redistribute_add(const zapi_message_t *msg,
+                                         danos_tx_t *tx)
+{
+    if (!msg || !tx) return DANOS_ERR_INVALID_ARG;
+
+    zapi_decoder_t d;
+    zapi_decoder_init(&d, msg->payload, msg->payload_size);
+
+    uint8_t protocol;
+    if (zapi_decode_u8(&d, &protocol) != 0) return DANOS_ERR_INVALID_ARG;
+
+    /* No DPA operation: FRR will follow up with ZEBRA_ROUTE_ADD messages.
+     * Acknowledge by returning OK. */
+    return DANOS_OK;
+}
+
+/* =========================================================================
  * Dispatch: route any ZAPI message to the appropriate DPA operation
  * ========================================================================= */
 danos_status_t zapi_dispatch(const zapi_message_t *msg, danos_tx_t *tx)
@@ -211,10 +327,22 @@ danos_status_t zapi_dispatch(const zapi_message_t *msg, danos_tx_t *tx)
         return zapi_map_route(msg, tx, true);
     case ZEBRA_ROUTE_DELETE:
         return zapi_map_route(msg, tx, false);
+    case ZEBRA_REDISTRIBUTE_ADD:
+        return zapi_map_redistribute_add(msg, tx);
     case ZEBRA_INTERFACE_ADD:
         return zapi_map_interface(msg, tx, true);
     case ZEBRA_INTERFACE_DELETE:
         return zapi_map_interface(msg, tx, false);
+    case ZEBRA_INTERFACE_SET_MTU:
+        return zapi_map_interface_set_mtu(msg, tx);
+    case ZEBRA_INTERFACE_UP:
+        return zapi_map_interface_set_admin(msg, tx, true);
+    case ZEBRA_INTERFACE_DOWN:
+        return zapi_map_interface_set_admin(msg, tx, false);
+    case ZEBRA_NEXTHOP_LOOKUP: {
+        danos_nexthop_t nh;
+        return zapi_map_nexthop_lookup(msg, tx, &nh);
+    }
     case ZEBRA_BFD_DEST_REGISTER:
         return zapi_map_bfd(msg, tx, true);
     case ZEBRA_BFD_DEST_DEREGISTER:

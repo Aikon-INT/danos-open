@@ -107,6 +107,18 @@ int  zapi_encode_bytes(zapi_encoder_t *e, const uint8_t *src, size_t n);
 /* Dispatch a parsed ZAPI message to the appropriate DPA operation. */
 danos_status_t zapi_dispatch(const zapi_message_t *msg, danos_tx_t *tx);
 
+/* Individual mappers (exposed for unit testing) */
+danos_status_t zapi_map_interface_set_mtu(const zapi_message_t *msg,
+                                          danos_tx_t *tx);
+danos_status_t zapi_map_interface_set_admin(const zapi_message_t *msg,
+                                            danos_tx_t *tx,
+                                            bool admin_up);
+danos_status_t zapi_map_nexthop_lookup(const zapi_message_t *msg,
+                                       danos_tx_t *tx,
+                                       danos_nexthop_t *out_nh);
+danos_status_t zapi_map_redistribute_add(const zapi_message_t *msg,
+                                         danos_tx_t *tx);
+
 #ifdef __cplusplus
 }
 #endif
