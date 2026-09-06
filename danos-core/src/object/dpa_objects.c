@@ -297,3 +297,38 @@ danos_status_t danos_bfd_delete(danos_tx_t *tx, danos_obj_id_t id)
     (void)tx;
     return danos_object_delete(get_default_store(), DANOS_OBJ_BFD, id);
 }
+
+/* =========================================================================
+ * MPLS LSP CRUD (v0.2)
+ * ========================================================================= */
+danos_status_t danos_mpls_lsp_create(danos_tx_t *tx, const danos_mpls_lsp_t *lsp)
+{
+    (void)tx;
+    if (!lsp) return DANOS_ERR_INVALID_ARG;
+    return danos_object_create(get_default_store(), DANOS_OBJ_MPLS_LSP,
+                               lsp->in_label, lsp, sizeof(*lsp));
+}
+
+danos_status_t danos_mpls_lsp_update(danos_tx_t *tx, const danos_mpls_lsp_t *lsp)
+{
+    (void)tx;
+    if (!lsp) return DANOS_ERR_INVALID_ARG;
+    return danos_object_update(get_default_store(), DANOS_OBJ_MPLS_LSP,
+                               lsp->in_label, lsp, sizeof(*lsp));
+}
+
+danos_status_t danos_mpls_lsp_delete(danos_tx_t *tx, danos_mpls_label_t in_label)
+{
+    (void)tx;
+    return danos_object_delete(get_default_store(), DANOS_OBJ_MPLS_LSP, in_label);
+}
+
+danos_status_t danos_mpls_lsp_read(danos_tx_t *tx, danos_mpls_label_t in_label,
+                                   danos_mpls_lsp_t *out)
+{
+    (void)tx;
+    if (!out) return DANOS_ERR_INVALID_ARG;
+    size_t sz = sizeof(*out);
+    return danos_object_read(get_default_store(), DANOS_OBJ_MPLS_LSP,
+                             in_label, out, &sz);
+}

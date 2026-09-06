@@ -17,13 +17,13 @@
 | ZEBRA_INTERFACE_UP | 25 | Interface | update（admin_up=true） | 已实现 | `zapi_mapper.c:zapi_map_interface_set_admin` |
 | ZEBRA_INTERFACE_DOWN | 26 | Interface | update（admin_up=false） | 已实现 | `zapi_mapper.c:zapi_map_interface_set_admin` |
 | ZEBRA_NEXTHOP_LOOKUP | 40 | NH / NHGroup | read | 已实现（v0.1 简化：NH id=1） | `zapi_mapper.c:zapi_map_nexthop_lookup` |
-| ZEBRA_LABELS_ADD | 60 | MPLS LSP | create | 待实现（v0.2+） | - |
-| ZEBRA_LABELS_DELETE | 61 | MPLS LSP | delete | 待实现（v0.2+） | - |
+| ZEBRA_LABELS_ADD | 60 | MPLS LSP | create | 已实现 | `zapi_mapper.c:zapi_map_labels` |
+| ZEBRA_LABELS_DELETE | 61 | MPLS LSP | delete | 已实现 | `zapi_mapper.c:zapi_map_labels` |
 | ZEBRA_BFD_DEST_REGISTER | 80 | BFD Session | create | 已实现 | `zapi_mapper.c:164` |
 | ZEBRA_BFD_DEST_DEREGISTER | 81 | BFD Session | delete | 已实现 | `zapi_mapper.c:164` |
 
-**已实现：11/13 消息**（v0.2 增强后覆盖 ROUTE/INTERFACE/BFD/NEXTHOP/REDISTRIBUTE 全部 v0.1 路径）
-**待实现：2/13 消息**（ZEBRA_LABELS_ADD/DELETE，v0.2+ MPLS LSP 实现）
+**已实现：13/13 消息**（v0.2 增强后 ZAPI 映射全覆盖）
+**待实现：0/13 消息**
 
 ## 2. 字段映射详解
 
@@ -145,9 +145,9 @@ ZAPI payload: [in_label:4][nh_count:1][per nh: gateway+ifindex][push_labels]
 | 测试 | 覆盖消息 | 代码位置 |
 |------|---------|---------|
 | `test_zapi_parse` | 全部消息解析 | `danos-fib/tests/test_zapi_parse.c` |
-| `test_zapi_mapper` | ROUTE_ADD/DELETE, IFACE_ADD/DELETE, BFD, SET_MTU, UP/DOWN, REDISTRIBUTE, NEXTHOP_LOOKUP | `danos-fib/tests/test_zapi_mapper.c` |
+| `test_zapi_mapper` | ROUTE_ADD/DELETE, IFACE_ADD/DELETE, BFD, SET_MTU, UP/DOWN, REDISTRIBUTE, NEXTHOP_LOOKUP, LABELS_ADD/DELETE | `danos-fib/tests/test_zapi_mapper.c` |
 | `test_fib_e2e` | 单消息端到端 | `danos-fib/tests/test_fib_e2e.c` |
 | `test_fib_e2e_multi` | 100 路由批量端到端 | `danos-fib/tests/test_fib_e2e_multi.c` |
 
-**fib_mapper 测试用例：8 个全部通过**（3 原有 + 5 新增 v0.2）
-**待补测试**（v0.2+）：LABELS_ADD/DELETE（MPLS LSP）
+**fib_mapper 测试用例：9 个全部通过**（3 原有 + 6 新增 v0.2）
+**ZAPI 映射全覆盖：13/13 消息已实现+测试**

@@ -482,6 +482,13 @@ typedef struct {
     danos_mpls_label_t push_labels[3];
 } danos_mpls_lsp_t;
 
+/* MPLS LSP CRUD (v0.2). Keyed by in_label. */
+danos_status_t danos_mpls_lsp_create(danos_tx_t *tx, const danos_mpls_lsp_t *lsp);
+danos_status_t danos_mpls_lsp_update(danos_tx_t *tx, const danos_mpls_lsp_t *lsp);
+danos_status_t danos_mpls_lsp_delete(danos_tx_t *tx, danos_mpls_label_t in_label);
+danos_status_t danos_mpls_lsp_read(danos_tx_t *tx, danos_mpls_label_t in_label,
+                                   danos_mpls_lsp_t *out);
+
 /* =========================================================================
  * 13. Object: Tunnel (v0.2+; declared here for ABI stability)
  * ========================================================================= */

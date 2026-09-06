@@ -118,6 +118,8 @@ danos_status_t zapi_map_nexthop_lookup(const zapi_message_t *msg,
                                        danos_nexthop_t *out_nh);
 danos_status_t zapi_map_redistribute_add(const zapi_message_t *msg,
                                          danos_tx_t *tx);
+danos_status_t zapi_map_labels(const zapi_message_t *msg, danos_tx_t *tx,
+                               bool is_add);
 
 #ifdef __cplusplus
 }

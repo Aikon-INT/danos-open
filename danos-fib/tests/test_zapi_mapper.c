@@ -272,6 +272,68 @@ int test_map_nexthop_lookup_not_found(void)
     return 0;
 }
 
+int test_map_labels_add_delete(void)
+{
+    danos_tx_t tx = {0};
+    assert(danos_tx_begin(&tx, "test", NULL) == DANOS_OK);
+
+    /* Build LABELS_ADD payload:
+     * in_label=100, type=STATIC(4), nhgroup_id=1, php=true,
+     * push_label_count=2, push_labels=[200, 300] */
+    uint8_t payload[32];
+    zapi_encoder_t enc;
+    zapi_encoder_init(&enc, payload, sizeof(payload));
+    zapi_encode_u32(&enc, 100);     /* in_label */
+    zapi_encode_u8(&enc, 4);        /* type=STATIC */
+    zapi_encode_u64(&enc, 1);       /* nhgroup_id */
+    zapi_encode_u8(&enc, 1);        /* php=true */
+    zapi_encode_u8(&enc, 2);        /* push_label_count=2 */
+    zapi_encode_u32(&enc, 200);     /* push_labels[0] */
+    zapi_encode_u32(&enc, 300);     /* push_labels[1] */
+
+    zapi_message_t msg;
+    memset(&msg, 0, sizeof(msg));
+    msg.header.command = ZEBRA_LABELS_ADD;
+    msg.payload = payload;
+    msg.payload_size = enc.pos;
+
+    danos_status_t st = zapi_dispatch(&msg, &tx);
+    assert(st == DANOS_OK);
+
+    /* Verify LSP was created */
+    danos_mpls_lsp_t lsp;
+    st = danos_mpls_lsp_read(&tx, 100, &lsp);
+    assert(st == DANOS_OK);
+    assert(lsp.in_label == 100);
+    assert(lsp.type == DANOS_MPLS_TYPE_STATIC);
+    assert(lsp.nhgroup_id == 1);
+    assert(lsp.php == true);
+    assert(lsp.push_label_count == 2);
+    assert(lsp.push_labels[0] == 200);
+    assert(lsp.push_labels[1] == 300);
+
+    /* LABELS_DELETE: in_label=100 */
+    zapi_encoder_init(&enc, payload, sizeof(payload));
+    zapi_encode_u32(&enc, 100);     /* in_label */
+    zapi_encode_u8(&enc, 4);        /* type */
+    zapi_encode_u64(&enc, 1);       /* nhgroup_id */
+    zapi_encode_u8(&enc, 1);        /* php */
+    zapi_encode_u8(&enc, 0);        /* push_label_count=0 */
+    msg.header.command = ZEBRA_LABELS_DELETE;
+    msg.payload_size = enc.pos;
+
+    st = zapi_dispatch(&msg, &tx);
+    assert(st == DANOS_OK);
+
+    /* Verify LSP was deleted */
+    st = danos_mpls_lsp_read(&tx, 100, &lsp);
+    assert(st == DANOS_ERR_NOT_FOUND);
+
+    danos_tx_commit(&tx);
+    printf("[PASS] test_map_labels_add_delete: ZAPI LABELS_ADD/DELETE → DPA MPLS LSP\n");
+    return 0;
+}
+
 int main(void)
 {
     int failed = 0;
@@ -284,6 +346,7 @@ int main(void)
     if (test_map_interface_up_down() != 0) failed++;
     if (test_map_redistribute_add() != 0) failed++;
     if (test_map_nexthop_lookup_not_found() != 0) failed++;
+    if (test_map_labels_add_delete() != 0) failed++;
     printf("=== fib_test (zapi_mapper): %s ===\n",
            failed == 0 ? "ALL PASSED" : "FAILURES");
     return failed;

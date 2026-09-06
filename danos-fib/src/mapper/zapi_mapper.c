@@ -316,6 +316,59 @@ danos_status_t zapi_map_redistribute_add(const zapi_message_t *msg,
 }
 
 /* =========================================================================
+ * ZEBRA_LABELS_ADD / ZEBRA_LABELS_DELETE → DPA MPLS LSP (v0.2)
+ *
+ * ZAPI payload (simplified for v0.2):
+ *   [in_label:4][type:1][nhgroup_id:8][php:1][push_label_count:1]
+ *   per push label: [label:4]
+ *
+ * Maps to danos_mpls_lsp_t. Keyed by in_label (20-bit MPLS label).
+ * ========================================================================= */
+danos_status_t zapi_map_labels(const zapi_message_t *msg, danos_tx_t *tx,
+                               bool is_add)
+{
+    if (!msg || !tx) return DANOS_ERR_INVALID_ARG;
+
+    zapi_decoder_t d;
+    zapi_decoder_init(&d, msg->payload, msg->payload_size);
+
+    danos_mpls_lsp_t lsp;
+    memset(&lsp, 0, sizeof(lsp));
+
+    uint32_t in_label;
+    uint8_t  type;
+    uint64_t nhgroup_id;
+    uint8_t  php_u8;
+
+    if (zapi_decode_u32(&d, &in_label) != 0)   return DANOS_ERR_INVALID_ARG;
+    if (zapi_decode_u8(&d, &type) != 0)        return DANOS_ERR_INVALID_ARG;
+    if (zapi_decode_u64(&d, &nhgroup_id) != 0) return DANOS_ERR_INVALID_ARG;
+    if (zapi_decode_u8(&d, &php_u8) != 0)      return DANOS_ERR_INVALID_ARG;
+
+    lsp.in_label = in_label;
+    lsp.type = (danos_mpls_type_t)type;
+    lsp.nhgroup_id = nhgroup_id;
+    lsp.php = (php_u8 != 0);
+
+    if (zapi_decode_u8(&d, &lsp.push_label_count) != 0)
+        return DANOS_ERR_INVALID_ARG;
+    if (lsp.push_label_count > 3)
+        lsp.push_label_count = 3;
+
+    for (uint8_t i = 0; i < lsp.push_label_count; i++) {
+        uint32_t label;
+        if (zapi_decode_u32(&d, &label) != 0) return DANOS_ERR_INVALID_ARG;
+        lsp.push_labels[i] = label;
+    }
+
+    if (is_add) {
+        return danos_mpls_lsp_create(tx, &lsp);
+    } else {
+        return danos_mpls_lsp_delete(tx, in_label);
+    }
+}
+
+/* =========================================================================
  * Dispatch: route any ZAPI message to the appropriate DPA operation
  * ========================================================================= */
 danos_status_t zapi_dispatch(const zapi_message_t *msg, danos_tx_t *tx)
@@ -343,6 +396,10 @@ danos_status_t zapi_dispatch(const zapi_message_t *msg, danos_tx_t *tx)
         danos_nexthop_t nh;
         return zapi_map_nexthop_lookup(msg, tx, &nh);
     }
+    case ZEBRA_LABELS_ADD:
+        return zapi_map_labels(msg, tx, true);
+    case ZEBRA_LABELS_DELETE:
+        return zapi_map_labels(msg, tx, false);
     case ZEBRA_BFD_DEST_REGISTER:
         return zapi_map_bfd(msg, tx, true);
     case ZEBRA_BFD_DEST_DEREGISTER:
