@@ -9,3 +9,8 @@ add_executable(gnmi_test test_gnmi.c)
 target_link_libraries(gnmi_test PRIVATE danos-mgmt danos-dpa pthread)
 target_compile_options(gnmi_test PRIVATE -UNDEBUG)
 add_test(NAME gnmi COMMAND gnmi_test)
+
+add_executable(netconf_test test_netconf.c)
+target_link_libraries(netconf_test PRIVATE danos-mgmt danos-dpa pthread)
+target_compile_options(netconf_test PRIVATE -UNDEBUG)
+add_test(NAME netconf COMMAND netconf_test)

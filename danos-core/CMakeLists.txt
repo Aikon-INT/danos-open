@@ -8,6 +8,8 @@ add_library(danos-core STATIC
   src/event/event_bus.c
   src/reconciler/reconciler.c
   src/capability/capability_registry.c
+  src/wal/wal.c
+  src/antiflap/antiflap.c
 )
 target_include_directories(danos-core PUBLIC include)
 target_link_libraries(danos-core PUBLIC danos-dpa)

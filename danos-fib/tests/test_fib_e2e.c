@@ -20,7 +20,7 @@
 #include <arpa/inet.h>
 
 #define MOCK_SOCK "/tmp/danos_mock_zebra.sock"
-#define MOCK_BIN  "./mock_zebra"
+#define MOCK_BIN  "mock_zebra"
 
 static pid_t g_mock_pid = -1;
 
