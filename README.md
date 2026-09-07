@@ -61,20 +61,20 @@ See `v1.1/DANOS-Open_Architecture_Specification_v1.1.md` for full spec.
 
 | Module | Description | Status |
 |--------|-------------|-------|
-| `danos-core/` | Core engine: object/state/transaction/capability/event/reconciler | v0.1 |
-| `danos-dpa/` | DPA public API (C ABI + Protobuf) | v0.1 |
-| `danos-fib/` | FRR zebra/FIB adapter | v0.1 |
-| `danos-vpp/` | VPP backend | v0.1 |
-| `danos-models/` | YANG / OpenConfig models | v0.1 |
-| `danos-mgmt/` | CLI / gNMI / NETCONF | v0.1 |
-| `danos-compat/` | OcNOS-like CLI & semantic compatibility layer | v0.2+ |
-| `danos-ha/` | NSR / VRRP / EVPN-MH / supervisor / ISSU | v0.2+ |
-| `danos-observability/` | Telemetry / Prometheus / tracing / audit | v0.2+ |
-| `danos-security/` | AAA / TLS / key management / CoPP | v0.2+ |
-| `danos-platform/` | Platform adaptation: x86 / ARM / generic | v0.2+ |
+| `danos-core/` | Core engine: object/state/transaction/capability/event/reconciler | v0.2 |
+| `danos-dpa/` | DPA public API (C ABI + Protobuf) | v0.2 |
+| `danos-fib/` | FRR zebra/FIB adapter | v0.2 |
+| `danos-vpp/` | VPP backend | v0.2 |
+| `danos-models/` | YANG / OpenConfig models (13 models) | v0.2 |
+| `danos-mgmt/` | CLI / gNMI / NETCONF | v0.2 |
+| `danos-security/` | RBAC / CoPP / audit log | v0.2 |
+| `danos-ha/` | BFD multihop / VRRP / supervisor | v0.2 |
+| `danos-observability/` | Prometheus / structured logging / alerts | v0.2 |
+| `danos-compat/` | OcNOS-like CLI & semantic compatibility layer | v0.3+ |
+| `danos-platform/` | Platform adaptation: x86 / ARM / generic | v0.3+ |
 | `danos-ovs/` | OVS-DPDK backend | v0.3+ |
 | `danos-p4/` | P4Runtime / P4 backend | v0.4+ |
-| `danos-test/` | Unit / integration / conformance / topology / perf tests | v0.1 |
+| `danos-test/` | Unit / integration / conformance / topology / perf tests | v0.2 |
 | `danos-build/` | Debian / Ubuntu / container / OCI image | v0.1 |
 | `danos-docs/` | Architecture / RFC / API spec / ADR / runbook | v0.1 |
 
