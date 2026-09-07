@@ -1,0 +1,54 @@
+module danos-multicast {
+  yang-version 1.1;
+  namespace "urn:danos:multicast";
+  prefix dmc;
+
+  import danos-types { prefix dt; }
+
+  description
+    "DANOS-Open multicast mroute model.
+     Corresponds to C ABI danos_mroute_t (dpa.h §15).
+     Copyright (c) 2026 DANOS-Open Project. Apache-2.0.";
+
+  revision 2026-09-07 {
+    description "v0.2: initial multicast mroute model (PIM-SM (*,G)/(S,G)).";
+  }
+
+  container multicast {
+    list mroute {
+      key "vrf-id group source";
+      description
+        "Multicast route entry.
+         Keyed by composite (vrf_id, group, source).
+         For (*,G) routes, source = '*' or empty.";
+
+      leaf vrf-id {
+        type dt:vrf-id;
+        description "VRF ID (0 = default VRF).";
+      }
+
+      leaf group {
+        type string;
+        description "Multicast group address (e.g. '239.1.1.1').";
+      }
+
+      leaf source {
+        type string;
+        description
+          "Source address for (S,G).
+           Use '*' or empty for (*,G) routes.";
+      }
+
+      leaf incoming-if {
+        type uint64;
+        description "RPF interface (incoming interface).";
+      }
+
+      leaf-list oif-list {
+        type dt:ifindex;
+        max-elements 64;
+        description "Outgoing interface list (up to 64).";
+      }
+    }
+  }
+}

@@ -1,0 +1,60 @@
+module danos-mpls {
+  yang-version 1.1;
+  namespace "urn:danos:mpls";
+  prefix dmpls;
+
+  import danos-types { prefix dt; }
+
+  description
+    "DANOS-Open MPLS LSP model.
+     Corresponds to C ABI danos_mpls_lsp_t (dpa.h §12).
+     Copyright (c) 2026 DANOS-Open Project. Apache-2.0.";
+
+  revision 2026-09-07 {
+    description "v0.2: initial MPLS LSP model (LDP/RSVP-TE/SR/static).";
+  }
+
+  typedef mpls-type {
+    type enumeration {
+      enum ldp      { value 1; }
+      enum rsvp-te  { value 2; }
+      enum sr       { value 3; }
+      enum static   { value 4; }
+    }
+    description "MPLS LSP signaling type. Matches danos_mpls_type_t.";
+  }
+
+  container mpls {
+    list lsp {
+      key "in-label";
+      description "MPLS LSP entry. Keyed by in-label (danos_mpls_label_t).";
+
+      leaf in-label {
+        type dt:mpls-label;
+        description "Incoming label (key).";
+      }
+
+      leaf type {
+        type mpls-type;
+        description "LSP signaling type.";
+      }
+
+      leaf nhgroup-id {
+        type uint64;
+        description "Forwarding next-hop group ID.";
+      }
+
+      leaf php {
+        type boolean;
+        default false;
+        description "Penultimate Hop Pop.";
+      }
+
+      leaf-list push-labels {
+        type dt:mpls-label;
+        max-elements 3;
+        description "Label stack to push (up to 3 labels).";
+      }
+    }
+  }
+}

@@ -1,0 +1,54 @@
+module danos-evpn {
+  yang-version 1.1;
+  namespace "urn:danos:evpn";
+  prefix devpn;
+
+  import danos-types { prefix dt; }
+
+  description
+    "DANOS-Open EVPN model.
+     Corresponds to C ABI danos_evpn_evi_t (dpa.h §14).
+     Copyright (c) 2026 DANOS-Open Project. Apache-2.0.";
+
+  revision 2026-09-07 {
+    description "v0.2: initial EVPN EVI model (RFC 7432).";
+  }
+
+  container evpn {
+    list evi {
+      key "evi-id";
+      description "EVPN Instance. Keyed by evi (uint32).";
+
+      leaf evi-id {
+        type uint32;
+        description "EVPN Instance ID (key).";
+      }
+
+      leaf rd {
+        type string;
+        description "Route Distinguisher (e.g. '65000:100' or '10.0.0.1:100').";
+      }
+
+      leaf rt-import {
+        type string;
+        description "Route Target import.";
+      }
+
+      leaf rt-export {
+        type string;
+        description "Route Target export.";
+      }
+
+      leaf vni {
+        type dt:vni;
+        description "VXLAN VNI associated with this EVI.";
+      }
+
+      leaf irb {
+        type boolean;
+        default false;
+        description "Enable L3VNI / Integrated Routing and Bridging.";
+      }
+    }
+  }
+}

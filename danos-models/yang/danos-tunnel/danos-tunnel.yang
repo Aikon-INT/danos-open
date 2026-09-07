@@ -1,0 +1,68 @@
+module danos-tunnel {
+  yang-version 1.1;
+  namespace "urn:danos:tunnel";
+  prefix dtun;
+
+  import danos-types { prefix dt; }
+
+  description
+    "DANOS-Open tunnel model.
+     Corresponds to C ABI danos_tunnel_t (dpa.h §13).
+     Copyright (c) 2026 DANOS-Open Project. Apache-2.0.";
+
+  revision 2026-09-07 {
+    description "v0.2: initial tunnel model (VXLAN/GRE/IPIP/SR-TE).";
+  }
+
+  typedef tunnel-type {
+    type enumeration {
+      enum vxlan  { value 1; }
+      enum gre    { value 2; }
+      enum ipip   { value 3; }
+      enum sr-te  { value 4; }
+    }
+    description "Tunnel encapsulation type. Matches danos_tunnel_type_t.";
+  }
+
+  container tunnels {
+    list tunnel {
+      key "id";
+      description "Tunnel entry. Keyed by id (danos_obj_id_t).";
+
+      leaf id {
+        type uint64;
+        description "Tunnel identifier (key).";
+      }
+
+      leaf type {
+        type tunnel-type;
+        description "Encapsulation type.";
+      }
+
+      leaf ifindex {
+        type dt:ifindex;
+        description "Tunnel interface index.";
+      }
+
+      leaf src {
+        type string;
+        description "Source IP address.";
+      }
+
+      leaf dst {
+        type string;
+        description "Destination IP address.";
+      }
+
+      leaf vni {
+        type dt:vni;
+        description "VXLAN VNI (valid when type = vxlan).";
+      }
+
+      leaf gre-key {
+        type uint32;
+        description "GRE key (valid when type = gre).";
+      }
+    }
+  }
+}
