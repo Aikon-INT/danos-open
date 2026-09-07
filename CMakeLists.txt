@@ -43,6 +43,8 @@ if(DANOS_BUILD_MGMT)
   add_subdirectory(danos-mgmt)
 endif()
 
+add_subdirectory(danos-security)
+
 if(DANOS_BUILD_TESTS)
   add_subdirectory(danos-test)
 endif()
