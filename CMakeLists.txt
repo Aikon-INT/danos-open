@@ -46,6 +46,7 @@ endif()
 add_subdirectory(danos-security)
 add_subdirectory(danos-ha)
 add_subdirectory(danos-observability)
+add_subdirectory(danos-compat)
 
 if(DANOS_BUILD_TESTS)
   add_subdirectory(danos-test)
