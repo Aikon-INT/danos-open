@@ -1,0 +1,63 @@
+# DANOS-Open Alertmanager Rules
+# 6 alert rules per §22.3.3
+
+groups:
+  - name: danos-backend
+    rules:
+      - alert: BackendDown
+        expr: danos_backend_connected == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "DPA backend disconnected"
+          description: "Backend {{ $labels.backend }} has been down for >1m"
+
+      - alert: TxFailureRate
+        expr: rate(danos_tx_failed_total[5m]) / rate(danos_tx_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Transaction failure rate > 10%"
+          description: "Transaction failure rate is {{ $value }} for >5m"
+
+  - name: danos-reconciler
+    rules:
+      - alert: ReconcileFailure
+        expr: rate(danos_reconcile_failures[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Reconciliation failures"
+          description: "Reconciler has {{ $value }} failures/sec"
+
+      - alert: ReconcileFlap
+        expr: increase(danos_reconcile_flaps[1m]) > 3
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Reconciliation flapping"
+          description: "Reconciler flapping (>3/min)"
+
+  - name: danos-protocol
+    rules:
+      - alert: BgpPeerDown
+        expr: danos_bgp_peers - danos_bgp_peers_established > 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "BGP peer(s) down"
+          description: "{{ $value }} BGP peer(s) not Established"
+
+      - alert: RouteCountDrop
+        expr: deriv(danos_objects_route[10m]) < -100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Route count dropping"
+          description: "Route count dropping >100/10m"

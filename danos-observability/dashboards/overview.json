@@ -1,0 +1,55 @@
+{
+  "dashboard": {
+    "title": "DANOS-Open Overview",
+    "schemaVersion": 39,
+    "panels": [
+      {
+        "title": "Uptime",
+        "type": "stat",
+        "targets": [{"expr": "danos_uptime_seconds"}]
+      },
+      {
+        "title": "Transaction Rate",
+        "type": "graph",
+        "targets": [{"expr": "rate(danos_tx_total[5m])"}]
+      },
+      {
+        "title": "Active Transactions",
+        "type": "stat",
+        "targets": [{"expr": "danos_tx_active"}]
+      },
+      {
+        "title": "BGP Peers",
+        "type": "stat",
+        "targets": [
+          {"expr": "danos_bgp_peers_established", "legendFormat": "Established"},
+          {"expr": "danos_bgp_peers", "legendFormat": "Total"}
+        ]
+      },
+      {
+        "title": "Route Count",
+        "type": "graph",
+        "targets": [{"expr": "danos_objects_route"}]
+      },
+      {
+        "title": "Reconciliation Failures",
+        "type": "graph",
+        "targets": [{"expr": "rate(danos_reconcile_failures[5m])"}]
+      },
+      {
+        "title": "Forwarding Throughput (pps)",
+        "type": "graph",
+        "targets": [{"expr": "rate(danos_fwd_packets_total[1m])"}]
+      },
+      {
+        "title": "Forwarding Drops",
+        "type": "graph",
+        "targets": [{"expr": "rate(danos_fwd_drops_total[1m])"}]
+      }
+    ],
+    "templating": {
+      "list": []
+    },
+    "time": {"from": "now-1h", "to": "now"}
+  }
+}
