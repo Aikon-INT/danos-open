@@ -44,6 +44,7 @@ if(DANOS_BUILD_MGMT)
 endif()
 
 add_subdirectory(danos-security)
+add_subdirectory(danos-ha)
 
 if(DANOS_BUILD_TESTS)
   add_subdirectory(danos-test)
