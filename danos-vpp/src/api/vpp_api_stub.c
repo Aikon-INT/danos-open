@@ -278,8 +278,29 @@ uint64_t danos_vpp_api_stat_query(const char *name)
         }
         return h;
     }
-    /* In production: query stat segment shared memory */
-    return 0;
+
+    /* Production: query stat segment via stats.sock.
+     * VPP stat segment protocol (v2): send name as a string, receive
+     * a serialized counter. For simple scalar counters, the response
+     * is a 8-byte little-endian uint64. */
+    if (g_ctx.stat_fd < 0) return 0;
+
+    /* Send query: "name\0" */
+    size_t name_len = strlen(name) + 1;
+    ssize_t sent = send(g_ctx.stat_fd, name, name_len, 0);
+    if (sent != (ssize_t)name_len) return 0;
+
+    /* Receive response: 8-byte counter value */
+    uint8_t resp[8];
+    ssize_t n = recv(g_ctx.stat_fd, resp, sizeof(resp), 0);
+    if (n != 8) return 0;
+
+    /* Little-endian uint64 */
+    uint64_t value = 0;
+    for (int i = 0; i < 8; i++) {
+        value |= ((uint64_t)resp[i]) << (8 * i);
+    }
+    return value;
 }
 
 /* Mock stat segment: register/set a named counter */
