@@ -51,3 +51,9 @@ coverage/
 *.pem
 *.key
 .env
+
+# CTest temporary
+Testing/
+
+# Large binaries (downloaded tools)
+containerlab

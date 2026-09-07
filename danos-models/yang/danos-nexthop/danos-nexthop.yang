@@ -1,0 +1,39 @@
+module danos-nexthop {
+  yang-version 1.1;
+  namespace "urn:danos:nexthop";
+  prefix dnh;
+
+  import danos-types { prefix dt; }
+
+  description
+    "DANOS-Open next-hop model.
+     Copyright (c) 2026 DANOS-Open Project. Apache-2.0.";
+
+  revision 2026-09-06 {
+    description "v0.2: initial next-hop model (ECMP/backup/MPLS push/tunnel flags).";
+  }
+
+  typedef nh-flag {
+    type enumeration {
+      enum ecmp      { value 1; }
+      enum backup    { value 2; }
+      enum mpls-pop  { value 3; }
+      enum mpls-push { value 4; }
+      enum tunnel    { value 5; }
+    }
+  }
+
+  container nexthops {
+    list nexthop {
+      key "id";
+      leaf id { type uint64; }
+      leaf gateway { type string; }
+      leaf ifindex { type dt:ifindex; }
+      leaf weight { type uint32; default 1; }
+      leaf-list flags { type nh-flag; }
+
+      /* MPLS label stack for push (up to 3 labels) */
+      leaf-list push-labels { type dt:mpls-label; }
+    }
+  }
+}

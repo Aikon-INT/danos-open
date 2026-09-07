@@ -9,6 +9,10 @@ module danos-qos {
     "DANOS-Open QoS model.
      Copyright (c) 2026 DANOS-Open Project. Apache-2.0.";
 
+  revision 2026-09-06 {
+    description "v0.2: add policy bind (ifindex/ingress), conform/exceed/violate dscp marks.";
+  }
+
   revision 2026-09-05 {
     description "Initial version for v0.1.";
   }
@@ -22,9 +26,16 @@ module danos-qos {
       leaf cb-bytes { type uint64; }
       leaf pir-bps  { type uint64; }
       leaf pb-bytes { type uint64; }
-      leaf conform-dscp  { type uint8; }
-      leaf exceed-dscp   { type uint8; }
-      leaf violate-dscp  { type uint8; }
+      leaf conform-dscp  { type uint8 { range "0..63"; } }
+      leaf exceed-dscp   { type uint8 { range "0..63"; } }
+      leaf violate-dscp  { type uint8 { range "0..63"; } }
+
+      /* Policy bind (v0.2): attach policy to interface ingress/egress */
+      list bind {
+        key "ifindex ingress";
+        leaf ifindex { type dt:ifindex; }
+        leaf ingress { type boolean; }
+      }
     }
   }
 }

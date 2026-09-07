@@ -438,9 +438,14 @@ typedef struct {
 } danos_acl_table_t;
 
 danos_status_t danos_acl_table_create(danos_tx_t *tx, const danos_acl_table_t *tbl);
+danos_status_t danos_acl_table_update(danos_tx_t *tx, const danos_acl_table_t *tbl);
 danos_status_t danos_acl_table_delete(danos_tx_t *tx, danos_obj_id_t table_id);
+danos_status_t danos_acl_table_read(danos_tx_t *tx, danos_obj_id_t table_id,
+                                    danos_acl_table_t *out);
 danos_status_t danos_acl_rule_add(danos_tx_t *tx, danos_obj_id_t table_id, const danos_acl_rule_t *rule);
 danos_status_t danos_acl_rule_delete(danos_tx_t *tx, danos_obj_id_t table_id, danos_obj_id_t rule_id);
+danos_status_t danos_acl_rule_read(danos_tx_t *tx, danos_obj_id_t table_id,
+                                   danos_obj_id_t rule_id, danos_acl_rule_t *out);
 
 /* =========================================================================
  * 11. Object: QoS (basic in v0.1, HQoS in v0.2+)
@@ -460,7 +465,10 @@ typedef struct {
 } danos_qos_policy_t;
 
 danos_status_t danos_qos_policy_create(danos_tx_t *tx, const danos_qos_policy_t *p);
+danos_status_t danos_qos_policy_update(danos_tx_t *tx, const danos_qos_policy_t *p);
 danos_status_t danos_qos_policy_delete(danos_tx_t *tx, danos_obj_id_t policy_id);
+danos_status_t danos_qos_policy_read(danos_tx_t *tx, danos_obj_id_t policy_id,
+                                     danos_qos_policy_t *out);
 danos_status_t danos_qos_policy_bind(danos_tx_t *tx, danos_obj_id_t policy_id, danos_ifindex_t ifindex, bool ingress);
 
 /* =========================================================================

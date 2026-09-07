@@ -9,8 +9,23 @@
  *   GET  /gnmi/interfaces/<id>      → get one interface
  *   GET  /gnmi/routes               → list all routes
  *   GET  /gnmi/vrfs                 → list all VRFs
+ *   GET  /gnmi/capabilities         → DPA version + backend capabilities
  *   SET  /gnmi/interfaces           → create/update interface (JSON body)
  *   SET  /gnmi/routes               → create/update route (JSON body)
+ *
+ * v0.2 additions:
+ *   GET  /gnmi/acl/tables           → list ACL tables
+ *   SET  /gnmi/acl/tables           → create/update ACL table (JSON body)
+ *   DELETE /gnmi/acl/tables/<id>    → delete ACL table
+ *   GET  /gnmi/qos/policies         → list QoS policies
+ *   SET  /gnmi/qos/policies         → create/update QoS policy (JSON body)
+ *   DELETE /gnmi/qos/policies/<id>  → delete QoS policy
+ *
+ * gNMI Subscribe (v0.2) integrated into HTTP dispatch:
+ *   POST /gnmi/subscribe[?obj_type=X&mask=Y]  → create subscription, returns sub_id
+ *   SUBSCRIBE /gnmi/subscribe[?...]           → same (gNMI SUBSCRIBE method)
+ *   GET  /gnmi/subscribe/<id>                 → poll notifications (JSON array)
+ *   DELETE /gnmi/subscribe/<id>               → unsubscribe
  *
  * In production, a real gNMI server (gRPC) would be used. This REST
  * interface provides the same semantics for environments without gRPC.

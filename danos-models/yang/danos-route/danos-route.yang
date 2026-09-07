@@ -9,6 +9,10 @@ module danos-route {
     "DANOS-Open route model.
      Copyright (c) 2026 DANOS-Open Project. Apache-2.0.";
 
+  revision 2026-09-06 {
+    description "v0.2: add route flags (blackhole/multicast), metric field.";
+  }
+
   revision 2026-09-05 {
     description "Initial version for v0.1.";
   }
@@ -30,6 +34,7 @@ module danos-route {
           leaf metric { type uint32; }
           leaf nhgroup-id { type uint64; }
           leaf blackhole { type boolean; default false; }
+          leaf multicast { type boolean; default false; }
         }
       }
     }

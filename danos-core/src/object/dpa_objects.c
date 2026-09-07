@@ -233,10 +233,28 @@ danos_status_t danos_acl_table_create(danos_tx_t *tx, const danos_acl_table_t *t
                                tbl->table_id, tbl, sizeof(*tbl));
 }
 
+danos_status_t danos_acl_table_update(danos_tx_t *tx, const danos_acl_table_t *tbl)
+{
+    (void)tx;
+    if (!tbl) return DANOS_ERR_INVALID_ARG;
+    return danos_object_update(get_default_store(), DANOS_OBJ_ACL,
+                               tbl->table_id, tbl, sizeof(*tbl));
+}
+
 danos_status_t danos_acl_table_delete(danos_tx_t *tx, danos_obj_id_t table_id)
 {
     (void)tx;
     return danos_object_delete(get_default_store(), DANOS_OBJ_ACL, table_id);
+}
+
+danos_status_t danos_acl_table_read(danos_tx_t *tx, danos_obj_id_t table_id,
+                                    danos_acl_table_t *out)
+{
+    (void)tx;
+    if (!out) return DANOS_ERR_INVALID_ARG;
+    size_t sz = sizeof(*out);
+    return danos_object_read(get_default_store(), DANOS_OBJ_ACL,
+                             table_id, out, &sz);
 }
 
 danos_status_t danos_acl_rule_add(danos_tx_t *tx, danos_obj_id_t table_id,
@@ -256,6 +274,16 @@ danos_status_t danos_acl_rule_delete(danos_tx_t *tx, danos_obj_id_t table_id,
     return danos_object_delete(get_default_store(), DANOS_OBJ_ACL, rule_id + 1000000);
 }
 
+danos_status_t danos_acl_rule_read(danos_tx_t *tx, danos_obj_id_t table_id,
+                                   danos_obj_id_t rule_id, danos_acl_rule_t *out)
+{
+    (void)tx; (void)table_id;
+    if (!out) return DANOS_ERR_INVALID_ARG;
+    size_t sz = sizeof(*out);
+    return danos_object_read(get_default_store(), DANOS_OBJ_ACL,
+                             rule_id + 1000000, out, &sz);
+}
+
 /* =========================================================================
  * QoS CRUD
  * ========================================================================= */
@@ -267,10 +295,28 @@ danos_status_t danos_qos_policy_create(danos_tx_t *tx, const danos_qos_policy_t 
                                p->policy_id, p, sizeof(*p));
 }
 
+danos_status_t danos_qos_policy_update(danos_tx_t *tx, const danos_qos_policy_t *p)
+{
+    (void)tx;
+    if (!p) return DANOS_ERR_INVALID_ARG;
+    return danos_object_update(get_default_store(), DANOS_OBJ_QOS,
+                               p->policy_id, p, sizeof(*p));
+}
+
 danos_status_t danos_qos_policy_delete(danos_tx_t *tx, danos_obj_id_t policy_id)
 {
     (void)tx;
     return danos_object_delete(get_default_store(), DANOS_OBJ_QOS, policy_id);
+}
+
+danos_status_t danos_qos_policy_read(danos_tx_t *tx, danos_obj_id_t policy_id,
+                                     danos_qos_policy_t *out)
+{
+    (void)tx;
+    if (!out) return DANOS_ERR_INVALID_ARG;
+    size_t sz = sizeof(*out);
+    return danos_object_read(get_default_store(), DANOS_OBJ_QOS,
+                             policy_id, out, &sz);
 }
 
 danos_status_t danos_qos_policy_bind(danos_tx_t *tx, danos_obj_id_t policy_id,

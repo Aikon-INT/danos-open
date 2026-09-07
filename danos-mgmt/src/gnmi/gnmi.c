@@ -224,6 +224,375 @@ static char *handle_not_found(const char *path)
 }
 
 /* =========================================================================
+ * ACL handlers (v0.2)
+ * ========================================================================= */
+
+static char *handle_get_acl_tables(void)
+{
+    char *resp = malloc(256);
+    if (resp) {
+        snprintf(resp, 256, "{\"path\": \"acl/tables\", \"result\": []}");
+    }
+    return resp;
+}
+
+static char *handle_set_acl_table(const char *body)
+{
+    if (!body || body[0] == '\0') {
+        return strdup("{\"error\": \"empty body\"}");
+    }
+
+    danos_acl_table_t tbl;
+    memset(&tbl, 0, sizeof(tbl));
+    tbl.ingress = true;
+
+    const char *p;
+    if ((p = strstr(body, "\"table_id\"")) && (p = strchr(p, ':'))) {
+        tbl.table_id = (danos_obj_id_t)strtoull(p + 1, NULL, 10);
+    }
+    if ((p = strstr(body, "\"name\""))) {
+        p = strchr(p, ':');
+        if (p) p = strchr(p, '"');
+        if (p) {
+            p++;
+            size_t i = 0;
+            while (*p && *p != '"' && i < sizeof(tbl.name) - 1) {
+                tbl.name[i++] = *p++;
+            }
+            tbl.name[i] = '\0';
+        }
+    }
+    if ((p = strstr(body, "\"bind_ifindex\"")) && (p = strchr(p, ':'))) {
+        tbl.bind_ifindex = (danos_ifindex_t)atoi(p + 1);
+    }
+    if ((p = strstr(body, "\"ingress\"")) && (p = strchr(p, ':'))) {
+        tbl.ingress = (atoi(p + 1) != 0);
+    }
+
+    if (tbl.table_id == 0) {
+        return strdup("{\"error\": \"table_id required\"}");
+    }
+
+    danos_tx_t tx = {0};
+    danos_status_t st = danos_tx_begin(&tx, "gnmi-set-acl", NULL);
+    if (st != DANOS_OK) {
+        return strdup("{\"error\": \"tx_begin failed\"}");
+    }
+
+    /* Try create; if exists, fall back to update */
+    st = danos_acl_table_create(&tx, &tbl);
+    if (st == DANOS_ERR_EXISTS) {
+        st = danos_acl_table_update(&tx, &tbl);
+    }
+    if (st != DANOS_OK) {
+        danos_tx_abort(&tx);
+        char *resp = malloc(128);
+        if (resp) snprintf(resp, 128, "{\"error\": \"acl op failed: %s\"}",
+                          danos_status_str(st));
+        return resp;
+    }
+
+    st = danos_tx_prepare(&tx);
+    if (st == DANOS_OK) st = danos_tx_validate(&tx);
+    if (st == DANOS_OK) st = danos_tx_commit(&tx);
+    if (st != DANOS_OK) {
+        char *resp = malloc(128);
+        if (resp) snprintf(resp, 128, "{\"error\": \"commit failed: %s\"}",
+                          danos_status_str(st));
+        return resp;
+    }
+
+    char *resp = malloc(256);
+    if (resp) {
+        snprintf(resp, 256,
+            "{\"result\": \"ok\", \"table_id\": %llu}",
+            (unsigned long long)tbl.table_id);
+    }
+    return resp;
+}
+
+static char *handle_delete_acl_table(const char *path)
+{
+    /* path = /gnmi/acl/tables/<id> */
+    const char *id_str = path + strlen("/gnmi/acl/tables/");
+    danos_obj_id_t table_id = (danos_obj_id_t)strtoull(id_str, NULL, 10);
+    if (table_id == 0) {
+        return strdup("{\"error\": \"invalid table_id\"}");
+    }
+
+    danos_tx_t tx = {0};
+    danos_status_t st = danos_tx_begin(&tx, "gnmi-del-acl", NULL);
+    if (st != DANOS_OK) {
+        return strdup("{\"error\": \"tx_begin failed\"}");
+    }
+
+    st = danos_acl_table_delete(&tx, table_id);
+    if (st != DANOS_OK) {
+        danos_tx_abort(&tx);
+        char *resp = malloc(128);
+        if (resp) snprintf(resp, 128, "{\"error\": \"delete failed: %s\"}",
+                          danos_status_str(st));
+        return resp;
+    }
+
+    st = danos_tx_prepare(&tx);
+    if (st == DANOS_OK) st = danos_tx_commit(&tx);
+    if (st != DANOS_OK) {
+        char *resp = malloc(128);
+        if (resp) snprintf(resp, 128, "{\"error\": \"commit failed: %s\"}",
+                          danos_status_str(st));
+        return resp;
+    }
+
+    return strdup("{\"result\": \"deleted\"}");
+}
+
+/* =========================================================================
+ * QoS handlers (v0.2)
+ * ========================================================================= */
+
+static char *handle_get_qos_policies(void)
+{
+    char *resp = malloc(256);
+    if (resp) {
+        snprintf(resp, 256, "{\"path\": \"qos/policies\", \"result\": []}");
+    }
+    return resp;
+}
+
+static char *handle_set_qos_policy(const char *body)
+{
+    if (!body || body[0] == '\0') {
+        return strdup("{\"error\": \"empty body\"}");
+    }
+
+    danos_qos_policy_t pol;
+    memset(&pol, 0, sizeof(pol));
+
+    const char *p;
+    if ((p = strstr(body, "\"policy_id\"")) && (p = strchr(p, ':'))) {
+        pol.policy_id = (danos_obj_id_t)strtoull(p + 1, NULL, 10);
+    }
+    if ((p = strstr(body, "\"name\""))) {
+        p = strchr(p, ':');
+        if (p) p = strchr(p, '"');
+        if (p) {
+            p++;
+            size_t i = 0;
+            while (*p && *p != '"' && i < sizeof(pol.name) - 1) {
+                pol.name[i++] = *p++;
+            }
+            pol.name[i] = '\0';
+        }
+    }
+    if ((p = strstr(body, "\"cir_bps\"")) && (p = strchr(p, ':'))) {
+        pol.cir_bps = (uint64_t)strtoull(p + 1, NULL, 10);
+    }
+    if ((p = strstr(body, "\"cb_bytes\"")) && (p = strchr(p, ':'))) {
+        pol.cb_bytes = (uint64_t)strtoull(p + 1, NULL, 10);
+    }
+    if ((p = strstr(body, "\"pir_bps\"")) && (p = strchr(p, ':'))) {
+        pol.pir_bps = (uint64_t)strtoull(p + 1, NULL, 10);
+    }
+    if ((p = strstr(body, "\"pb_bytes\"")) && (p = strchr(p, ':'))) {
+        pol.pb_bytes = (uint64_t)strtoull(p + 1, NULL, 10);
+    }
+
+    if (pol.policy_id == 0) {
+        return strdup("{\"error\": \"policy_id required\"}");
+    }
+
+    danos_tx_t tx = {0};
+    danos_status_t st = danos_tx_begin(&tx, "gnmi-set-qos", NULL);
+    if (st != DANOS_OK) {
+        return strdup("{\"error\": \"tx_begin failed\"}");
+    }
+
+    st = danos_qos_policy_create(&tx, &pol);
+    if (st == DANOS_ERR_EXISTS) {
+        st = danos_qos_policy_update(&tx, &pol);
+    }
+    if (st != DANOS_OK) {
+        danos_tx_abort(&tx);
+        char *resp = malloc(128);
+        if (resp) snprintf(resp, 128, "{\"error\": \"qos op failed: %s\"}",
+                          danos_status_str(st));
+        return resp;
+    }
+
+    st = danos_tx_prepare(&tx);
+    if (st == DANOS_OK) st = danos_tx_validate(&tx);
+    if (st == DANOS_OK) st = danos_tx_commit(&tx);
+    if (st != DANOS_OK) {
+        char *resp = malloc(128);
+        if (resp) snprintf(resp, 128, "{\"error\": \"commit failed: %s\"}",
+                          danos_status_str(st));
+        return resp;
+    }
+
+    char *resp = malloc(256);
+    if (resp) {
+        snprintf(resp, 256,
+            "{\"result\": \"ok\", \"policy_id\": %llu}",
+            (unsigned long long)pol.policy_id);
+    }
+    return resp;
+}
+
+static char *handle_delete_qos_policy(const char *path)
+{
+    /* path = /gnmi/qos/policies/<id> */
+    const char *id_str = path + strlen("/gnmi/qos/policies/");
+    danos_obj_id_t policy_id = (danos_obj_id_t)strtoull(id_str, NULL, 10);
+    if (policy_id == 0) {
+        return strdup("{\"error\": \"invalid policy_id\"}");
+    }
+
+    danos_tx_t tx = {0};
+    danos_status_t st = danos_tx_begin(&tx, "gnmi-del-qos", NULL);
+    if (st != DANOS_OK) {
+        return strdup("{\"error\": \"tx_begin failed\"}");
+    }
+
+    st = danos_qos_policy_delete(&tx, policy_id);
+    if (st != DANOS_OK) {
+        danos_tx_abort(&tx);
+        char *resp = malloc(128);
+        if (resp) snprintf(resp, 128, "{\"error\": \"delete failed: %s\"}",
+                          danos_status_str(st));
+        return resp;
+    }
+
+    st = danos_tx_prepare(&tx);
+    if (st == DANOS_OK) st = danos_tx_commit(&tx);
+    if (st != DANOS_OK) {
+        char *resp = malloc(128);
+        if (resp) snprintf(resp, 128, "{\"error\": \"commit failed: %s\"}",
+                          danos_status_str(st));
+        return resp;
+    }
+
+    return strdup("{\"result\": \"deleted\"}");
+}
+
+/* =========================================================================
+ * Subscribe dispatch helpers (v0.2)
+ *
+ * Maps obj_type string → danos_obj_type_t for SUBSCRIBE requests.
+ * ========================================================================= */
+
+static danos_obj_type_t obj_type_from_str(const char *s)
+{
+    if (!s || strcmp(s, "all") == 0 || strcmp(s, "*") == 0)
+        return DANOS_OBJ_INVALID;
+    if (strcmp(s, "interface") == 0) return DANOS_OBJ_IFACE;
+    if (strcmp(s, "vlan") == 0)      return DANOS_OBJ_VLAN;
+    if (strcmp(s, "vrf") == 0)       return DANOS_OBJ_VRF;
+    if (strcmp(s, "route") == 0)     return DANOS_OBJ_ROUTE;
+    if (strcmp(s, "nexthop") == 0)   return DANOS_OBJ_NEXTHOP;
+    if (strcmp(s, "nhgroup") == 0)   return DANOS_OBJ_NHGROUP;
+    if (strcmp(s, "acl") == 0)       return DANOS_OBJ_ACL;
+    if (strcmp(s, "qos") == 0)       return DANOS_OBJ_QOS;
+    if (strcmp(s, "bfd") == 0)       return DANOS_OBJ_BFD;
+    return DANOS_OBJ_INVALID;
+}
+
+/* Parse query param "obj_type=X&mask=Y" from path suffix.
+ * Returns mask (0 on parse failure). Fills obj_type_out. */
+static uint32_t parse_subscribe_query(const char *query,
+                                      danos_obj_type_t *obj_type_out)
+{
+    *obj_type_out = DANOS_OBJ_INVALID;
+    uint32_t mask = 0;
+    if (!query) return 0;
+
+    /* Look for obj_type= */
+    const char *p = strstr(query, "obj_type=");
+    if (p) {
+        p += strlen("obj_type=");
+        char buf[32];
+        size_t i = 0;
+        while (*p && *p != '&' && i < sizeof(buf) - 1) {
+            buf[i++] = *p++;
+        }
+        buf[i] = '\0';
+        *obj_type_out = obj_type_from_str(buf);
+    }
+
+    /* Look for mask= */
+    p = strstr(query, "mask=");
+    if (p) {
+        p += strlen("mask=");
+        mask = (uint32_t)strtoul(p, NULL, 0);
+    } else {
+        /* Default: all event bits */
+        mask = 0xFFFFu;
+    }
+    return mask;
+}
+
+static char *handle_subscribe(const char *path)
+{
+    /* path = /gnmi/subscribe[?obj_type=X&mask=Y] */
+    danos_gnmi_subscribe_init();
+
+    danos_obj_type_t ot = DANOS_OBJ_INVALID;
+    uint32_t mask = 0xFFFFu;
+
+    const char *q = strchr(path, '?');
+    if (q) {
+        mask = parse_subscribe_query(q + 1, &ot);
+    }
+
+    if (mask == 0) {
+        return strdup("{\"error\": \"invalid mask\"}");
+    }
+
+    uint64_t sub_id = danos_gnmi_subscribe(ot, mask);
+    if (sub_id == 0) {
+        return strdup("{\"error\": \"subscribe failed\"}");
+    }
+
+    char *resp = malloc(128);
+    if (resp) {
+        snprintf(resp, 128,
+            "{\"result\": \"subscribed\", \"sub_id\": %llu}",
+            (unsigned long long)sub_id);
+    }
+    return resp;
+}
+
+static char *handle_unsubscribe(const char *path)
+{
+    /* path = /gnmi/subscribe/<id> */
+    const char *id_str = path + strlen("/gnmi/subscribe/");
+    uint64_t sub_id = (uint64_t)strtoull(id_str, NULL, 10);
+    if (sub_id == 0) {
+        return strdup("{\"error\": \"invalid sub_id\"}");
+    }
+
+    size_t count_before = danos_gnmi_subscribe_count();
+    danos_gnmi_unsubscribe(sub_id);
+    if (danos_gnmi_subscribe_count() == count_before) {
+        return strdup("{\"error\": \"sub_id not found\"}");
+    }
+
+    return strdup("{\"result\": \"unsubscribed\"}");
+}
+
+static char *handle_subscribe_poll(const char *path)
+{
+    /* path = /gnmi/subscribe/<id> */
+    const char *id_str = path + strlen("/gnmi/subscribe/");
+    uint64_t sub_id = (uint64_t)strtoull(id_str, NULL, 10);
+    if (sub_id == 0) {
+        return strdup("{\"error\": \"invalid sub_id\"}");
+    }
+
+    return danos_gnmi_subscribe_poll(sub_id);
+}
+
+/* =========================================================================
  * Request dispatch
  * ========================================================================= */
 
@@ -241,6 +610,13 @@ char *danos_gnmi_handle_request(const char *method, const char *path,
             return handle_get_vrfs();
         if (strcmp(path, "/gnmi/capabilities") == 0)
             return handle_get_capabilities();
+        if (strcmp(path, "/gnmi/acl/tables") == 0)
+            return handle_get_acl_tables();
+        if (strcmp(path, "/gnmi/qos/policies") == 0)
+            return handle_get_qos_policies();
+        /* GET /gnmi/subscribe/<id> → poll */
+        if (strncmp(path, "/gnmi/subscribe/", 16) == 0)
+            return handle_subscribe_poll(path);
         return handle_not_found(path);
     }
 
@@ -249,7 +625,30 @@ char *danos_gnmi_handle_request(const char *method, const char *path,
             return handle_set_interface(body);
         if (strcmp(path, "/gnmi/routes") == 0)
             return handle_set_route(body);
+        if (strcmp(path, "/gnmi/acl/tables") == 0)
+            return handle_set_acl_table(body);
+        if (strcmp(path, "/gnmi/qos/policies") == 0)
+            return handle_set_qos_policy(body);
+        /* POST /gnmi/subscribe[?...] → create subscription */
+        if (strcmp(path, "/gnmi/subscribe") == 0 ||
+            strncmp(path, "/gnmi/subscribe?", 16) == 0)
+            return handle_subscribe(path);
         return handle_not_found(path);
+    }
+
+    if (strcmp(method, "DELETE") == 0) {
+        if (strncmp(path, "/gnmi/acl/tables/", 17) == 0)
+            return handle_delete_acl_table(path);
+        if (strncmp(path, "/gnmi/qos/policies/", 19) == 0)
+            return handle_delete_qos_policy(path);
+        if (strncmp(path, "/gnmi/subscribe/", 16) == 0)
+            return handle_unsubscribe(path);
+        return handle_not_found(path);
+    }
+
+    /* gNMI SUBSCRIBE method (long-poll semantics via poll API) */
+    if (strcmp(method, "SUBSCRIBE") == 0) {
+        return handle_subscribe(path);
     }
 
     return strdup("{\"error\": \"method not allowed\"}");

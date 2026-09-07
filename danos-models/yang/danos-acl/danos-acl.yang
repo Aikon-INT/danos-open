@@ -9,6 +9,10 @@ module danos-acl {
     "DANOS-Open ACL model.
      Copyright (c) 2026 DANOS-Open Project. Apache-2.0.";
 
+  revision 2026-09-06 {
+    description "v0.2: add action params (redirect/police/set-dscp), fields-mask.";
+  }
+
   revision 2026-09-05 {
     description "Initial version for v0.1.";
   }
@@ -21,6 +25,21 @@ module danos-acl {
       enum redirect { value 4; }
       enum police   { value 5; }
       enum set-dscp { value 6; }
+    }
+  }
+
+  typedef acl-field {
+    type enumeration {
+      enum ether-type  { value 0; }
+      enum src-mac     { value 1; }
+      enum dst-mac     { value 2; }
+      enum vlan-id     { value 3; }
+      enum src-ip      { value 4; }
+      enum dst-ip      { value 5; }
+      enum l4-proto    { value 6; }
+      enum l4-src-port { value 7; }
+      enum l4-dst-port { value 8; }
+      enum dscp        { value 9; }
     }
   }
 
@@ -38,7 +57,15 @@ module danos-acl {
         leaf priority { type uint32; }
         leaf action { type acl-action; }
 
+        /* Action parameters (v0.2) */
+        leaf redirect-ifindex { type dt:ifindex; }
+        leaf police-rate-kbps { type uint32; }
+        leaf set-dscp-value   { type uint8 { range "0..63"; } }
+
         container match {
+          /* Bitmask of active match fields (v0.2) */
+          leaf-list fields { type acl-field; }
+
           leaf ether-type { type uint16; }
           leaf src-mac { type string; }
           leaf dst-mac { type string; }
