@@ -36,3 +36,8 @@ target_compile_options(v03_roundtrip_test PRIVATE -UNDEBUG)
 # standalone gNMI server for external-client interop (gnmic / grpc-go)
 add_executable(gnmi_demo_server gnmi_demo_server.c)
 target_link_libraries(gnmi_demo_server PRIVATE danos-mgmt danos-core danos-dpa pthread)
+
+# V-group live test: run on a machine with a real VPP (see Interop DoD)
+add_executable(vpp_live_test vpp_live_test.c)
+target_link_libraries(vpp_live_test PRIVATE danos-vpp danos-core danos-dpa pthread)
+target_compile_options(vpp_live_test PRIVATE -UNDEBUG)

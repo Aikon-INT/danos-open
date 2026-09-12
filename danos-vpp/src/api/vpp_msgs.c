@@ -264,3 +264,84 @@ danos_status_t vpp_msg_control_ping(void)
     /* control_ping: { client_index; context; } — no body fields */
     return transact_named("control_ping", NULL, 0);
 }
+
+/* =========================================================================
+ * CoPP policer (v0.4)
+ *
+ * policer_add_del body (after client_index+context):
+ *   bool is_add; string name[64]; u32 cir; u32 eir; u64 cb; u64 eb;
+ *   u8 rate_type; u8 round_type; u8 type; bool color_aware;
+ *   action {u8 type; u8 dscp;} x3
+ * DPA maps: pir==0 -> 1R2C, else 2R3C RFC2698; rates in KBPS.
+ */
+#define SSE2_QOS_RATE_API_KBPS   0
+#define SSE2_QOS_ROUND_API_TO_CLOSEST 0
+#define SSE2_QOS_POLICER_TYPE_API_1R2C 0
+#define SSE2_QOS_POLICER_TYPE_API_2R3C_RFC_2698 2
+#define SSE2_QOS_ACTION_API_DROP 0
+#define SSE2_QOS_ACTION_API_TRANSMIT 1
+#define SSE2_QOS_ACTION_API_MARK_AND_TRANSMIT 2
+
+static void encode_policer_action(vpp_buf_t *b, uint8_t action, uint8_t dscp)
+{
+    vpp_buf_put_u8(b, action);
+    vpp_buf_put_u8(b, dscp);
+}
+
+int vpp_encode_policer_add_del(uint8_t is_add, const char *name,
+                               uint64_t cir_kbps, uint64_t eir_kbps,
+                               uint64_t cb_bytes, uint64_t eb_bytes,
+                               uint8_t conform_action, uint8_t conform_dscp,
+                               uint8_t exceed_action, uint8_t exceed_dscp,
+                               uint8_t violate_action, uint8_t violate_dscp,
+                               uint8_t *out, uint32_t out_size)
+{
+    if (!name || !name[0]) return -1;
+    vpp_buf_t b;
+    vpp_buf_init(&b, 128);
+    vpp_buf_put_u8(&b, is_add);
+    vpp_buf_put_string(&b, name);
+    vpp_buf_put_u32(&b, (uint32_t)cir_kbps);
+    vpp_buf_put_u32(&b, (uint32_t)eir_kbps);
+    vpp_buf_put_u64(&b, cb_bytes);
+    vpp_buf_put_u64(&b, eb_bytes);
+    vpp_buf_put_u8(&b, SSE2_QOS_RATE_API_KBPS);
+    vpp_buf_put_u8(&b, SSE2_QOS_ROUND_API_TO_CLOSEST);
+    vpp_buf_put_u8(&b, eir_kbps > 0 ? SSE2_QOS_POLICER_TYPE_API_2R3C_RFC_2698
+                                    : SSE2_QOS_POLICER_TYPE_API_1R2C);
+    vpp_buf_put_u8(&b, 0);  /* color_aware */
+    encode_policer_action(&b, conform_action, conform_dscp);
+    encode_policer_action(&b, exceed_action, exceed_dscp);
+    encode_policer_action(&b, violate_action, violate_dscp);
+
+    int n = -1;
+    if (b.len <= out_size) {
+        memcpy(out, b.data, b.len);
+        n = (int)b.len;
+    }
+    vpp_buf_free(&b);
+    return n;
+}
+
+danos_status_t vpp_msg_policer_add_del(bool is_add, const char *name,
+                                       const danos_qos_policy_t *p)
+{
+    if (!p) return DANOS_ERR_INVALID_ARG;
+    /* bps -> kbps (VPP rate_type=KBPS); round up */
+    uint64_t cir_kbps = (p->cir_bps + 999) / 1000;
+    uint64_t eir_kbps = (p->pir_bps + 999) / 1000;
+    uint8_t body[128];
+    int n = vpp_encode_policer_add_del(is_add ? 1 : 0, name,
+                                       cir_kbps, eir_kbps,
+                                       p->cb_bytes, p->pb_bytes,
+                                       SSE2_QOS_ACTION_API_MARK_AND_TRANSMIT,
+                                       p->conform_dscp,
+                                       eir_kbps ? SSE2_QOS_ACTION_API_MARK_AND_TRANSMIT
+                                                : SSE2_QOS_ACTION_API_TRANSMIT,
+                                       p->exceed_dscp,
+                                       SSE2_QOS_ACTION_API_DROP,
+                                       p->violate_dscp,
+                                       body, sizeof(body));
+    if (n < 0) return DANOS_ERR_INVALID_ARG;
+    return transact_named("policer_add_del", body, (uint32_t)n);
+}

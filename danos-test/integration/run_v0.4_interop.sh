@@ -94,5 +94,43 @@ else
     fail "I5: gnmic subscribe STREAM push"
 fi
 
+# --- I9: TLS front-end (socat OPENSSL terminates TLS, server stays h2c) ---
+if command -v socat >/dev/null && command -v openssl >/dev/null; then
+    TLSDIR=$(mktemp -d)
+    TLSPORT=$((PORT + 1))
+    openssl req -x509 -newkey rsa:2048 -keyout "$TLSDIR/key.pem"             -out "$TLSDIR/cert.pem" -days 30 -nodes             -subj "/CN=danos-gnmi" >/dev/null 2>&1
+    socat OPENSSL-LISTEN:$TLSPORT,fork,reuseaddr,cert=$TLSDIR/cert.pem,key=$TLSDIR/key.pem,verify=0           TCP:127.0.0.1:$PORT 2>/dev/null &
+    SOCAT_PID=$!
+    sleep 1
+    if "$GNMIC" -a 127.0.0.1:$TLSPORT --skip-verify capabilities 2>&1 | grep -q "DANOS-Open DPA"; then
+        pass "I9: gnmic over TLS (socat front-end) -> h2c server"
+    else
+        fail "I9: gnmic over TLS"
+    fi
+    kill $SOCAT_PID 2>/dev/null
+    rm -rf "$TLSDIR"
+else
+    echo "[SKIP] I9: socat/openssl not installed"
+fi
+
+# --- V-group: real VPP (opt-in; requires a reachable VPP) -----------------
+if [ "${1:-}" = "--with-vpp" ]; then
+    VPP_SOCK="${VPP_API_SOCK:-/run/vpp/api.sock}"
+    if [ ! -S "$VPP_SOCK" ]; then
+        echo -e "${RED}[SKIP]${NC} V1-V5: no VPP api socket at $VPP_SOCK"
+        echo "       Start VPP first (container: docker run --privileged -v /run/vpp ...)"
+        echo "       or set VPP_API_SOCK. See danos-docs/interop/v0.4_interop_dod.md"
+    else
+        export VPP_API_SOCK="$VPP_SOCK"
+        if "$BUILD_DIR/danos-test/vpp_live_test" > "$OUT" 2>&1; then
+            pass "V1/V2/V4: handshake + control_ping + set_flags against real VPP"
+            grep -E "^V" "$OUT" | sed 's/^/      /'
+        else
+            fail "V-group: vpp_live_test (see $OUT)"
+            cat "$OUT"
+        fi
+    fi
+fi
+
 echo "=== result: $([ $FAILED -eq 0 ] && echo ALL PASS || echo FAILURES) ==="
 exit $FAILED

@@ -535,6 +535,91 @@ static int test_get_large_flow_control(void)
     return 0;
 }
 
+/* ---- v0.4 I8: 8 concurrent RPCs on one connection ------------------------ */
+
+static int test_concurrent_streams(void)
+{
+    /* Open 8 streams, send all requests, then read interleaved replies.
+     * The server parks unmatched frames, so single-threaded sequential
+     * server handling must still satisfy all 8 clients. */
+    enum { N = 8 };
+    uint32_t streams[N];
+    uint8_t hb[128];
+
+    for (int i = 0; i < N; i++) {
+        streams[i] = 101 + 2 * i;
+        size_t hl = 0;
+        int k;
+        k = hpack_encode_literal(hb + hl, sizeof(hb) - hl, ":method", "POST");
+        hl += k;
+        k = hpack_encode_literal(hb + hl, sizeof(hb) - hl, ":scheme", "http");
+        hl += k;
+        k = hpack_encode_literal(hb + hl, sizeof(hb) - hl,
+                                 ":path", "/gnmi.gNMI/Capabilities");
+        hl += k;
+        k = hpack_encode_literal(hb + hl, sizeof(hb) - hl,
+                                 "content-type", "application/grpc");
+        hl += k;
+        assert(write_frame_c(conn_fd, 1, 0x4, streams[i], hb, (uint32_t)hl) == 0);
+        /* empty gRPC message + END_STREAM */
+        uint8_t ghdr[5] = { 0, 0, 0, 0, 0 };
+        assert(write_frame_c(conn_fd, 0, 0, streams[i], ghdr, 5) == 0);
+        assert(write_frame_c(conn_fd, 0, 0x1, streams[i], NULL, 0) == 0);
+    }
+
+    /* read 8 responses; each is HEADERS + DATA + trailers on some stream */
+    int done[N] = {0};
+    int completed = 0;
+    uint8_t acc[32768];
+    size_t acc_len = 0;
+    bool have_hdr[512] = {false};
+
+    while (completed < N) {
+        uint8_t fh[9];
+        if (read_full_c(conn_fd, fh, 9) < 0) return 1;
+        uint32_t flen = ((uint32_t)fh[0] << 16) | ((uint32_t)fh[1] << 8) | fh[2];
+        uint8_t ftype = fh[3], fflags = fh[4];
+        uint32_t fstream = ((uint32_t)fh[5] << 24) | ((uint32_t)fh[6] << 16) |
+                           ((uint32_t)fh[7] << 8) | fh[8];
+        uint8_t frame[16384];
+        if (flen > sizeof(frame) || (flen && read_full_c(conn_fd, frame, flen) < 0))
+            return 1;
+
+        if (ftype == 4) { if (!(fflags & 1)) write_frame_c(conn_fd, 4, 1, 0, NULL, 0); continue; }
+        if (ftype == 6) continue;
+        if (ftype == 8) continue;
+
+        if (ftype == 1) {  /* HEADERS or trailers */
+            client_hdrs_t h;
+            memset(&h, 0, sizeof(h));
+            assert(hpack_decode(&cli_dyn, frame, flen, cli_hdr_cb, &h));
+            if (fflags & 0x1) {   /* trailers: stream done */
+                for (int i = 0; i < N; i++) {
+                    if (streams[i] == fstream) {
+                        assert(!done[i]);
+                        done[i] = 1;
+                        completed++;
+                    }
+                }
+            } else {
+                have_hdr[fstream % 512] = true;
+            }
+            continue;
+        }
+        if (ftype == 0) {  /* DATA: CapabilitiesResponse (protobuf, no gRPC
+                            * correlation needed beyond count) */
+            memcpy(acc + acc_len, frame, flen);
+            acc_len += flen;
+            if (acc_len > sizeof(acc) - 16384) acc_len = 0;  /* reset guard */
+            continue;
+        }
+    }
+    assert(completed == N);
+    for (int i = 0; i < N; i++) assert(have_hdr[streams[i] % 512]);
+    printf("[PASS] test_concurrent_streams (8 parallel RPCs, one connection)\n");
+    return 0;
+}
+
 int main(void)
 {
     int failed = 0;
@@ -558,6 +643,7 @@ int main(void)
     if (test_unknown_method() != 0) failed++;
     if (test_subscribe_once() != 0) failed++;
     if (test_get_large_flow_control() != 0) failed++;
+    if (test_concurrent_streams() != 0) failed++;
 
     danos_gnmi_grpc_stop(&g_srv);
     close(conn_fd);

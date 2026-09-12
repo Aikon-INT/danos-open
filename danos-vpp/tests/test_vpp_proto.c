@@ -118,7 +118,20 @@ static int test_wire_layouts(void)
     assert(b[7] == 0xaa);                /* mac[0] after hdr */
     assert(b[13] == 1);                  /* af = IP6 */
 
-    printf("[PASS] test_wire_layouts: vl_api struct encoding\n");
+    /* policer_add_del (CoPP): is_add(1) + name(u8len+5) + cir(4) + eir(4)
+     * + cb(8) + eb(8) + rate(1) + round(1) + type(1) + color(1) + 3*action(2) */
+    uint8_t pb[128];
+    n = vpp_encode_policer_add_del(1, "cop10", 1000000, 2000000, 16000, 32000,
+                                   2, 46, 1, 0, 0, 0, pb, sizeof(pb));
+    assert(n == 1 + 1 + 5 + 4 + 4 + 8 + 8 + 1 + 1 + 1 + 1 + 6);
+    assert(pb[0] == 1);                       /* is_add */
+    assert(pb[1] == 5);                       /* name len */
+    assert(memcmp(pb + 2, "cop10", 5) == 0);
+    /* cir = 1000000 KBPS big-endian at offset 7 (after is_add+len+name) */
+    assert(pb[7] == 0x00 && pb[8] == 0x0F && pb[9] == 0x42 && pb[10] == 0x40);
+    /* type = 2R3C RFC2698 (eir > 0): offset 7+4+4+8+8+2 = 33 */
+    assert(pb[33] == 2);
+    printf("[PASS] test_wire_layouts: vl_api struct encoding + policer\n");
     return 0;
 }
 

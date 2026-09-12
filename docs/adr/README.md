@@ -20,3 +20,4 @@ Each ADR follows:
 - **Decision**: What was decided
 - **Consequences**: Positive/negative implications
 - **Alternatives**: What was considered and rejected
+- 0006-bfd-delegate-to-frr-bfdd.md

@@ -81,6 +81,17 @@ int vpp_encode_ip_neighbor_add_del(uint8_t is_add, uint32_t sw_if_index,
                                    const uint8_t mac[6], const vpp_ip_t *ip,
                                    uint8_t *out, uint32_t out_size);
 
+/* policer_add_del (plugins/policer/policer.api v3.0.0) — CoPP (P2) */
+int vpp_encode_policer_add_del(uint8_t is_add, const char *name,
+                               uint64_t cir_kbps, uint64_t eir_kbps,
+                               uint64_t cb_bytes, uint64_t eb_bytes,
+                               uint8_t conform_action, uint8_t conform_dscp,
+                               uint8_t exceed_action, uint8_t exceed_dscp,
+                               uint8_t violate_action, uint8_t violate_dscp,
+                               uint8_t *out, uint32_t out_size);
+danos_status_t vpp_msg_policer_add_del(bool is_add, const char *name,
+                                       const danos_qos_policy_t *p);
+
 /* --- request/reply transactions --------------------------------------- */
 
 danos_status_t vpp_msg_sw_interface_set_flags(uint32_t sw_if_index, bool admin_up);

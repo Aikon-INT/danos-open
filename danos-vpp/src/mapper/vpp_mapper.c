@@ -190,6 +190,9 @@ danos_status_t vpp_map_qos_policy_create(vpp_api_ctx_t *ctx, const danos_qos_pol
     }
 
     g_stats.policer_add++;
+    if (danos_vpp_api_is_connected() && !danos_vpp_api_is_mock()) {
+        return vpp_msg_policer_add_del(true, p->name, p);
+    }
     return DANOS_OK;
 }
 
@@ -198,5 +201,15 @@ danos_status_t vpp_map_qos_policy_delete(vpp_api_ctx_t *ctx, danos_obj_id_t poli
     (void)ctx;
     if (policy_id == 0) return DANOS_ERR_INVALID_ARG;
     g_stats.policer_del++;
+    if (danos_vpp_api_is_connected() && !danos_vpp_api_is_mock()) {
+        /* delete needs the policer name; look it up by policy_id is not
+         * possible from the id alone, so callers delete by name via
+         * create=false. Fall back to a numeric name. */
+        char pname[64];
+        snprintf(pname, sizeof(pname), "cop-%lu", (unsigned long)policy_id);
+        danos_qos_policy_t zero;
+        memset(&zero, 0, sizeof(zero));
+        return vpp_msg_policer_add_del(false, pname, &zero);
+    }
     return DANOS_OK;
 }
