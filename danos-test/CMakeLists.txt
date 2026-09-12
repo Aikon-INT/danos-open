@@ -27,3 +27,8 @@ add_executable(sw_fwd_baseline_test perf/sw_fwd_baseline_test.c)
 target_link_libraries(sw_fwd_baseline_test PRIVATE danos-core danos-dpa pthread)
 target_compile_options(sw_fwd_baseline_test PRIVATE -UNDEBUG)
 add_test(NAME sw_fwd_baseline COMMAND sw_fwd_baseline_test)
+
+# v0.3 vertical roundtrip: gNMI Set -> persistence -> restart recovery
+add_executable(v03_roundtrip_test v03_roundtrip_test.c)
+target_link_libraries(v03_roundtrip_test PRIVATE danos-mgmt danos-core danos-dpa pthread)
+target_compile_options(v03_roundtrip_test PRIVATE -UNDEBUG)
