@@ -41,3 +41,9 @@ target_link_libraries(gnmi_demo_server PRIVATE danos-mgmt danos-core danos-dpa p
 add_executable(vpp_live_test vpp_live_test.c)
 target_link_libraries(vpp_live_test PRIVATE danos-vpp danos-core danos-dpa pthread)
 target_compile_options(vpp_live_test PRIVATE -UNDEBUG)
+
+# v0.5 performance baseline: transaction scale + WAL recovery
+add_executable(txn_scale_test perf/txn_scale_test.c)
+target_link_libraries(txn_scale_test PRIVATE danos-core danos-dpa pthread)
+target_compile_options(txn_scale_test PRIVATE -UNDEBUG)
+add_test(NAME txn_scale COMMAND txn_scale_test)

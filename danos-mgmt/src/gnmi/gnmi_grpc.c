@@ -7,6 +7,7 @@
 
 #include "gnmi_grpc.h"
 #include "gnmi_proto.h"
+#include "model_paths.h"
 #include "hpack.h"
 #include "gnmi.h"          /* existing DPA-backed set helpers reuse */
 #include <danos/dpa.h>
@@ -674,10 +675,52 @@ int gnmi_handle_get(danos_state_store_t *store,
 
     for (uint32_t i = 0; i < gr.path_count; i++) {
         const gnmi_path_t *p = &gr.paths[i];
-        /* expected shapes: interfaces/interface[name=X], interfaces,
-         * routes, vrfs, vrf instances */
+        /* model registry: unknown paths are an error, not a silent skip */
+        gnmi_model_binding_t mb;
+        if (gnmi_model_resolve(p, &mb) != DANOS_OK) return -(int)DANOS_ERR_NOT_FOUND;
         if (p->elem_count == 0) continue;
         const char *top = p->elems[0].name;
+
+        if (mb.kind == GNMI_MODEL_LEAF) {
+            /* single field of a single object */
+            uint64_t key = 0;
+            danos_iface_t ifc;
+            danos_vrf_t vrf;
+            const void *obj = NULL; size_t osz = 0;
+            if (mb.obj_type == DANOS_OBJ_IFACE) {
+                danos_iface_t all[1024];
+                uint32_t cnt = collect_objects(ss, DANOS_OBJ_IFACE, all,
+                                               sizeof(all[0]), 1024);
+                const char *want = p->elems[1].key_value;
+                for (uint32_t j = 0; j < cnt; j++) {
+                    if (strcmp(all[j].name, want) == 0) {
+                        ifc = all[j]; obj = &ifc; osz = sizeof(ifc);
+                        break;
+                    }
+                }
+            } else if (mb.obj_type == DANOS_OBJ_VRF) {
+                danos_vrf_t all[64];
+                uint32_t cnt = collect_objects(ss, DANOS_OBJ_VRF, all,
+                                               sizeof(all[0]), 64);
+                uint64_t want = strtoul(p->elems[1].key_value, NULL, 10);
+                for (uint32_t j = 0; j < cnt; j++) {
+                    if (all[j].vrf_id == want) {
+                        vrf = all[j]; obj = &vrf; osz = sizeof(vrf);
+                        break;
+                    }
+                }
+            }
+            if (!obj) return DANOS_ERR_NOT_FOUND;
+            gnmi_typed_value_t lv;
+            if (gnmi_model_read_leaf(mb.obj_type, key, mb.field,
+                                     obj, osz, &lv) != DANOS_OK)
+                return DANOS_ERR_INVALID_ARG;
+            size_t us = gnmi_pb_begin_nested(&w, 4);
+            gnmi_encode_path(&w, 1, p);
+            gnmi_encode_typed_value(&w, 3, &lv);
+            gnmi_pb_end_nested(&w, us);
+            continue;
+        }
 
         if (strcmp(top, "interfaces") == 0) {
             danos_iface_t ifaces[1024];
@@ -772,12 +815,52 @@ int gnmi_handle_set(danos_state_store_t *store,
     /* update: interfaces/interface[name=X] val=json {"mtu":N,...} */
     for (uint32_t i = 0; i < sr.update_count && status == DANOS_OK; i++) {
         const gnmi_update_t *u = &sr.updates[i];
-        if (u->path.elem_count < 2 ||
+        gnmi_model_binding_t mb;
+        bool model_leaf = (gnmi_model_resolve(&u->path, &mb) == DANOS_OK &&
+                           mb.kind == GNMI_MODEL_LEAF);
+        if (!model_leaf && (u->path.elem_count < 2 ||
             strcmp(u->path.elems[0].name, "interfaces") != 0 ||
             strcmp(u->path.elems[1].name, "interface") != 0 ||
-            !u->path.elems[1].has_key) {
+            !u->path.elems[1].has_key)) {
             status = DANOS_ERR_INVALID_ARG;
             break;
+        }
+        if (model_leaf) {
+            /* leaf update: read-modify-write the named object */
+            if (mb.field == GNMI_FIELD_LINK_UP || !mb.config_tree) {
+                /* state tree is read-only */
+                if (!mb.config_tree) { status = DANOS_ERR_INVALID_ARG; break; }
+            }
+            danos_iface_t all[1024];
+            uint32_t cnt = collect_objects(ss, DANOS_OBJ_IFACE, all,
+                                           sizeof(all[0]), 1024);
+            const char *want = u->path.elems[1].key_value;
+            danos_iface_t target;
+            bool found = false;
+            for (uint32_t j = 0; j < cnt; j++) {
+                if (strcmp(all[j].name, want) == 0) {
+                    target = all[j]; found = true; break;
+                }
+            }
+            if (!found) { status = DANOS_ERR_NOT_FOUND; break; }
+            danos_status_t ast = gnmi_model_apply_leaf(DANOS_OBJ_IFACE,
+                                                       mb.field,
+                                                       &target, sizeof(target),
+                                                       &u->val);
+            if (ast != DANOS_OK) { status = ast; break; }
+            if (ss && ss->desired) {
+                ast = danos_object_update(ss->desired, DANOS_OBJ_IFACE,
+                                          target.ifindex, &target,
+                                          sizeof(target));
+            } else {
+                ast = danos_object_update(g_default_store, DANOS_OBJ_IFACE,
+                                          target.ifindex, &target,
+                                          sizeof(target));
+            }
+            if (ast != DANOS_OK) { status = ast; break; }
+            out.result_paths[out.result_count++] = u->path;
+            out.ops[out.result_count - 1] = GNMI_OP_UPDATE;
+            continue;
         }
         const char *ifname = u->path.elems[1].key_value;
         danos_iface_t iface;
@@ -1056,26 +1139,48 @@ int danos_gnmi_grpc_serve_fd(int fd)
             rc = -1;
             break;
         } else {
-            /* unknown method: grpc-status 12 (unimplemented) */
+            /* unknown method: grpc-status 12 (unimplemented);
+             * trailers-only responses must still carry :status */
             headers_free(&h);
-            uint8_t tbuf[32];
-            int k = hpack_encode_literal(tbuf, sizeof(tbuf),
-                                         "grpc-status", "12");
+            uint8_t tbuf[96];
+            size_t tlen = 0;
+            int k = hpack_encode_literal(tbuf, sizeof(tbuf) - tlen,
+                                         ":status", "200");
+            tlen += k;
+            k = hpack_encode_literal(tbuf + tlen, sizeof(tbuf) - tlen,
+                                     "content-type", "application/grpc");
+            tlen += k;
+            k = hpack_encode_literal(tbuf + tlen, sizeof(tbuf) - tlen,
+                                     "grpc-status", "12");
+            tlen += k;
             write_frame(fd, H2_F_HEADERS,
                         H2_FLAG_END_STREAM | H2_FLAG_END_HEADERS,
-                        fstream, tbuf, (size_t)k);
+                        fstream, tbuf, tlen);
             continue;
         }
 
         if (rlen >= 0) {
             send_grpc_response(&c, fstream, resp, (size_t)rlen);
         } else {
-            uint8_t tbuf[48];
-            int k = hpack_encode_literal(tbuf, sizeof(tbuf),
-                                         "grpc-status", "2");
+            /* map DPA status -> gRPC status: NOT_FOUND(2) -> 5,
+             * INVALID_ARG(1) -> 3, everything else -> 2 (Unknown) */
+            const char *gs = "2";
+            if (rlen == -(int)DANOS_ERR_NOT_FOUND) gs = "5";
+            else if (rlen == -(int)DANOS_ERR_INVALID_ARG) gs = "3";
+            uint8_t tbuf[128];
+            size_t tlen = 0;
+            int k = hpack_encode_literal(tbuf, sizeof(tbuf) - tlen,
+                                         ":status", "200");
+            tlen += k;
+            k = hpack_encode_literal(tbuf + tlen, sizeof(tbuf) - tlen,
+                                     "content-type", "application/grpc");
+            tlen += k;
+            k = hpack_encode_literal(tbuf + tlen, sizeof(tbuf) - tlen,
+                                     "grpc-status", gs);
+            tlen += k;
             write_frame(fd, H2_F_HEADERS,
                         H2_FLAG_END_STREAM | H2_FLAG_END_HEADERS,
-                        fstream, tbuf, (size_t)k);
+                        fstream, tbuf, tlen);
         }
         headers_free(&h);
     }

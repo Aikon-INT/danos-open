@@ -6,6 +6,7 @@ add_library(danos-mgmt STATIC
   src/gnmi/gnmi_proto.c
   src/gnmi/hpack.c
   src/gnmi/hpack_huffman.c
+  src/gnmi/model_paths.c
   src/gnmi/gnmi_grpc.c
   src/netconf/netconf.c
 )

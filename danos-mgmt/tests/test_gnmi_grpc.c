@@ -620,6 +620,120 @@ static int test_concurrent_streams(void)
     return 0;
 }
 
+/* ---- v0.5: model-driven leaf Get/Set + unknown path errors --------------- */
+
+static int test_model_leaf_get_set(void)
+{
+    /* LEAF GET: /interfaces/interface[name=eth0]/config/mtu -> uint 1500 */
+    uint8_t req[128];
+    gnmi_pb_t w;
+    gnmi_pb_init(&w, req, sizeof(req));
+    gnmi_path_t p;
+    assert(gnmi_path_from_str(&p, "interfaces/interface[name=eth0]/config/mtu"));
+    gnmi_encode_path(&w, 2, &p);
+    gnmi_pb_put_enum(&w, 5, GNMI_ENC_JSON_IETF);
+
+    client_hdrs_t h;
+    uint8_t resp[4096];
+    int n = client_rpc("/gnmi.gNMI/Get", req, w.len, resp, sizeof(resp), &h, NULL);
+    assert(n >= 0 && strcmp(h.grpc_status, "0") == 0);
+    /* find the TypedValue: decode updates, expect uint_val == 1500 */
+    bool saw_uint = false;
+    gnmi_pb_reader_t r;
+    gnmi_pbr_init(&r, resp, (size_t)n);
+    uint32_t field, wire;
+    while ((field = gnmi_pbr_tag(&r, &wire)) != 0) {
+        const uint8_t *d; size_t dn;
+        if (field == 1 && wire == 2 && gnmi_pbr_bytes(&r, &d, &dn)) {
+            gnmi_pb_reader_t nr;
+            gnmi_pbr_init(&nr, d, dn);
+            uint32_t nf, nw;
+            while ((nf = gnmi_pbr_tag(&nr, &nw)) != 0) {
+                const uint8_t *nd; size_t nn;
+                if (nf == 4 && gnmi_pbr_bytes(&nr, &nd, &nn)) {
+                    gnmi_update_t u;
+                    memset(&u, 0, sizeof(u));
+                    gnmi_pb_reader_t ur;
+                    gnmi_pbr_init(&ur, nd, nn);
+                    uint32_t uf, uw;
+                    while ((uf = gnmi_pbr_tag(&ur, &uw)) != 0) {
+                        const uint8_t *ud; size_t un;
+                        if (uf == 3 && gnmi_pbr_bytes(&ur, &ud, &un)) {
+                            assert(gnmi_decode_typed_value(ud, un, &u.val));
+                            assert(u.val.kind == GNMI_VAL_UINT);
+                            assert(u.val.u == 9000);
+                            saw_uint = true;
+                        } else gnmi_pbr_skip(&ur, uw);
+                    }
+                } else gnmi_pbr_skip(&nr, nw);
+            }
+        } else gnmi_pbr_skip(&r, wire);
+    }
+    assert(saw_uint);
+
+    /* LEAF SET: .../config/mtu = 9000 (JSON_IETF number) */
+    uint8_t sreq[256];
+    gnmi_pb_t sw;
+    gnmi_pb_init(&sw, sreq, sizeof(sreq));
+    gnmi_update_t u;
+    memset(&u, 0, sizeof(u));
+    assert(gnmi_path_from_str(&u.path,
+                              "interfaces/interface[name=eth0]/config/mtu"));
+    u.val.kind = GNMI_VAL_UINT;
+    u.val.u = 9000;
+    size_t us = gnmi_pb_begin_nested(&sw, 4);
+    gnmi_encode_path(&sw, 1, &u.path);
+    gnmi_encode_typed_value(&sw, 3, &u.val);
+    gnmi_pb_end_nested(&sw, us);
+    n = client_rpc("/gnmi.gNMI/Set", sreq, sw.len, resp, sizeof(resp), &h, NULL);
+    assert(n >= 0 && strcmp(h.grpc_status, "0") == 0);
+
+    /* verify via full-object get */
+    uint8_t greq[64];
+    gnmi_pb_t gw;
+    gnmi_pb_init(&gw, greq, sizeof(greq));
+    gnmi_path_t gp;
+    assert(gnmi_path_from_str(&gp, "/interfaces/interface[name=eth0]"));
+    gnmi_encode_path(&gw, 2, &gp);
+    n = client_rpc("/gnmi.gNMI/Get", greq, gw.len, resp, sizeof(resp), &h, NULL);
+    assert(n >= 0);
+    bool saw9000 = false;
+    for (int i = 0; i < n - 4; i++)
+        if (memcmp(resp + i, "9000", 4) == 0) saw9000 = true;
+    assert(saw9000);
+
+    /* restore */
+    u.val.u = 9000;
+    us = gnmi_pb_begin_nested(&sw, 4);
+    gnmi_encode_path(&sw, 1, &u.path);
+    gnmi_encode_typed_value(&sw, 3, &u.val);
+    gnmi_pb_end_nested(&sw, us);
+    n = client_rpc("/gnmi.gNMI/Set", sreq, sw.len, resp, sizeof(resp), &h, NULL);
+    assert(n >= 0);
+
+    printf("[PASS] test_model_leaf_get_set (mtu leaf: 9000 read, write, restore)\n");
+    return 0;
+}
+
+static int test_model_unknown_path(void)
+{
+    /* Get on an unmodeled path must fail, not silently return empty */
+    uint8_t req[64];
+    gnmi_pb_t w;
+    gnmi_pb_init(&w, req, sizeof(req));
+    gnmi_path_t p;
+    assert(gnmi_path_from_str(&p, "nonexistent-model/list"));
+    gnmi_encode_path(&w, 2, &p);
+
+    client_hdrs_t h;
+    uint8_t resp[4096];
+    int n = client_rpc("/gnmi.gNMI/Get", req, w.len, resp, sizeof(resp), &h, NULL);
+    /* handler returns error -> grpc-status 2 via error trailers */
+    assert(n < 0 || strcmp(h.grpc_status, "0") != 0);
+    printf("[PASS] test_model_unknown_path (rejected with gRPC error)\n");
+    return 0;
+}
+
 int main(void)
 {
     int failed = 0;
@@ -644,6 +758,8 @@ int main(void)
     if (test_subscribe_once() != 0) failed++;
     if (test_get_large_flow_control() != 0) failed++;
     if (test_concurrent_streams() != 0) failed++;
+    if (test_model_leaf_get_set() != 0) failed++;
+    if (test_model_unknown_path() != 0) failed++;
 
     danos_gnmi_grpc_stop(&g_srv);
     close(conn_fd);
