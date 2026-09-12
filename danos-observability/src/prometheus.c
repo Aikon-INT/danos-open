@@ -24,7 +24,11 @@ typedef struct {
     uint64_t hcount;
     double hsum;
     bool used;
+    /* external stat binding (v0.6) */
+    bool stat_bound;
+    char stat_name[PROM_NAME_LEN];
 } prom_metric_t;
+
 
 static prom_metric_t g_metrics[PROM_MAX_METRICS];
 static bool g_initialized = false;
@@ -47,6 +51,39 @@ static prom_metric_t *find_free(void)
     }
     return NULL;
 }
+
+
+static danos_stat_provider_fn g_provider = NULL;
+
+void danos_prom_set_stat_provider(danos_stat_provider_fn fn)
+{
+    g_provider = fn;
+}
+
+int danos_prom_bind_stat(const char *metric, const char *stat_name)
+{
+    prom_metric_t *m = find_metric(metric);
+    if (!m || !stat_name || !stat_name[0]) return -1;
+    snprintf(m->stat_name, sizeof(m->stat_name), "%s", stat_name);
+    m->stat_bound = true;
+    return 0;
+}
+
+int danos_prom_refresh(void)
+{
+    if (!g_provider) return 0;
+    int n = 0;
+    for (int i = 0; i < PROM_MAX_METRICS; i++) {
+        if (!g_metrics[i].used || !g_metrics[i].stat_bound) continue;
+        uint64_t v = g_provider(g_metrics[i].stat_name);
+        if (v != 0 || g_metrics[i].value == 0.0) {
+            g_metrics[i].value = (double)v;
+        }
+        n++;
+    }
+    return n;
+}
+
 
 static const char *type_name(danos_metric_type_t t)
 {
@@ -173,6 +210,8 @@ int danos_prom_render(char *buf, int buf_size)
     if (!buf || buf_size <= 0) return 0;
     int offset = 0;
 
+    danos_prom_refresh();   /* pull bound metrics before exposition */
+
     for (int i = 0; i < PROM_MAX_METRICS; i++) {
         if (!g_metrics[i].used) continue;
         prom_metric_t *m = &g_metrics[i];
@@ -197,14 +236,3 @@ int danos_prom_render(char *buf, int buf_size)
     return offset;
 }
 
-/* HTTP server stubs (would use microhttpd or similar in production) */
-int danos_prom_start_server(uint16_t port)
-{
-    (void)port;
-    return 0;
-}
-
-void danos_prom_stop_server(void)
-{
-    /* no-op in stub */
-}

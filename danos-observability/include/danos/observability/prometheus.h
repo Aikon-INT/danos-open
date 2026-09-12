@@ -53,6 +53,27 @@ void danos_prom_stop_server(void);
 /* Initialize with default metrics (§22.3.1). */
 int danos_prom_init(void);
 
+/* ---- v0.6: stat providers + real HTTP server -------------------------- */
+
+/* A provider resolves an external counter by name (e.g. the VPP stat
+ * segment). Returns the counter value, 0 if unknown. */
+typedef uint64_t (*danos_stat_provider_fn)(const char *name);
+
+/* Register the (single) external stat provider. */
+void danos_prom_set_stat_provider(danos_stat_provider_fn fn);
+
+/* Bind a metric to an external counter; refreshed at render time via
+ * the registered provider. */
+int danos_prom_bind_stat(const char *metric, const char *stat_name);
+
+/* Refresh all bound metrics from the provider (called automatically at
+ * render). Returns the number of refreshed metrics. */
+int danos_prom_refresh(void);
+
+/* Serve GET /metrics over TCP (blocking accept loop in a detached
+ * thread). Returns 0 on success. */
+int danos_prom_start_server(uint16_t port);
+
 #ifdef __cplusplus
 }
 #endif

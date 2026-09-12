@@ -9,6 +9,7 @@
 
 static int tests_run = 0;
 static int tests_pass = 0;
+static int test_stat_binding(void);
 
 #define CHECK(cond, msg) do { \
     tests_run++; \
@@ -69,12 +70,42 @@ static void test_log(void)
     CHECK(1, "log functions executed without crash");
 }
 
+static int test_stat_binding(void);
+
 int main(void)
 {
     printf("=== DANOS Observability Test Suite ===\n\n");
     test_prometheus();
     test_log();
+    tests_run++;
+    if (test_stat_binding() == 0) tests_pass++;
     printf("\n=== Result: %d passed, %d failed, %d total ===\n",
            tests_pass, tests_run - tests_pass, tests_run);
     return (tests_pass == tests_run) ? 0 : 1;
+}
+
+/* ---- v0.6: stat provider binding ------------------------------------------ */
+#include <string.h>
+#include <stdint.h>
+#include <assert.h>
+
+static uint64_t fake_provider(const char *name)
+{
+    if (strcmp(name, "/sys/node/vectors") == 0) return 4242;
+    return 0;
+}
+
+static int test_stat_binding(void)
+{
+    if (danos_prom_register("test_bound_total", "t", DANOS_METRIC_COUNTER) != 0)
+        return -1;
+    danos_prom_set_stat_provider(fake_provider);
+    assert(danos_prom_bind_stat("test_bound_total", "/sys/node/vectors") == 0);
+    assert(danos_prom_refresh() == 1);
+
+    char buf[8192];
+    danos_prom_render(buf, sizeof(buf));
+    assert(strstr(buf, "test_bound_total 4242.000000"));
+    printf("[PASS] test_stat_binding: provider refresh at render\n");
+    return 0;
 }

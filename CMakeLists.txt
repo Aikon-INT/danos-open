@@ -48,6 +48,10 @@ add_subdirectory(danos-ha)
 add_subdirectory(danos-observability)
 add_subdirectory(danos-compat)
 
+if(DANOS_BUILD_MGMT AND DANOS_BUILD_VPP)
+  add_subdirectory(danos-mgrd)
+endif()
+
 if(DANOS_BUILD_TESTS)
   add_subdirectory(danos-test)
 endif()

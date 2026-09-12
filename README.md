@@ -55,6 +55,19 @@ Runs V1-V4 (VPP protocol conformance, gNMI gRPC roundtrip, persistence
 restart cycle, gNMI Set surviving a restart) and V5 (real FRR zebra
 reachability via the danos-frr-test image).
 
+## Running the System
+
+```bash
+cmake -B build && cmake --build build -j$(nproc)
+./build/danos-mgrd/danos-mgrd --seed --port 59200 --metrics-port 59201
+# another shell:
+gnmic -a 127.0.0.1:59200 --insecure get --path /interfaces
+curl http://127.0.0.1:59201/metrics
+# kill -9 and restart — config persists (WAL replay)
+```
+
+A systemd unit ships in `danos-mgrd/danos-mgrd.service`.
+
 ## Verified Interoperability
 
 Driven with [gnmic](https://github.com/openconfig/gnmic) v0.35
@@ -66,9 +79,13 @@ protobuf/HPACK/HTTP2/gRPC stack:
 | Capabilities / Get / Set / Subscribe (ONCE + STREAM push) | pass |
 | HPACK Huffman headers, flow control (79KB > default window), 8 concurrent streams | pass |
 | TLS channel (socat front-end) | pass |
+| Model-driven leaf paths (openconfig /config, /state) | pass |
 
 Reproduce: `bash danos-test/integration/run_v0.4_interop.sh`
 (see `danos-docs/interop/v0.4_interop_dod.md`).
+
+Release acceptance: `bash danos-test/integration/release_check.sh`
+(ctest + gnmic interop + mgrd boot/crash-recovery smoke).
 
 ## Architecture
 
@@ -99,6 +116,7 @@ See `v1.1/DANOS-Open_Architecture_Specification_v1.1.md` for full spec.
 | `danos-observability/` | Prometheus / structured logging / alerts | v0.2 |
 | (core) `persist` | WAL-backed durable config: boot replay + torn-record tolerance | v0.3 |
 | (mgmt) `model_paths` | YANG path registry: leaf-level gNMI Get/Set, gRPC NotFound/InvalidArgument errors | v0.5 |
+| `danos-mgrd` | system daemon: WAL boot + gNMI + Prometheus /metrics + crash recovery | v0.6 |
 | `danos-compat/` | OcNOS-like CLI & semantic compatibility layer | v0.3+ |
 | `danos-platform/` | Platform adaptation: x86 / ARM / generic | v0.3+ |
 | `danos-ovs/` | OVS-DPDK backend | v0.3+ |
