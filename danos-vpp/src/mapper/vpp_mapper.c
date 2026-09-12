@@ -8,6 +8,8 @@
  */
 
 #include "vpp_mapper.h"
+#include "../api/vpp_msgs.h"
+#include "../api/vpp_api.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -44,8 +46,11 @@ danos_status_t vpp_map_iface_create(vpp_api_ctx_t *ctx, const danos_iface_t *ifa
         return DANOS_ERR_INVALID_ARG;
     }
 
-    /* In production: call VPP binary API to create interface */
     g_stats.sw_interface_create++;
+    /* Real backend: bring the interface admin-up once created */
+    if (danos_vpp_api_is_connected() && !danos_vpp_api_is_mock()) {
+        return vpp_msg_sw_interface_set_flags(iface->ifindex, true);
+    }
     return DANOS_OK;
 }
 
@@ -69,6 +74,9 @@ danos_status_t vpp_map_vrf_create(vpp_api_ctx_t *ctx, const danos_vrf_t *vrf)
     if (!vrf) return DANOS_ERR_INVALID_ARG;
     if (vrf->vrf_id == 0) return DANOS_ERR_INVALID_ARG;  /* VRF 0 is default */
     g_stats.ip_table_create++;
+    if (danos_vpp_api_is_connected() && !danos_vpp_api_is_mock()) {
+        return vpp_msg_ip_table_add_del(vrf->vrf_id, false, NULL, true);
+    }
     return DANOS_OK;
 }
 

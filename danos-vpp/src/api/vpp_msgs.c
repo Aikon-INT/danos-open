@@ -1,0 +1,266 @@
+/*
+ * DANOS-Open VPP Backend: Typed Binary API Messages (v0.3)
+ */
+
+#include "vpp_msgs.h"
+#include "vpp_wire.h"
+#include "vpp_api.h"
+#include <string.h>
+
+/* fib_path_nh is a union sized by its largest member: address_union
+ * (u8[16] for ip6). Members at byte 0..15: address[16], via_label
+ * (u32 @0), obj_id (u32 @0), classify_table_index (u32 @0). */
+#define FIB_PATH_NH_SIZE 16
+/* fib_mpls_label { u8 is_uniform; u32 label; u8 ttl; u8 exp; } packed = 7 */
+#define FIB_MPLS_LABEL_SIZE 7
+#define FIB_PATH_MAX_LABELS 16
+
+/* fib_path fixed size (see vpp_msgs.h for layout) */
+#define FIB_PATH_SIZE (4 + 4 + 4 + 1 + 1 + 1 + 1 + 1 + \
+                       FIB_PATH_NH_SIZE + 1 + \
+                       FIB_PATH_MAX_LABELS * FIB_MPLS_LABEL_SIZE)
+
+/* fib_path_type_t */
+#define FIB_PATH_TYPE_API_NORMAL 0
+/* fib_path_nh_proto_t */
+#define FIB_PATH_NH_PROTO_API_IP4 0
+#define FIB_PATH_NH_PROTO_API_IP6 1
+
+static void encode_address(vpp_buf_t *b, const vpp_ip_t *a)
+{
+    /* address { u8 af; address_union un; } — union is 16 bytes,
+     * zero-padded for IPv4 */
+    uint8_t un[16] = {0};
+    uint8_t af;
+    uint32_t n;
+    if (a->is_ipv6) {
+        af = 1;  /* ADDRESS_IP6 */
+        n = 16;
+    } else {
+        af = 0;  /* ADDRESS_IP4 */
+        n = 4;
+    }
+    memcpy(un, a->addr, n);
+    vpp_buf_put_u8(b, af);
+    vpp_buf_put_bytes(b, un, 16);
+}
+
+static void encode_prefix(vpp_buf_t *b, const vpp_prefix_t *p)
+{
+    /* prefix { address address; u8 len; } */
+    encode_address(b, &p->addr);
+    vpp_buf_put_u8(b, p->len);
+}
+
+static void encode_fib_path(vpp_buf_t *b, uint32_t sw_if_index, uint32_t table_id,
+                            const vpp_ip_t *nh)
+{
+    uint8_t nhbuf[FIB_PATH_NH_SIZE] = {0};
+    if (nh) {
+        uint32_t n = nh->is_ipv6 ? 16 : 4;
+        memcpy(nhbuf, nh->addr, n);
+    }
+    vpp_buf_put_u32(b, sw_if_index);   /* sw_if_index */
+    vpp_buf_put_u32(b, table_id);      /* table_id */
+    vpp_buf_put_u32(b, 0);             /* rpf_id */
+    vpp_buf_put_u8(b, 1);              /* weight */
+    vpp_buf_put_u8(b, 0);              /* preference */
+    vpp_buf_put_u8(b, FIB_PATH_TYPE_API_NORMAL);  /* type */
+    vpp_buf_put_u8(b, 0);              /* flags */
+    vpp_buf_put_u8(b, nh && nh->is_ipv6 ? FIB_PATH_NH_PROTO_API_IP6
+                                        : FIB_PATH_NH_PROTO_API_IP4);
+    vpp_buf_put_bytes(b, nhbuf, FIB_PATH_NH_SIZE);
+    vpp_buf_put_u8(b, 0);              /* n_labels */
+    vpp_buf_t pad = {0};
+    (void)pad;
+    /* label_stack[16] zero-filled */
+    uint8_t zeros[FIB_PATH_MAX_LABELS * FIB_MPLS_LABEL_SIZE] = {0};
+    vpp_buf_put_bytes(b, zeros, sizeof(zeros));
+}
+
+/* =========================================================================
+ * Encoders (pure wire layout, testable without a socket)
+ * ========================================================================= */
+
+int vpp_encode_fib_path(uint8_t *out, uint32_t out_size,
+                        uint32_t sw_if_index, uint32_t table_id,
+                        const vpp_ip_t *nh)
+{
+    if (!out || out_size < FIB_PATH_SIZE) return -1;
+    vpp_buf_t b;
+    vpp_buf_init(&b, FIB_PATH_SIZE);
+    encode_fib_path(&b, sw_if_index, table_id, nh);
+    uint32_t n = b.len < out_size ? b.len : out_size;
+    memcpy(out, b.data, n);
+    vpp_buf_free(&b);
+    return (int)n;
+}
+
+int vpp_encode_ip_route_add_del(uint8_t is_add, uint32_t table_id,
+                                const vpp_prefix_t *prefix,
+                                uint32_t n_paths, const vpp_ip_t *nhs,
+                                const uint32_t *nh_ifs,
+                                uint8_t *out, uint32_t out_size)
+{
+    if (!prefix || !nhs || !nh_ifs || n_paths == 0 || n_paths > 64)
+        return -1;
+
+    vpp_buf_t b;
+    vpp_buf_init(&b, 128);
+    vpp_buf_put_u8(&b, is_add);         /* bool is_add */
+    vpp_buf_put_u8(&b, 0);              /* bool is_multipath */
+    /* ip_route */
+    vpp_buf_put_u32(&b, table_id);      /* table_id */
+    vpp_buf_put_u32(&b, 0);             /* stats_index */
+    encode_prefix(&b, prefix);
+    vpp_buf_put_u8(&b, (uint8_t)n_paths);
+    for (uint32_t i = 0; i < n_paths; i++)
+        encode_fib_path(&b, nh_ifs[i], table_id, &nhs[i]);
+
+    int n = -1;
+    if (b.len <= out_size) {
+        memcpy(out, b.data, b.len);
+        n = (int)b.len;
+    }
+    vpp_buf_free(&b);
+    return n;
+}
+
+int vpp_encode_ip_table_add_del(uint8_t is_add, uint32_t table_id,
+                                bool is_ip6, const char *name,
+                                uint8_t *out, uint32_t out_size)
+{
+    vpp_buf_t b;
+    vpp_buf_init(&b, 96);
+    vpp_buf_put_u8(&b, is_add);
+    vpp_buf_put_u32(&b, table_id);
+    vpp_buf_put_u8(&b, is_ip6 ? 1 : 0);
+    vpp_buf_put_string(&b, name ? name : "");
+
+    int n = -1;
+    if (b.len <= out_size) {
+        memcpy(out, b.data, b.len);
+        n = (int)b.len;
+    }
+    vpp_buf_free(&b);
+    return n;
+}
+
+int vpp_encode_sw_interface_set_flags(uint32_t sw_if_index, bool admin_up,
+                                      uint8_t *out, uint32_t out_size)
+{
+    if (!out || out_size < 8) return -1;
+    vpp_buf_t b;
+    vpp_buf_init(&b, 8);
+    vpp_buf_put_u32(&b, sw_if_index);
+    vpp_buf_put_u32(&b, admin_up ? 0x1 : 0x0);  /* IF_STATUS_API_FLAG_ADMIN_UP */
+    memcpy(out, b.data, b.len);
+    int n = (int)b.len;
+    vpp_buf_free(&b);
+    return n;
+}
+
+int vpp_encode_ip_neighbor_add_del(uint8_t is_add, uint32_t sw_if_index,
+                                   const uint8_t mac[6], const vpp_ip_t *ip,
+                                   uint8_t *out, uint32_t out_size)
+{
+    if (!mac || !ip) return -1;
+    vpp_buf_t b;
+    vpp_buf_init(&b, 64);
+    vpp_buf_put_u8(&b, is_add);
+    vpp_buf_put_u8(&b, 0);              /* is_del_all */
+    /* ip_neighbor */
+    vpp_buf_put_u32(&b, sw_if_index);
+    vpp_buf_put_u8(&b, 0);              /* flags (static=0) */
+    vpp_buf_put_bytes(&b, mac, 6);
+    encode_address(&b, ip);
+
+    int n = -1;
+    if (b.len <= out_size) {
+        memcpy(out, b.data, b.len);
+        n = (int)b.len;
+    }
+    vpp_buf_free(&b);
+    return n;
+}
+
+/* =========================================================================
+ * Transactions
+ * ========================================================================= */
+
+static danos_status_t retval_to_status(int32_t retval)
+{
+    if (retval == 0) return DANOS_OK;
+    if (retval == -18 /* VNET_API_ERROR_INVALID_SW_IF_INDEX */ ||
+        retval == -18)
+        return DANOS_ERR_NOT_FOUND;
+    return DANOS_ERR_BACKEND_IO;
+}
+
+static danos_status_t transact_named(const char *msg_name,
+                                      const uint8_t *payload, uint32_t len)
+{
+    uint16_t msg_id;
+    if (!danos_vpp_api_lookup_msg_id(msg_name, &msg_id)) {
+        return DANOS_ERR_NOT_SUPPORTED;
+    }
+    uint8_t reply[512];
+    int n = danos_vpp_api_transact(msg_id, payload, len, reply, sizeof(reply));
+    if (n < 8) return DANOS_ERR_BACKEND_IO;
+    /* reply: [u16 msg_id][u32 context][i32 retval] */
+    vpp_reader_t r;
+    vpp_reader_init(&r, reply + 2, (uint32_t)n - 2);
+    (void)vpp_rd_u32(&r);            /* context */
+    int32_t retval = (int32_t)vpp_rd_u32(&r);
+    if (!vpp_reader_ok(&r)) return DANOS_ERR_BACKEND_IO;
+    return retval_to_status(retval);
+}
+
+danos_status_t vpp_msg_sw_interface_set_flags(uint32_t sw_if_index, bool admin_up)
+{
+    uint8_t body[8];
+    int n = vpp_encode_sw_interface_set_flags(sw_if_index, admin_up,
+                                              body, sizeof(body));
+    if (n < 0) return DANOS_ERR_INVALID_ARG;
+    return transact_named("sw_interface_set_flags", body, (uint32_t)n);
+}
+
+danos_status_t vpp_msg_ip_table_add_del(uint32_t table_id, bool is_ip6,
+                                        const char *name, bool is_add)
+{
+    uint8_t body[96];
+    int n = vpp_encode_ip_table_add_del(is_add ? 1 : 0, table_id, is_ip6,
+                                        name, body, sizeof(body));
+    if (n < 0) return DANOS_ERR_INVALID_ARG;
+    return transact_named("ip_table_add_del", body, (uint32_t)n);
+}
+
+danos_status_t vpp_msg_ip_route_add_del(bool is_add, uint32_t table_id,
+                                        const vpp_prefix_t *prefix,
+                                        uint32_t n_paths, const vpp_ip_t *nhs,
+                                        const uint32_t *nh_ifs)
+{
+    uint8_t body[64 * FIB_PATH_SIZE + 64];
+    int n = vpp_encode_ip_route_add_del(is_add ? 1 : 0, table_id, prefix,
+                                        n_paths, nhs, nh_ifs,
+                                        body, sizeof(body));
+    if (n < 0) return DANOS_ERR_INVALID_ARG;
+    return transact_named("ip_route_add_del", body, (uint32_t)n);
+}
+
+danos_status_t vpp_msg_ip_neighbor_add_del(bool is_add, uint32_t sw_if_index,
+                                           const uint8_t mac[6],
+                                           const vpp_ip_t *ip)
+{
+    uint8_t body[64];
+    int n = vpp_encode_ip_neighbor_add_del(is_add ? 1 : 0, sw_if_index,
+                                           mac, ip, body, sizeof(body));
+    if (n < 0) return DANOS_ERR_INVALID_ARG;
+    return transact_named("ip_neighbor_add_del", body, (uint32_t)n);
+}
+
+danos_status_t vpp_msg_control_ping(void)
+{
+    /* control_ping: { client_index; context; } — no body fields */
+    return transact_named("control_ping", NULL, 0);
+}

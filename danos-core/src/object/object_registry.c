@@ -3,6 +3,7 @@
  */
 
 #include <danos/core/object_registry.h>
+#include <danos/core/persist.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -87,6 +88,7 @@ danos_status_t danos_object_create(danos_object_store_t *s,
     s->count++;
 
     pthread_rwlock_unlock(&s->lock);
+    danos_persist_on_mutation(s, 1 /* WAL_OP_CREATE */, (int)type, id, data, size);
     return DANOS_OK;
 }
 
@@ -138,6 +140,7 @@ danos_status_t danos_object_update(danos_object_store_t *s,
     e->data = new_data;
     e->data_size = size;
     pthread_rwlock_unlock(&s->lock);
+    danos_persist_on_mutation(s, 2 /* WAL_OP_UPDATE */, (int)type, id, data, size);
     return DANOS_OK;
 }
 
@@ -159,6 +162,8 @@ danos_status_t danos_object_delete(danos_object_store_t *s,
             free(e);
             s->count--;
             pthread_rwlock_unlock(&s->lock);
+            danos_persist_on_mutation(s, 3 /* WAL_OP_DELETE */, (int)type, id,
+                                      NULL, 0);
             return DANOS_OK;
         }
         prev = e;
@@ -182,4 +187,17 @@ uint64_t danos_object_count(danos_object_store_t *s, danos_obj_type_t type)
     }
     pthread_rwlock_unlock(&s->lock);
     return cnt;
+}
+
+void danos_object_iterate(danos_object_store_t *store,
+                          danos_object_iter_cb_t cb, void *user)
+{
+    if (!store || !cb) return;
+    pthread_rwlock_rdlock(&store->lock);
+    for (size_t i = 0; i < store->bucket_count; i++) {
+        for (danos_object_entry_t *e = store->buckets[i]; e; e = e->next) {
+            cb(e, user);
+        }
+    }
+    pthread_rwlock_unlock(&store->lock);
 }

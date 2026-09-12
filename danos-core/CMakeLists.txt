@@ -9,6 +9,7 @@ add_library(danos-core STATIC
   src/reconciler/reconciler.c
   src/capability/capability_registry.c
   src/wal/wal.c
+  src/persist/persist.c
   src/antiflap/antiflap.c
 )
 target_include_directories(danos-core PUBLIC include)

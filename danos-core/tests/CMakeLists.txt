@@ -23,3 +23,8 @@ add_executable(antiflap_test test_antiflap.c)
 target_link_libraries(antiflap_test PRIVATE danos-core danos-dpa pthread)
 target_compile_options(antiflap_test PRIVATE -UNDEBUG)
 add_test(NAME antiflap COMMAND antiflap_test)
+
+add_executable(persist_test test_persist.c)
+target_link_libraries(persist_test PRIVATE danos-core danos-dpa pthread)
+target_compile_options(persist_test PRIVATE -UNDEBUG)
+add_test(NAME persist COMMAND persist_test)
