@@ -248,35 +248,30 @@ static int decode_string(const uint8_t *data, size_t len, size_t *pos,
     if (decode_int(data, len, pos, 7, &n) < 0) return -1;
     if (*pos + n > len) return -1;
 
-    char *s = malloc((size_t)n + 1);
-    if (!s) return -1;
-
     if (huffman) {
-        /* Huffman-coded: decode into the buffer. The decoded output is
-         * always <= the encoded length (that is why clients Huffman).
-         * n bytes encoded -> at most n decoded symbols... actually the
-         * decoded length can be up to 8/5 * n; decode into a scratch
-         * buffer sized for the worst case. */
-        size_t scratch_cap = (size_t)n * 8 / 5 + 8;
-        uint8_t *scratch = malloc(scratch_cap);
-        if (!scratch) { free(s); return -1; }
+        /* Huffman-coded: decoded length can exceed the encoded length
+         * (up to 8/5 x, e.g. for random binary values), so allocate
+         * AFTER decoding into a scratch buffer. */
+        /* worst case: 8 bits per symbol expand to at most 8/5 x */
+        size_t cap = (size_t)n * 8 / 5 + 8;
+        uint8_t *tmp = malloc(cap);
+        if (!tmp) return -1;
         size_t decoded = 0;
         bool ok = hpack_huffman_decode(data + *pos, (size_t)n,
-                                       scratch, scratch_cap, &decoded);
-        if (!ok || decoded > (size_t)n * 2 + 8) {
-            /* refuse absurd growth: header strings we accept are small */
-            free(scratch);
-            free(s);
-            return -1;
-        }
-        memcpy(s, scratch, decoded);
+                                       tmp, cap, &decoded);
+        if (!ok) { free(tmp); return -1; }
+        char *s = malloc(decoded + 1);
+        if (!s) { free(tmp); return -1; }
+        memcpy(s, tmp, decoded);
         s[decoded] = '\0';
-        free(scratch);
+        free(tmp);
         *pos += n;
         *out = s;
         return 0;
     }
 
+    char *s = malloc((size_t)n + 1);
+    if (!s) return -1;
     memcpy(s, data + *pos, n);
     s[n] = '\0';
     *pos += n;

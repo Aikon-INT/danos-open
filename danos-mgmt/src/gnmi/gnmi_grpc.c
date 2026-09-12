@@ -591,10 +591,16 @@ int gnmi_handle_subscribe(void *opaque, uint32_t stream,
         gnmi_pb_t w;
         gnmi_pb_init(&w, resp, sizeof(resp));
         gnmi_pb_put_len_delim(&w, 1, notif, (size_t)mlen);
-        gnmi_encode_subscribe_sync(&w);
 
         if (send_stream_headers(c, stream) < 0) return -1;
+        /* update first, then a separate sync_response message: clients
+         * (gnmic) exit on sync and would drop a same-message update */
         if (send_stream_message(c, stream, resp, w.len) < 0) return -1;
+        gnmi_pb_t sw;
+        uint8_t sresp[16];
+        gnmi_pb_init(&sw, sresp, sizeof(sresp));
+        gnmi_encode_subscribe_sync(&sw);
+        if (send_stream_message(c, stream, sresp, sw.len) < 0) return -1;
         if (send_stream_trailers(c, stream) < 0) return -1;
         return 0;
     }

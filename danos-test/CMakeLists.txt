@@ -32,3 +32,7 @@ add_test(NAME sw_fwd_baseline COMMAND sw_fwd_baseline_test)
 add_executable(v03_roundtrip_test v03_roundtrip_test.c)
 target_link_libraries(v03_roundtrip_test PRIVATE danos-mgmt danos-core danos-dpa pthread)
 target_compile_options(v03_roundtrip_test PRIVATE -UNDEBUG)
+
+# standalone gNMI server for external-client interop (gnmic / grpc-go)
+add_executable(gnmi_demo_server gnmi_demo_server.c)
+target_link_libraries(gnmi_demo_server PRIVATE danos-mgmt danos-core danos-dpa pthread)
