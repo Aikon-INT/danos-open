@@ -17,6 +17,11 @@ typedef struct {
     int count;
 } hdr_list_t;
 
+/* v0.4 Huffman tests (defined after main) */
+static int test_huffman_rfc_vectors(void);
+static int test_huffman_roundtrip(void);
+static int test_huffman_in_header_block(void);
+
 static bool collect_cb(const char *name, const char *value, void *user)
 {
     hdr_list_t *l = user;
@@ -156,7 +161,86 @@ int main(void)
     if (test_dynamic_table_eviction() != 0) failed++;
     if (test_encoder_roundtrip() != 0) failed++;
     if (test_integer_codec() != 0) failed++;
+    if (test_huffman_rfc_vectors() != 0) failed++;
+    if (test_huffman_roundtrip() != 0) failed++;
+    if (test_huffman_in_header_block() != 0) failed++;
     printf("=== hpack_test: %s ===\n",
            failed == 0 ? "ALL PASSED" : "FAILURES");
     return failed;
+}
+
+/* ---- Huffman (v0.4) ------------------------------------------------------ */
+#include "../src/gnmi/hpack_huffman.h"
+
+static int test_huffman_rfc_vectors(void)
+{
+    struct { const char *hex; const char *plain; } cases[] = {
+        /* vectors generated with golang.org/x/net/http2/hpack
+         * AppendHuffmanString (reference implementation) */
+        { "f1e3c2e5f23a6ba0ab90f4ff", "www.example.com" },
+        { "1001", "200" },
+        { "1d75d0620d263d4c4d6564", "application/grpc" },
+        { "25a849e95a728e42d8b771d169560899", "custom-header-value-123" },
+        { "1f", "a" },
+        { "626aa932f369d1918bc3ac719a8324c547", "/gnmi.gNMI/Capabilities" },
+    };
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        size_t hexlen = strlen(cases[i].hex);
+        size_t n = hexlen / 2;
+        uint8_t data[64];
+        for (size_t j = 0; j < n; j++) {
+            unsigned v;
+            sscanf(cases[i].hex + 2 * j, "%2x", &v);
+            data[j] = (uint8_t)v;
+        }
+        uint8_t out[128];
+        size_t out_len = 0;
+        assert(hpack_huffman_decode(data, n, out, sizeof(out), &out_len));
+        assert(out_len == strlen(cases[i].plain));
+        out[out_len] = '\0';
+        assert(strcmp((char *)out, cases[i].plain) == 0);
+    }
+    printf("[PASS] test_huffman_rfc_vectors (grpc-go reference encodings)\n");
+    return 0;
+}
+
+static int test_huffman_roundtrip(void)
+{
+    const char *strs[] = {
+        "www.example.com", "200", "application/grpc",
+        "/gnmi.gNMI/Capabilities", "x", "", "grpc-status",
+    };
+    for (size_t i = 0; i < sizeof(strs) / sizeof(strs[0]); i++) {
+        uint8_t enc[256];
+        int n = hpack_huffman_encode(enc, sizeof(enc), strs[i]);
+        assert(n > 0 || (n == 0 && strs[i][0] == '\0'));
+        uint8_t out[256];
+        size_t out_len = 0;
+        assert(hpack_huffman_decode(enc, (size_t)(n > 0 ? n : 0),
+                                    out, sizeof(out), &out_len));
+        out[out_len] = '\0';
+        assert(strcmp((char *)out, strs[i]) == 0);
+    }
+    printf("[PASS] test_huffman_roundtrip\n");
+    return 0;
+}
+
+static int test_huffman_in_header_block(void)
+{
+    /* literal header with Huffman-coded value:
+     * 0x00 (new name, literal w/o indexing)
+     * name: 0x01 'x' (no huffman)
+     * value: 0x82 (huffman flag | len 2) + huffman("200") = 10 01 */
+    static const uint8_t block[] = { 0x00, 0x01, 'x', 0x82, 0x10, 0x01 };
+    hpack_dyn_table_t dyn;
+    hpack_dyn_init(&dyn);
+    hdr_list_t list;
+    memset(&list, 0, sizeof(list));
+    assert(hpack_decode(&dyn, block, sizeof(block), collect_cb, &list));
+    assert(list.count == 1);
+    assert(strcmp(list.pairs[0][0], "x") == 0);
+    assert(strcmp(list.pairs[0][1], "200") == 0);
+    hpack_dyn_free(&dyn);
+    printf("[PASS] test_huffman_in_header_block\n");
+    return 0;
 }

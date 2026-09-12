@@ -188,6 +188,42 @@ typedef struct {
 
 bool gnmi_encode_set_response(gnmi_pb_t *w, const gnmi_set_response_t *resp);
 
+/* Subscribe (v0.4)
+ * SubscribeRequest oneof: subscribe=1, poll=3
+ * SubscriptionList { prefix=1, subscription=2, mode=5, encoding=8, updates_only=9 }
+ * Subscription { path=1 }
+ * Mode: STREAM=0, ONCE=1, POLL=2
+ * SubscribeResponse oneof: update=1 (Notification), sync_response=3 (bool)
+ */
+typedef enum { GNMI_SUB_MODE_STREAM = 0, GNMI_SUB_MODE_ONCE = 1,
+               GNMI_SUB_MODE_POLL = 2 } gnmi_sub_mode_t;
+
+typedef struct {
+    gnmi_path_t path;
+} gnmi_subscription_t;
+
+typedef struct {
+    gnmi_path_t          prefix;
+    uint32_t             sub_count;
+    gnmi_subscription_t  subs[GNMI_MAX_ELEMS];
+    gnmi_sub_mode_t      mode;
+    gnmi_encoding_t      encoding;
+    bool                 updates_only;
+} gnmi_subscribe_list_t;
+
+typedef struct {
+    gnmi_subscribe_list_t subscribe;
+    bool is_poll;
+} gnmi_subscribe_request_t;
+
+bool gnmi_decode_subscribe_request(const uint8_t *data, size_t len,
+                                   gnmi_subscribe_request_t *out);
+
+/* Encode SubscribeResponse { update = Notification } */
+bool gnmi_encode_subscribe_update(gnmi_pb_t *w, const gnmi_notification_t *n);
+/* Encode SubscribeResponse { sync_response = true } */
+bool gnmi_encode_subscribe_sync(gnmi_pb_t *w);
+
 /* Capabilities */
 typedef struct {
     const char *name;

@@ -38,13 +38,30 @@ enum {
 
 #define MAX_FRAME 16384
 #define MAX_HEADERS 64
-#define MAX_MSG (64 * 1024)
+#define MAX_MSG (256 * 1024)
+
+/* Frames read out of order (e.g. another stream's DATA while we are
+ * window-blocked on a response) are parked here. */
+typedef struct pending_frame {
+    uint8_t type, flags;
+    uint32_t stream;
+    uint8_t *payload;
+    uint32_t len;
+    struct pending_frame *next;
+} pending_frame_t;
 
 typedef struct {
     int fd;
-    hpack_dyn_table_t dyn_enc;   /* encoder-side table (unused, literal only) */
     hpack_dyn_table_t dyn_dec;   /* decoder-side dynamic table */
+    /* HTTP/2 flow control (our send side) */
+    int64_t conn_window;         /* stream-0 budget */
+    int64_t stream_window[64];   /* indexed by (stream % 64) */
+    uint32_t peer_initial_window;
+    pending_frame_t *pending;
 } h2_conn_t;
+
+#define H2_DEFAULT_WINDOW 65535
+#define H2_MAX_FRAME_LEN  16384
 
 /* =========================================================================
  * Frame I/O
@@ -97,12 +114,166 @@ static int write_frame(int fd, uint8_t type, uint8_t flags, uint32_t stream,
 }
 
 /* =========================================================================
+ * Frame receive with pending queue + flow-control state machine
+ * ========================================================================= */
+
+static void pending_push(h2_conn_t *c, uint8_t type, uint8_t flags,
+                         uint32_t stream, const uint8_t *payload, uint32_t len)
+{
+    pending_frame_t *pf = malloc(sizeof(*pf));
+    if (!pf) return;
+    pf->type = type;
+    pf->flags = flags;
+    pf->stream = stream;
+    pf->len = len;
+    pf->payload = len ? malloc(len) : NULL;
+    if (len && !pf->payload) {
+        free(pf);
+        return;
+    }
+    if (len) memcpy(pf->payload, payload, len);
+    pf->next = c->pending;
+    c->pending = pf;
+}
+
+static bool pending_pop(h2_conn_t *c, uint8_t *type, uint8_t *flags,
+                        uint32_t *stream, uint8_t *payload, uint32_t *len)
+{
+    pending_frame_t *pf = c->pending;
+    if (!pf) return false;
+    c->pending = pf->next;
+    *type = pf->type;
+    *flags = pf->flags;
+    *stream = pf->stream;
+    *len = pf->len < *len ? pf->len : *len;
+    if (pf->len && payload) memcpy(payload, pf->payload, *len);
+    free(pf->payload);
+    free(pf);
+    return true;
+}
+
+static void pending_free_all(h2_conn_t *c)
+{
+    while (c->pending) {
+        pending_frame_t *pf = c->pending;
+        c->pending = pf->next;
+        free(pf->payload);
+        free(pf);
+    }
+}
+
+/* Read one frame from the wire, handling connection-level housekeeping
+ * (SETTINGS ack + window updates, PING ack). Frames for other streams
+ * encountered while the caller waits are returned to it via the queue;
+ * this function only returns frames that matter to the caller. */
+/* Returns 0 = frame delivered, 1 = housekeeping processed (flow-control
+ * windows may have changed; caller should re-check budget), -1 = error. */
+static int recv_frame(h2_conn_t *c, uint8_t *type, uint8_t *flags,
+                      uint32_t *stream, uint8_t *payload, uint32_t *len)
+{
+    for (;;) {
+        if (pending_pop(c, type, flags, stream, payload, len)) return 0;
+
+        uint8_t fh[9];
+        if (read_full(c->fd, fh, 9) < 0) return -1;
+        uint32_t flen = ((uint32_t)fh[0] << 16) | ((uint32_t)fh[1] << 8) | fh[2];
+        uint8_t ftype = fh[3], fflags = fh[4];
+        uint32_t fstream = ((uint32_t)fh[5] << 24) | ((uint32_t)fh[6] << 16) |
+                           ((uint32_t)fh[7] << 8) | fh[8];
+        if (flen > H2_MAX_FRAME_LEN) return -1;
+        uint8_t fbuf[H2_MAX_FRAME_LEN];
+        if (flen && read_full(c->fd, fbuf, flen) < 0) return -1;
+
+        switch (ftype) {
+        case H2_F_SETTINGS: {
+            if (!(fflags & H2_FLAG_ACK)) {
+                /* parse peer INITIAL_WINDOW_SIZE (id 4) and MAX_FRAME_SIZE (5) */
+                if (flen % 6 == 0) {
+                    for (uint32_t i = 0; i + 6 <= flen; i += 6) {
+                        uint16_t id = (uint16_t)((fbuf[i] << 8) | fbuf[i + 1]);
+                        uint32_t v = ((uint32_t)fbuf[i + 2] << 24) |
+                                     ((uint32_t)fbuf[i + 3] << 16) |
+                                     ((uint32_t)fbuf[i + 4] << 8) | fbuf[i + 5];
+                        if (id == 0x4) {
+                            c->peer_initial_window = v;
+                            for (int w = 0; w < 64; w++)
+                                c->stream_window[w] = v;
+                        }
+                    }
+                }
+                write_frame(c->fd, H2_F_SETTINGS, H2_FLAG_ACK, 0, NULL, 0);
+            }
+            continue;   /* housekeeping: caller never sees SETTINGS */
+        }
+        case H2_F_PING:
+            if (!(fflags & H2_FLAG_ACK))
+                write_frame(c->fd, H2_F_PING, H2_FLAG_ACK, 0, fbuf, flen);
+            continue;
+        case H2_F_WINDOW: {
+            if (flen < 4) continue;
+            uint32_t inc = ((uint32_t)fbuf[0] << 24) | ((uint32_t)fbuf[1] << 16) |
+                           ((uint32_t)fbuf[2] << 8) | fbuf[3];
+            if (fstream == 0) {
+                c->conn_window += inc;
+            } else {
+                c->stream_window[fstream % 64] += inc;
+            }
+            return 1;   /* caller may be unblocked */
+        }
+        default:
+            *type = ftype;
+            *flags = fflags;
+            *stream = fstream;
+            *len = flen;
+            if (flen && payload) memcpy(payload, fbuf, flen);
+            return 0;
+        }
+    }
+}
+
+/* Send `len` bytes as DATA frames respecting peer flow-control windows.
+ * While blocked on window budget, incoming frames are queued. */
+static int send_data_windowed(h2_conn_t *c, uint32_t stream,
+                              const uint8_t *data, size_t len)
+{
+    size_t sent = 0;
+    while (sent < len) {
+        int64_t budget = c->stream_window[stream % 64];
+        if (budget > c->conn_window) budget = c->conn_window;
+        if (budget > H2_MAX_FRAME_LEN) budget = H2_MAX_FRAME_LEN;
+
+        if (budget <= 0) {
+            /* wait for WINDOW_UPDATE; park unrelated frames */
+            uint8_t t, fl;
+            uint32_t st;
+            uint32_t plen = H2_MAX_FRAME_LEN;
+            uint8_t pl[H2_MAX_FRAME_LEN];
+            int rr = recv_frame(c, &t, &fl, &st, pl, &plen);
+            if (rr < 0) return -1;
+            if (rr == 1) continue;              /* window refilled */
+            if ((t == H2_F_DATA || t == H2_F_HEADERS) && st != stream)
+                pending_push(c, t, fl, st, pl, plen);
+            continue;
+        }
+
+        size_t chunk = (size_t)budget < len - sent ? (size_t)budget : len - sent;
+        if (write_frame(c->fd, H2_F_DATA, 0, stream,
+                        data + sent, (uint32_t)chunk) < 0) return -1;
+        sent += chunk;
+        c->stream_window[stream % 64] -= (int64_t)chunk;
+        c->conn_window -= (int64_t)chunk;
+    }
+    return 0;
+}
+
+/* =========================================================================
  * gRPC response helpers
  * ========================================================================= */
 
-static int send_grpc_response(int fd, uint32_t stream,
+static int send_grpc_response(h2_conn_t *c, uint32_t stream,
                               const uint8_t *msg, size_t len)
 {
+    int fd = c->fd;
     /* HEADERS: :status 200 + content-type application/grpc */
     uint8_t hbuf[128];
     size_t hlen = 0;
@@ -119,7 +290,7 @@ static int send_grpc_response(int fd, uint32_t stream,
                     hbuf, (uint32_t)hlen) < 0)
         return -1;
 
-    /* DATA: gRPC frame */
+    /* DATA: gRPC frame header + windowed payload */
     uint8_t gbuf[5];
     gbuf[0] = 0;  /* not compressed */
     gbuf[1] = (uint8_t)(len >> 24);
@@ -127,9 +298,7 @@ static int send_grpc_response(int fd, uint32_t stream,
     gbuf[3] = (uint8_t)(len >> 8);
     gbuf[4] = (uint8_t)len;
     if (write_frame(fd, H2_F_DATA, 0, stream, gbuf, 5) < 0) return -1;
-    if (len && write_frame(fd, H2_F_DATA, 0, stream, msg, (uint32_t)len) < 0)
-        return -1;
-    /* END_STREAM on the last DATA piece */
+    if (send_data_windowed(c, stream, msg, len) < 0) return -1;
     if (len == 0) {
         if (write_frame(fd, H2_F_DATA, H2_FLAG_END_STREAM, stream, NULL, 0) < 0)
             return -1;
@@ -225,6 +394,237 @@ static uint32_t collect_objects(danos_state_store_t *ss, danos_obj_type_t type,
     return (uint32_t)c.count;
 }
 
+/* Send response HEADERS for a streaming RPC (no END_STREAM) */
+static int send_stream_headers(h2_conn_t *c, uint32_t stream)
+{
+    int fd = c->fd;
+    uint8_t hbuf[128];
+    size_t hlen = 0;
+    int k = hpack_encode_literal(hbuf + hlen, sizeof(hbuf) - hlen,
+                                 ":status", "200");
+    if (k < 0) return -1;
+    hlen += (size_t)k;
+    k = hpack_encode_literal(hbuf + hlen, sizeof(hbuf) - hlen,
+                             "content-type", "application/grpc");
+    if (k < 0) return -1;
+    hlen += (size_t)k;
+    return write_frame(fd, H2_F_HEADERS, 0x4, stream, hbuf, (uint32_t)hlen);
+}
+
+/* Send one gRPC message on an open stream (DATA frames only) */
+static int send_stream_message(h2_conn_t *c, uint32_t stream,
+                               const uint8_t *msg, size_t len)
+{
+    int fd = c->fd;
+    uint8_t gbuf[5] = { 0, (uint8_t)(len >> 24), (uint8_t)(len >> 16),
+                        (uint8_t)(len >> 8), (uint8_t)len };
+    if (write_frame(fd, H2_F_DATA, 0, stream, gbuf, 5) < 0) return -1;
+    return send_data_windowed(c, stream, msg, len);
+}
+
+static int send_stream_trailers(h2_conn_t *c, uint32_t stream)
+{
+    int fd = c->fd;
+    uint8_t tbuf[64];
+    int k = hpack_encode_literal(tbuf, sizeof(tbuf), "grpc-status", "0");
+    if (k < 0) return -1;
+    return write_frame(fd, H2_F_HEADERS,
+                       H2_FLAG_END_STREAM | H2_FLAG_END_HEADERS,
+                       stream, tbuf, (size_t)k);
+}
+
+/* Build a notification containing every object matching one path */
+static int build_notification_for_paths(const gnmi_subscribe_list_t *sl,
+                                        const gnmi_path_t *paths,
+                                        uint32_t path_count,
+                                        uint8_t *resp, size_t resp_cap)
+{
+    (void)sl;
+    /* Emits the BARE Notification message body (no field tag): the
+     * caller wraps it as SubscribeResponse.update. */
+    gnmi_pb_t w;
+    gnmi_pb_init(&w, resp, resp_cap);
+
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    gnmi_pb_put_uint64(&w, 1, (uint64_t)ts.tv_sec * 1000000000ULL +
+                                  (uint64_t)ts.tv_nsec);
+
+    for (uint32_t i = 0; i < path_count; i++) {
+        const gnmi_path_t *p = &paths[i];
+        if (p->elem_count == 0) continue;
+        const char *top = p->elems[0].name;
+
+        if (strcmp(top, "interfaces") == 0) {
+            danos_iface_t ifaces[64];
+            uint32_t n = collect_objects(NULL, DANOS_OBJ_IFACE, ifaces,
+                                         sizeof(ifaces[0]), 64);
+            for (uint32_t j = 0; j < n; j++) {
+                if (p->elem_count >= 2 && p->elems[1].has_key &&
+                    strcmp(p->elems[1].key_value, ifaces[j].name) != 0)
+                    continue;
+                char json[256];
+                obj_to_json(DANOS_OBJ_IFACE, &ifaces[j], sizeof(ifaces[j]),
+                            json, sizeof(json));
+                size_t us = gnmi_pb_begin_nested(&w, 4);
+                gnmi_encode_path(&w, 1, p);
+                gnmi_typed_value_t v = { .kind = GNMI_VAL_JSON_IETF };
+                snprintf(v.s, sizeof(v.s), "%s", json);
+                gnmi_encode_typed_value(&w, 3, &v);
+                gnmi_pb_end_nested(&w, us);
+            }
+        } else if (strcmp(top, "vrfs") == 0) {
+            danos_vrf_t vrfs[16];
+            uint32_t n = collect_objects(NULL, DANOS_OBJ_VRF, vrfs,
+                                         sizeof(vrfs[0]), 16);
+            for (uint32_t j = 0; j < n; j++) {
+                char json[256];
+                obj_to_json(DANOS_OBJ_VRF, &vrfs[j], sizeof(vrfs[j]),
+                            json, sizeof(json));
+                size_t us = gnmi_pb_begin_nested(&w, 4);
+                gnmi_encode_path(&w, 1, p);
+                gnmi_typed_value_t v = { .kind = GNMI_VAL_JSON_IETF };
+                snprintf(v.s, sizeof(v.s), "%s", json);
+                gnmi_encode_typed_value(&w, 3, &v);
+                gnmi_pb_end_nested(&w, us);
+            }
+        } else if (strcmp(top, "routes") == 0) {
+            danos_route_t routes[32];
+            uint32_t n = collect_objects(NULL, DANOS_OBJ_ROUTE, routes,
+                                         sizeof(routes[0]), 32);
+            for (uint32_t j = 0; j < n; j++) {
+                char json[256];
+                obj_to_json(DANOS_OBJ_ROUTE, &routes[j], sizeof(routes[j]),
+                            json, sizeof(json));
+                size_t us = gnmi_pb_begin_nested(&w, 4);
+                gnmi_encode_path(&w, 1, p);
+                gnmi_typed_value_t v = { .kind = GNMI_VAL_JSON_IETF };
+                snprintf(v.s, sizeof(v.s), "%s", json);
+                gnmi_encode_typed_value(&w, 3, &v);
+                gnmi_pb_end_nested(&w, us);
+            }
+        }
+    }
+    return w.overflow ? -1 : (int)w.len;
+}
+
+/* STREAM mode: push notifications when the store changes. Poll every
+ * 100 ms; detect client GOAWAY/RST/close via recv with MSG_PEEK. */
+static int subscribe_stream_loop(h2_conn_t *c, uint32_t stream,
+                                 const gnmi_subscribe_list_t *sl)
+{
+    uint64_t last_hash = 0;
+    bool first = true;
+
+    for (;;) {
+        /* check peer liveness + consume control frames */
+        uint8_t probe[16];
+        ssize_t n = recv(c->fd, probe, sizeof(probe),
+                         MSG_PEEK | MSG_DONTWAIT);
+        if (n == 0) return 0;   /* client closed */
+
+        /* content hash: count+sizes per type (cheap change detector) */
+        uint64_t hash = 0;
+        {
+            danos_iface_t ifaces[64];
+            danos_vrf_t vrfs[16];
+            danos_route_t routes[32];
+            uint32_t ni = collect_objects(NULL, DANOS_OBJ_IFACE, ifaces,
+                                          sizeof(ifaces[0]), 64);
+            uint32_t nv = collect_objects(NULL, DANOS_OBJ_VRF, vrfs,
+                                          sizeof(vrfs[0]), 16);
+            uint32_t nr = collect_objects(NULL, DANOS_OBJ_ROUTE, routes,
+                                          sizeof(routes[0]), 32);
+            hash = ((uint64_t)ni << 40) ^ ((uint64_t)nv << 20) ^ nr;
+            for (uint32_t i = 0; i < ni; i++)
+                hash ^= (uint64_t)ifaces[i].mtu * 31 + ifaces[i].ifindex;
+        }
+
+        if (first || hash != last_hash) {
+            gnmi_path_t paths[GNMI_MAX_ELEMS];
+            uint32_t pc = 0;
+            for (uint32_t i = 0; i < sl->sub_count && pc < GNMI_MAX_ELEMS; i++)
+                paths[pc++] = sl->subs[i].path;
+
+            uint8_t msg[8192];
+            int mlen = build_notification_for_paths(sl, paths, pc,
+                                                    msg, sizeof(msg));
+            if (mlen < 0) return -1;
+
+            if (first) {
+                if (send_stream_headers(c, stream) < 0) return -1;
+                first = false;
+            }
+            uint8_t resp[16384];
+            gnmi_pb_t w;
+            gnmi_pb_init(&w, resp, sizeof(resp));
+            /* SubscribeResponse: field1 = Notification bytes */
+            gnmi_pb_put_len_delim(&w, 1, msg, (size_t)mlen);
+            if (send_stream_message(c, stream, resp, w.len) < 0) return -1;
+            last_hash = hash;
+        }
+        usleep(100000);
+    }
+}
+
+int gnmi_handle_subscribe(void *opaque, uint32_t stream,
+                          const uint8_t *req, size_t req_len)
+{
+    h2_conn_t *c = (h2_conn_t *)opaque;
+    gnmi_subscribe_request_t sr;
+    if (!gnmi_decode_subscribe_request(req, req_len, &sr)) return -1;
+
+    const gnmi_subscribe_list_t *sl = &sr.subscribe;
+
+    if (sl->mode == GNMI_SUB_MODE_ONCE) {
+        gnmi_path_t paths[GNMI_MAX_ELEMS];
+        uint32_t pc = 0;
+        for (uint32_t i = 0; i < sl->sub_count && pc < GNMI_MAX_ELEMS; i++)
+            paths[pc++] = sl->subs[i].path;
+
+        uint8_t notif[8192];
+        int mlen = build_notification_for_paths(sl, paths, pc,
+                                                notif, sizeof(notif));
+        if (mlen < 0) return -1;
+
+        uint8_t resp[16384];
+        gnmi_pb_t w;
+        gnmi_pb_init(&w, resp, sizeof(resp));
+        gnmi_pb_put_len_delim(&w, 1, notif, (size_t)mlen);
+        gnmi_encode_subscribe_sync(&w);
+
+        if (send_stream_headers(c, stream) < 0) return -1;
+        if (send_stream_message(c, stream, resp, w.len) < 0) return -1;
+        if (send_stream_trailers(c, stream) < 0) return -1;
+        return 0;
+    }
+
+    if (sl->mode == GNMI_SUB_MODE_POLL) {
+        /* POLL: one notification per Poll message; v0.4 sends the
+         * initial set and sync, then waits for poll requests on the
+         * same stream (simplified: treat as ONCE + keep open until
+         * client closes). */
+        gnmi_path_t paths[GNMI_MAX_ELEMS];
+        uint32_t pc = 0;
+        for (uint32_t i = 0; i < sl->sub_count && pc < GNMI_MAX_ELEMS; i++)
+            paths[pc++] = sl->subs[i].path;
+        uint8_t notif[8192];
+        int mlen = build_notification_for_paths(sl, paths, pc,
+                                                notif, sizeof(notif));
+        if (mlen < 0) return -1;
+        uint8_t resp[16384];
+        gnmi_pb_t w;
+        gnmi_pb_init(&w, resp, sizeof(resp));
+        gnmi_pb_put_len_delim(&w, 1, notif, (size_t)mlen);
+        gnmi_encode_subscribe_sync(&w);
+        if (send_stream_headers(c, stream) < 0) return -1;
+        if (send_stream_message(c, stream, resp, w.len) < 0) return -1;
+        return 0;   /* leave stream open; served until connection ends */
+    }
+
+    return subscribe_stream_loop(c, stream, sl);
+}
+
 int gnmi_handle_capabilities(const uint8_t *req, size_t req_len,
                              uint8_t *resp, size_t resp_cap)
 {
@@ -274,9 +674,9 @@ int gnmi_handle_get(danos_state_store_t *store,
         const char *top = p->elems[0].name;
 
         if (strcmp(top, "interfaces") == 0) {
-            danos_iface_t ifaces[16];
+            danos_iface_t ifaces[1024];
             uint32_t n = collect_objects(ss, DANOS_OBJ_IFACE, ifaces,
-                                         sizeof(ifaces[0]), 16);
+                                         sizeof(ifaces[0]), 1024);
             for (uint32_t j = 0; j < n; j++) {
                 if (p->elem_count >= 2 && p->elems[1].has_key &&
                     strcmp(p->elems[1].key_value, ifaces[j].name) != 0)
@@ -494,7 +894,6 @@ static void headers_free(req_headers_t *h)
 static int read_grpc_message(h2_conn_t *c, uint32_t stream,
                              uint8_t *msg, size_t cap)
 {
-    uint8_t frame[MAX_FRAME];
     size_t have = 0;      /* bytes of gRPC frame header collected */
     uint8_t ghdr[5];
     bool hdr_done = false;
@@ -502,36 +901,25 @@ static int read_grpc_message(h2_conn_t *c, uint32_t stream,
     size_t got = 0;
 
     for (;;) {
-        uint8_t fh[9];
-        if (read_full(c->fd, fh, 9) < 0) return -1;
-        uint32_t flen = ((uint32_t)fh[0] << 16) | ((uint32_t)fh[1] << 8) | fh[2];
-        uint8_t ftype = fh[3], fflags = fh[4];
-        uint32_t fstream = ((uint32_t)fh[5] << 24) | ((uint32_t)fh[6] << 16) |
-                           ((uint32_t)fh[7] << 8) | fh[8];
-
-        if (flen > MAX_FRAME) return -1;
-        if (flen && read_full(c->fd, frame, flen) < 0) return -1;
-
-        if (ftype == H2_F_SETTINGS) {
-            if (!(fflags & H2_FLAG_ACK))
-                write_frame(c->fd, H2_F_SETTINGS, H2_FLAG_ACK, 0, NULL, 0);
-            continue;
-        }
-        if (ftype == H2_F_PING) {
-            if (!(fflags & H2_FLAG_ACK))
-                write_frame(c->fd, H2_F_PING, H2_FLAG_ACK, 0, frame, flen);
-            continue;
-        }
-        if (ftype == H2_F_GOAWAY || ftype == H2_F_RST) return -1;
-        if (ftype == H2_F_WINDOW || ftype == H2_F_PRIORITY) continue;
+        uint8_t ftype, fflags;
+        uint32_t fstream;
+        uint8_t frame[H2_MAX_FRAME_LEN];
+        uint32_t flen = sizeof(frame);
+        int rr = recv_frame(c, &ftype, &fflags, &fstream, frame, &flen);
+        if (rr < 0) return -1;
+        if (rr == 1) continue;
+        uint32_t sid = fstream;
 
         if (ftype == H2_F_HEADERS) {
             if (fflags & H2_FLAG_END_STREAM)
                 return hdr_done ? (int)got : GRPC_READ_NO_MSG;
             continue;
         }
-
-        if (ftype != H2_F_DATA || fstream != stream) continue;
+        if (ftype == H2_F_GOAWAY || ftype == H2_F_RST) return -1;
+        if (ftype != H2_F_DATA || sid != stream) {
+            pending_push(c, ftype, fflags, sid, frame, flen);
+            continue;
+        }
 
         const uint8_t *p = frame;
         uint32_t n = flen;
@@ -550,7 +938,6 @@ static int read_grpc_message(h2_conn_t *c, uint32_t stream,
                 if (need == 0) return 0;   /* empty message */
                 continue;
             }
-            /* hdr_done && need > 0 */
             if (got == need) return (int)got;
             if (n == 0) break;
             size_t take = need - got;
@@ -570,6 +957,9 @@ int danos_gnmi_grpc_serve_fd(int fd)
     h2_conn_t c;
     memset(&c, 0, sizeof(c));
     c.fd = fd;
+    c.conn_window = H2_DEFAULT_WINDOW;
+    c.peer_initial_window = H2_DEFAULT_WINDOW;
+    for (int i = 0; i < 64; i++) c.stream_window[i] = H2_DEFAULT_WINDOW;
     hpack_dyn_init(&c.dyn_dec);
 
     /* 1. client preface */
@@ -587,41 +977,33 @@ int danos_gnmi_grpc_serve_fd(int fd)
     uint8_t msg[MAX_MSG];
 
     for (;;) {
-        uint8_t fh[9];
-        if (read_full(fd, fh, 9) < 0) break;
-        uint32_t flen = ((uint32_t)fh[0] << 16) | ((uint32_t)fh[1] << 8) | fh[2];
-        uint8_t ftype = fh[3], fflags = fh[4];
-        uint32_t fstream = ((uint32_t)fh[5] << 24) | ((uint32_t)fh[6] << 16) |
-                           ((uint32_t)fh[7] << 8) | fh[8];
-        if (flen > MAX_FRAME) { rc = -1; break; }
-
-        uint8_t frame[MAX_FRAME];
-        if (flen && read_full(fd, frame, flen) < 0) { rc = -1; break; }
-
-        if (ftype == H2_F_SETTINGS) {
-            if (!(fflags & H2_FLAG_ACK))
-                write_frame(fd, H2_F_SETTINGS, H2_FLAG_ACK, 0, NULL, 0);
-            continue;
-        }
-        if (ftype == H2_F_PING) {
-            if (!(fflags & H2_FLAG_ACK))
-                write_frame(fd, H2_F_PING, H2_FLAG_ACK, 0, frame, flen);
-            continue;
-        }
+        uint8_t ftype, fflags;
+        uint32_t fstream;
+        uint8_t frame[H2_MAX_FRAME_LEN];
+        uint32_t flen = sizeof(frame);
+        int rr = recv_frame(&c, &ftype, &fflags, &fstream, frame, &flen);
+        if (rr < 0) break;
+        if (rr == 1) continue;
         if (ftype == H2_F_GOAWAY) break;
-        if (ftype == H2_F_WINDOW || ftype == H2_F_PRIORITY) continue;
-        if (ftype == H2_F_RST) continue;
-
         if (ftype != H2_F_HEADERS) continue;
+
         if (!(fflags & H2_FLAG_END_HEADERS)) {
             /* CONTINUATION frames follow; fold them in */
             for (;;) {
-                uint8_t ch[9];
-                if (read_full(fd, ch, 9) < 0) { rc = -1; goto out; }
-                uint32_t clen = ((uint32_t)ch[0] << 16) | ((uint32_t)ch[1] << 8) | ch[2];
-                uint8_t cflags = ch[4];
-                uint8_t cframe[MAX_FRAME];
-                if (clen && read_full(fd, cframe, clen) < 0) { rc = -1; goto out; }
+                uint8_t ctype, cflags;
+                uint32_t cstream;
+                uint8_t cframe[H2_MAX_FRAME_LEN];
+                uint32_t clen = sizeof(cframe);
+                int cr = recv_frame(&c, &ctype, &cflags, &cstream, cframe, &clen);
+                if (cr < 0) {
+                    rc = -1;
+                    goto out;
+                }
+                if (cr == 1) continue;
+                if (ctype != H2_F_CONT) {
+                    pending_push(&c, ctype, cflags, cstream, cframe, clen);
+                    continue;
+                }
                 if (flen + clen <= sizeof(frame)) {
                     memcpy(frame + flen, cframe, clen);
                     flen += clen;
@@ -641,7 +1023,6 @@ int danos_gnmi_grpc_serve_fd(int fd)
         bool end_stream = (fflags & H2_FLAG_END_STREAM) != 0;
         size_t msg_len = 0;
         if (!end_stream) {
-            /* read the request message (handles its own frames) */
             int n = read_grpc_message(&c, fstream, msg, sizeof(msg));
             if (n == -1) { headers_free(&h); rc = -1; break; }
             if (n == GRPC_READ_NO_MSG) { headers_free(&h); continue; }
@@ -661,6 +1042,13 @@ int danos_gnmi_grpc_serve_fd(int fd)
             rlen = end_stream ? -1
                               : gnmi_handle_set(store_or_default(), msg,
                                                 msg_len, resp, sizeof(resp));
+        } else if (h.path && strcmp(h.path, "/gnmi.gNMI/Subscribe") == 0) {
+            int sret = end_stream ? -1
+                       : gnmi_handle_subscribe(&c, fstream, msg, msg_len);
+            if (sret == 0) { headers_free(&h); continue; }  /* stream done */
+            headers_free(&h);
+            rc = -1;
+            break;
         } else {
             /* unknown method: grpc-status 12 (unimplemented) */
             headers_free(&h);
@@ -674,7 +1062,7 @@ int danos_gnmi_grpc_serve_fd(int fd)
         }
 
         if (rlen >= 0) {
-            send_grpc_response(fd, fstream, resp, (size_t)rlen);
+            send_grpc_response(&c, fstream, resp, (size_t)rlen);
         } else {
             uint8_t tbuf[48];
             int k = hpack_encode_literal(tbuf, sizeof(tbuf),
@@ -686,6 +1074,7 @@ int danos_gnmi_grpc_serve_fd(int fd)
         headers_free(&h);
     }
 out:
+    pending_free_all(&c);
     hpack_dyn_free(&c.dyn_dec);
     return rc;
 }

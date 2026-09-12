@@ -49,6 +49,14 @@ void danos_gnmi_grpc_stop(danos_gnmi_grpc_ctx_t *ctx);
  * peer closes. Returns 0 on success. */
 int danos_gnmi_grpc_serve_fd(int fd);
 
+/* Subscribe streaming: sends response headers, then ONCE/POLL/STREAM
+ * notifications on the open h2 stream. Returns 0 when the stream is
+ * finished (client closed / mode complete), negative on error. */
+#include <stdint.h>
+#include <stddef.h>
+int gnmi_handle_subscribe(void *c, uint32_t stream,
+                          const uint8_t *req, size_t req_len);
+
 /* Request handlers, exposed for tests (protobuf in/out) */
 int gnmi_handle_capabilities(const uint8_t *req, size_t req_len,
                              uint8_t *resp, size_t resp_cap);

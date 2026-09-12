@@ -598,3 +598,91 @@ bool gnmi_encode_capabilities_response(gnmi_pb_t *w,
     gnmi_pb_put_string(w, 3, gnmi_version);
     return !w->overflow;
 }
+
+/* =========================================================================
+ * Subscribe (v0.4)
+ * ========================================================================= */
+
+bool gnmi_decode_subscribe_request(const uint8_t *data, size_t len,
+                                   gnmi_subscribe_request_t *out)
+{
+    memset(out, 0, sizeof(*out));
+    out->subscribe.mode = GNMI_SUB_MODE_STREAM;
+    out->subscribe.encoding = GNMI_ENC_JSON;
+    gnmi_pb_reader_t r;
+    gnmi_pbr_init(&r, data, len);
+    uint32_t field, wire;
+    while ((field = gnmi_pbr_tag(&r, &wire)) != 0) {
+        if (r.err) return false;
+        const uint8_t *d; size_t n;
+        switch (field) {
+        case 1:  /* subscribe = SubscriptionList */
+            if (!gnmi_pbr_bytes(&r, &d, &n)) return false;
+            {
+                gnmi_pb_reader_t lr;
+                gnmi_pbr_init(&lr, d, n);
+                uint32_t lf, lw;
+                while ((lf = gnmi_pbr_tag(&lr, &lw)) != 0) {
+                    if (lr.err) return false;
+                    const uint8_t *ld; size_t ln;
+                    switch (lf) {
+                    case 2:  /* subscription */
+                        if (!gnmi_pbr_bytes(&lr, &ld, &ln)) return false;
+                        if (out->subscribe.sub_count >= GNMI_MAX_ELEMS) return false;
+                        {
+                            gnmi_subscription_t *sub =
+                                &out->subscribe.subs[out->subscribe.sub_count++];
+                            memset(sub, 0, sizeof(*sub));
+                            gnmi_pb_reader_t sr;
+                            gnmi_pbr_init(&sr, ld, ln);
+                            uint32_t sf, sw;
+                            while ((sf = gnmi_pbr_tag(&sr, &sw)) != 0) {
+                                const uint8_t *sd; size_t sn;
+                                if (sf == 1 && gnmi_pbr_bytes(&sr, &sd, &sn)) {
+                                    if (!gnmi_decode_path(sd, sn, &sub->path))
+                                        return false;
+                                } else {
+                                    gnmi_pbr_skip(&sr, sw);
+                                }
+                            }
+                        }
+                        break;
+                    case 5:
+                        out->subscribe.mode = (gnmi_sub_mode_t)gnmi_pbr_varint(&lr);
+                        break;
+                    case 8:
+                        out->subscribe.encoding = (gnmi_encoding_t)gnmi_pbr_varint(&lr);
+                        break;
+                    case 9:
+                        out->subscribe.updates_only = gnmi_pbr_varint(&lr) != 0;
+                        break;
+                    default:
+                        gnmi_pbr_skip(&lr, lw);
+                        break;
+                    }
+                }
+            }
+            break;
+        case 3:  /* poll */
+            out->is_poll = true;
+            gnmi_pbr_skip(&r, wire);
+            break;
+        default:
+            gnmi_pbr_skip(&r, wire);
+            break;
+        }
+    }
+    return !r.err;
+}
+
+bool gnmi_encode_subscribe_update(gnmi_pb_t *w, const gnmi_notification_t *n)
+{
+    gnmi_encode_notification(w, 1, n);
+    return !w->overflow;
+}
+
+bool gnmi_encode_subscribe_sync(gnmi_pb_t *w)
+{
+    gnmi_pb_put_bool(w, 3, true);
+    return !w->overflow;
+}

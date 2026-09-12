@@ -5,6 +5,7 @@
  */
 
 #include "hpack.h"
+#include "hpack_huffman.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -245,10 +246,37 @@ static int decode_string(const uint8_t *data, size_t len, size_t *pos,
     bool huffman = (data[*pos] & 0x80) != 0;
     uint64_t n;
     if (decode_int(data, len, pos, 7, &n) < 0) return -1;
-    if (huffman) return -1;   /* Huffman decoding not supported */
     if (*pos + n > len) return -1;
+
     char *s = malloc((size_t)n + 1);
     if (!s) return -1;
+
+    if (huffman) {
+        /* Huffman-coded: decode into the buffer. The decoded output is
+         * always <= the encoded length (that is why clients Huffman).
+         * n bytes encoded -> at most n decoded symbols... actually the
+         * decoded length can be up to 8/5 * n; decode into a scratch
+         * buffer sized for the worst case. */
+        size_t scratch_cap = (size_t)n * 8 / 5 + 8;
+        uint8_t *scratch = malloc(scratch_cap);
+        if (!scratch) { free(s); return -1; }
+        size_t decoded = 0;
+        bool ok = hpack_huffman_decode(data + *pos, (size_t)n,
+                                       scratch, scratch_cap, &decoded);
+        if (!ok || decoded > (size_t)n * 2 + 8) {
+            /* refuse absurd growth: header strings we accept are small */
+            free(scratch);
+            free(s);
+            return -1;
+        }
+        memcpy(s, scratch, decoded);
+        s[decoded] = '\0';
+        free(scratch);
+        *pos += n;
+        *out = s;
+        return 0;
+    }
+
     memcpy(s, data + *pos, n);
     s[n] = '\0';
     *pos += n;

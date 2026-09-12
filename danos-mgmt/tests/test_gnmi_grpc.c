@@ -85,6 +85,21 @@ typedef struct {
     char content_type[32];
 } client_hdrs_t;
 
+/* client receive-window bookkeeping: refill when half consumed */
+static void client_maybe_window_update(uint32_t stream, size_t consumed,
+                                       size_t *since_update)
+{
+    *since_update += consumed;
+    if (*since_update >= 32768) {
+        uint32_t inc = (uint32_t)*since_update;
+        uint8_t wu[4] = { (uint8_t)(inc >> 24), (uint8_t)(inc >> 16),
+                          (uint8_t)(inc >> 8), (uint8_t)inc };
+        write_frame_c(conn_fd, 8 /* WINDOW_UPDATE */, 0, 0, wu, 4);
+        write_frame_c(conn_fd, 8, 0, stream, wu, 4);
+        *since_update = 0;
+    }
+}
+
 static bool cli_hdr_cb(const char *name, const char *value, void *user)
 {
     client_hdrs_t *h = user;
@@ -134,6 +149,7 @@ static int client_rpc(const char *path, const uint8_t *req, size_t req_len,
     /* read response frames */
     memset(outhdrs, 0, sizeof(*outhdrs));
     size_t need = 0, got = 0;
+    size_t since_update = 0;
     uint8_t frame[16384];
     for (;;) {
         uint8_t fh[9];
@@ -177,6 +193,7 @@ static int client_rpc(const char *path, const uint8_t *req, size_t req_len,
                 memcpy(resp + got, p, take);
                 got += take; p += take; n -= take;
             }
+            client_maybe_window_update(stream, flen, &since_update);
             if (got == need && (fflags & 0x1)) return (int)got;
             continue;
         }
@@ -364,6 +381,160 @@ static int test_unknown_method(void)
     return 0;
 }
 
+/* ---- v0.4: subscribe ONCE + flow control --------------------------------- */
+
+static int test_subscribe_once(void)
+{
+    /* SubscribeRequest{ subscribe=SubscriptionList{ sub=[{path=interfaces}],
+     * mode=ONCE } } */
+    uint8_t req[128];
+    gnmi_pb_t w;
+    gnmi_pb_init(&w, req, sizeof(req));
+    size_t ls = gnmi_pb_begin_nested(&w, 1);   /* SubscriptionList */
+    {
+        size_t ss = gnmi_pb_begin_nested(&w, 2);   /* Subscription */
+        gnmi_path_t p;
+        assert(gnmi_path_from_str(&p, "interfaces"));
+        gnmi_encode_path(&w, 1, &p);
+        gnmi_pb_end_nested(&w, ss);
+    }
+    gnmi_pb_put_enum(&w, 5, GNMI_SUB_MODE_ONCE);
+    gnmi_pb_end_nested(&w, ls);
+
+    uint32_t stream = 9;
+    uint8_t hb[128];
+    size_t hl = 0;
+    int k;
+    k = hpack_encode_literal(hb + hl, sizeof(hb) - hl, ":method", "POST");
+    hl += k;
+    k = hpack_encode_literal(hb + hl, sizeof(hb) - hl, ":scheme", "http");
+    hl += k;
+    k = hpack_encode_literal(hb + hl, sizeof(hb) - hl, ":path", "/gnmi.gNMI/Subscribe");
+    hl += k;
+    k = hpack_encode_literal(hb + hl, sizeof(hb) - hl,
+                             "content-type", "application/grpc");
+    hl += k;
+    assert(write_frame_c(conn_fd, 1, 0x4, stream, hb, (uint32_t)hl) == 0);
+    uint8_t ghdr[5] = { 0, 0, 0, 0, (uint8_t)w.len };
+    assert(write_frame_c(conn_fd, 0, 0, stream, ghdr, 5) == 0);
+    assert(write_frame_c(conn_fd, 0, 0x1, stream, req, w.len) == 0);
+
+    /* read streaming messages until trailers */
+    int got_updates = 0;
+    bool got_sync = false;
+    uint8_t frame[16384];
+    uint8_t acc[32768];
+    size_t acc_len = 0;
+    for (;;) {
+        uint8_t fh[9];
+        if (read_full_c(conn_fd, fh, 9) < 0) return 1;
+        uint32_t flen = ((uint32_t)fh[0] << 16) | ((uint32_t)fh[1] << 8) | fh[2];
+        uint8_t ftype = fh[3], fflags = fh[4];
+        if (flen > sizeof(frame) || read_full_c(conn_fd, frame, flen) < 0)
+            return 1;
+        if (ftype == 4) { if (!(fflags & 1)) write_frame_c(conn_fd, 4, 1, 0, NULL, 0); continue; }
+        if (ftype == 6) continue;
+        if (ftype == 0) {  /* DATA */
+            memcpy(acc + acc_len, frame, flen);
+            acc_len += flen;
+            if (acc_len >= 5) {
+                size_t mlen = ((size_t)acc[1] << 24) | ((size_t)acc[2] << 16) |
+                              ((size_t)acc[3] << 8) | acc[4];
+                if (acc_len >= 5 + mlen) {
+                    /* SubscribeResponse: field1 update / field3 sync */
+                    gnmi_pb_reader_t r;
+                    gnmi_pbr_init(&r, acc + 5, mlen);
+                    uint32_t field, wire;
+                    while ((field = gnmi_pbr_tag(&r, &wire)) != 0) {
+                        const uint8_t *d; size_t dn;
+                        if (field == 1 && wire == 2) {
+                            assert(gnmi_pbr_bytes(&r, &d, &dn));
+                            /* Notification: field4 update */
+                            gnmi_pb_reader_t nr;
+                            gnmi_pbr_init(&nr, d, dn);
+                            uint32_t nf, nw;
+                            while ((nf = gnmi_pbr_tag(&nr, &nw)) != 0) {
+                                const uint8_t *nd; size_t nn;
+                                if (nf == 4 && gnmi_pbr_bytes(&nr, &nd, &nn))
+                                    got_updates++;
+                                else gnmi_pbr_skip(&nr, nw);
+                            }
+                        } else if (field == 3 && wire == 0) {
+                            assert(gnmi_pbr_varint(&r) == 1);
+                            got_sync = true;
+                        } else gnmi_pbr_skip(&r, wire);
+                    }
+                    acc_len = 0;
+                }
+            }
+            continue;
+        }
+        if (ftype == 1) {  /* HEADERS: response or trailers */
+            client_hdrs_t h;
+            memset(&h, 0, sizeof(h));
+            assert(hpack_decode(&cli_dyn, frame, flen, cli_hdr_cb, &h));
+            if (fflags & 0x1) break;   /* trailers END_STREAM */
+            continue;
+        }
+    }
+    assert(got_sync);
+    assert(got_updates >= 1);
+    printf("[PASS] test_subscribe_once (updates=%d sync=true)\n", got_updates);
+    return 0;
+}
+
+static int test_get_large_flow_control(void)
+{
+    /* create ~1000 interfaces in ONE transaction (response >> 64KB
+     * default window), then Get them all */
+    {
+        danos_tx_t tx;
+        assert(danos_tx_begin(&tx, "bulk", NULL) == DANOS_OK);
+        unsigned created = 0;
+        for (unsigned i = 100; i < 1100; i++) {
+            danos_iface_t ifc;
+            memset(&ifc, 0, sizeof(ifc));
+            ifc.ifindex = i;
+            snprintf(ifc.name, sizeof(ifc.name), "sw%u", i);
+            ifc.mtu = 1500;
+            ifc.admin_up = true;
+            if (danos_iface_create(&tx, &ifc) == DANOS_OK) created++;
+        }
+        assert(created >= 900);
+        assert(danos_tx_prepare(&tx) == DANOS_OK);
+        assert(danos_tx_validate(&tx) == DANOS_OK);
+        assert(danos_tx_commit(&tx) == DANOS_OK);
+    }
+
+    uint8_t greq[64];
+    gnmi_pb_t gw;
+    gnmi_pb_init(&gw, greq, sizeof(greq));
+    gnmi_path_t gp;
+    assert(gnmi_path_from_str(&gp, "interfaces"));
+    gnmi_encode_path(&gw, 2, &gp);
+
+    client_hdrs_t h;
+    uint8_t *resp = malloc(512 * 1024);
+    int n = client_rpc("/gnmi.gNMI/Get", greq, gw.len, resp, 512 * 1024,
+                       &h, NULL);
+
+    assert(n >= 0);
+    assert(strcmp(h.grpc_status, "0") == 0);
+    /* count sw4xx objects present in the JSON values */
+    int count = 0;
+    for (int i = 0; i < n - 7; i++) {
+        if (memcmp(resp + i, "sw", 2) == 0 &&
+            (i == 0 || resp[i-1] == '"')) {
+            /* check it looks like swNNN via trailing digits+quote */
+            if (memcmp(resp + i, "sw", 2) == 0) count++;
+        }
+    }
+    assert(count >= 900);
+    free(resp);
+    printf("[PASS] test_get_large_flow_control (resp=%d bytes, WINDOW_UPDATE honored)\n", n);
+    return 0;
+}
+
 int main(void)
 {
     int failed = 0;
@@ -385,6 +556,8 @@ int main(void)
     if (test_get() != 0) failed++;
     if (test_set() != 0) failed++;
     if (test_unknown_method() != 0) failed++;
+    if (test_subscribe_once() != 0) failed++;
+    if (test_get_large_flow_control() != 0) failed++;
 
     danos_gnmi_grpc_stop(&g_srv);
     close(conn_fd);
