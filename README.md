@@ -35,13 +35,25 @@ ctest --output-on-failure
 ./build/danos-test/conformance_test
 ```
 
-Expected output:
+Expected output: 28 ctest suites pass, including the v0.3 vertical
+stack suites:
 ```
-=== DPA Conformance Suite: 11 tests ===
-[RUN ] tx_lifecycle ... PASS
-...
-=== Result: 11 passed, 0 failed, 11 total ===
+vpp_proto     — VPP binary API handshake + typed messages + stat segment (mock VPP server)
+gnmi_proto    — gNMI protobuf wire format (exact-byte tests)
+hpack         — HPACK RFC 7541 (Appendix C.6.1 known-answer vector)
+gnmi_grpc     — real gRPC over TCP: Capabilities/Get/Set vs DPA store
+persist       — WAL restart cycle: log -> replay -> reconcile
 ```
+
+### End-to-end verification
+
+```bash
+bash danos-test/integration/run_v0.3_verify.sh --with-frr
+```
+
+Runs V1-V4 (VPP protocol conformance, gNMI gRPC roundtrip, persistence
+restart cycle, gNMI Set surviving a restart) and V5 (real FRR zebra
+reachability via the danos-frr-test image).
 
 ## Architecture
 
@@ -64,12 +76,13 @@ See `v1.1/DANOS-Open_Architecture_Specification_v1.1.md` for full spec.
 | `danos-core/` | Core engine: object/state/transaction/capability/event/reconciler | v0.2 |
 | `danos-dpa/` | DPA public API (C ABI + Protobuf) | v0.2 |
 | `danos-fib/` | FRR zebra/FIB adapter | v0.2 |
-| `danos-vpp/` | VPP backend | v0.2 |
+| `danos-vpp/` | VPP backend: real binary API (handshake + msg table + typed messages) + stat segment | v0.3 |
 | `danos-models/` | YANG / OpenConfig models (13 models) | v0.2 |
-| `danos-mgmt/` | CLI / gNMI / NETCONF | v0.2 |
+| `danos-mgmt/` | CLI / gNMI (real protobuf + gRPC/HTTP2) / NETCONF | v0.3 |
 | `danos-security/` | RBAC / CoPP / audit log | v0.2 |
 | `danos-ha/` | BFD multihop / VRRP / supervisor | v0.2 |
 | `danos-observability/` | Prometheus / structured logging / alerts | v0.2 |
+| (core) `persist` | WAL-backed durable config: boot replay + torn-record tolerance | v0.3 |
 | `danos-compat/` | OcNOS-like CLI & semantic compatibility layer | v0.3+ |
 | `danos-platform/` | Platform adaptation: x86 / ARM / generic | v0.3+ |
 | `danos-ovs/` | OVS-DPDK backend | v0.3+ |
