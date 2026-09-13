@@ -80,12 +80,17 @@ protobuf/HPACK/HTTP2/gRPC stack:
 | HPACK Huffman headers, flow control (79KB > default window), 8 concurrent streams | pass |
 | TLS channel (socat front-end) | pass |
 | Model-driven leaf paths (openconfig /config, /state) | pass |
+| 32 concurrent connections (scale test, plain + ASAN) | pass |
 
 Reproduce: `bash danos-test/integration/run_v0.4_interop.sh`
 (see `danos-docs/interop/v0.4_interop_dod.md`).
 
 Release acceptance: `bash danos-test/integration/release_check.sh`
 (ctest + gnmic interop + mgrd boot/crash-recovery smoke).
+
+Quality gates in CI: full ctest, ASAN+UBSAN (incl. decoder fuzzing),
+gnmic interop, 32-connection scale test — see
+`.github/workflows/{ci,interop}.yml` and `danos-docs/threading.md`.
 
 ## Architecture
 

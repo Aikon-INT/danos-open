@@ -1270,7 +1270,7 @@ int danos_gnmi_grpc_start(danos_gnmi_grpc_ctx_t *ctx)
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
     addr.sin_port = htons(ctx->port);
     if (bind(ctx->listen_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0 ||
-        listen(ctx->listen_fd, 4) < 0) {
+        listen(ctx->listen_fd, 64) < 0) {
         close(ctx->listen_fd);
         ctx->listen_fd = -1;
         return -1;

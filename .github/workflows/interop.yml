@@ -1,0 +1,80 @@
+name: Interop Gate
+
+# External-client verification: gnmic (independent grpc-go
+# implementation) against the hand-written C gNMI/gRPC stack.
+# Runs on every push/PR so interop breakage is caught at the gate.
+
+on:
+  push:
+    branches: [main, v0.1]
+  pull_request:
+    branches: [main]
+
+jobs:
+  gnmic-interop:
+    name: gnmic interop (I1-I9)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake socat
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Build gnmic
+        run: |
+          mkdir -p /tmp/gnmic-build && cd /tmp/gnmic-build
+          go mod init build
+          go get github.com/openconfig/gnmic@v0.35.0
+          go build -o /usr/local/bin/gnmic github.com/openconfig/gnmic
+          gnmic version
+      - name: Configure & build DANOS
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j$(nproc)
+      - name: Run interop verification (I1-I9)
+        run: |
+          export GNMIC=/usr/local/bin/gnmic
+          bash danos-test/integration/run_v0.4_interop.sh
+
+  sanitizers:
+    name: ASAN + UBSAN (full suite + fuzz)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake
+      - name: Configure (ASAN+UBSAN)
+        run: cmake -B build-asan -DDANOS_SANITIZE=ON -DCMAKE_BUILD_TYPE=Debug
+      - name: Build
+        run: cmake --build build-asan -j$(nproc)
+      - name: Test under sanitizers
+        env:
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1
+        run: ctest --test-dir build-asan --output-on-failure
+      - name: Decoder fuzzing under sanitizers
+        env:
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
+        run: ./build-asan/danos-test/fuzz_decoders
+
+  concurrent-scale:
+    name: Scale (32 concurrent gNMI connections)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake
+      - name: Build
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j$(nproc)
+      - name: Concurrent connections
+        run: ctest --test-dir build -R concurrent_conns --output-on-failure

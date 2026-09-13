@@ -10,6 +10,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <pthread.h>
 
 #define PROM_MAX_METRICS 128
 #define PROM_NAME_LEN 64
@@ -32,8 +33,12 @@ typedef struct {
 
 static prom_metric_t g_metrics[PROM_MAX_METRICS];
 static bool g_initialized = false;
+/* g_metrics is read by /metrics scrapes and written by gNMI/CLI
+ * threads; a rwlock keeps scrapes consistent (v0.8 thread audit). */
+static pthread_rwlock_t g_metrics_lock = PTHREAD_RWLOCK_INITIALIZER;
 
-static prom_metric_t *find_metric(const char *name)
+/* caller must hold g_metrics_lock */
+static prom_metric_t *find_metric_locked(const char *name)
 {
     if (!name) return NULL;
     for (int i = 0; i < PROM_MAX_METRICS; i++) {
@@ -62,10 +67,13 @@ void danos_prom_set_stat_provider(danos_stat_provider_fn fn)
 
 int danos_prom_bind_stat(const char *metric, const char *stat_name)
 {
-    prom_metric_t *m = find_metric(metric);
-    if (!m || !stat_name || !stat_name[0]) return -1;
+    if (!stat_name || !stat_name[0]) return -1;
+    pthread_rwlock_wrlock(&g_metrics_lock);
+    prom_metric_t *m = find_metric_locked(metric);
+    if (!m) { pthread_rwlock_unlock(&g_metrics_lock); return -1; }
     snprintf(m->stat_name, sizeof(m->stat_name), "%s", stat_name);
     m->stat_bound = true;
+    pthread_rwlock_unlock(&g_metrics_lock);
     return 0;
 }
 
@@ -73,6 +81,7 @@ int danos_prom_refresh(void)
 {
     if (!g_provider) return 0;
     int n = 0;
+    pthread_rwlock_wrlock(&g_metrics_lock);
     for (int i = 0; i < PROM_MAX_METRICS; i++) {
         if (!g_metrics[i].used || !g_metrics[i].stat_bound) continue;
         uint64_t v = g_provider(g_metrics[i].stat_name);
@@ -81,6 +90,7 @@ int danos_prom_refresh(void)
         }
         n++;
     }
+    pthread_rwlock_unlock(&g_metrics_lock);
     return n;
 }
 
@@ -165,10 +175,17 @@ int danos_prom_register(const char *name, const char *help,
 {
     if (!name || !help) return -1;
     if (!g_initialized) danos_prom_init();
-    if (find_metric(name)) return -1; /* duplicate */
+    pthread_rwlock_wrlock(&g_metrics_lock);
+    if (find_metric_locked(name)) {
+        pthread_rwlock_unlock(&g_metrics_lock);
+        return -1; /* duplicate */
+    }
 
     prom_metric_t *m = find_free();
-    if (!m) return -1; /* full */
+    if (!m) {
+        pthread_rwlock_unlock(&g_metrics_lock);
+        return -1; /* full */
+    }
 
     snprintf(m->name, sizeof(m->name), "%s", name);
     snprintf(m->help, sizeof(m->help), "%s", help);
@@ -177,31 +194,40 @@ int danos_prom_register(const char *name, const char *help,
     m->hcount = 0;
     m->hsum = 0;
     m->used = true;
+    m->stat_bound = false;
+    m->stat_name[0] = '\0';
+    pthread_rwlock_unlock(&g_metrics_lock);
     return 0;
 }
 
 int danos_prom_set(const char *name, double value)
 {
-    prom_metric_t *m = find_metric(name);
-    if (!m) return -1;
+    pthread_rwlock_wrlock(&g_metrics_lock);
+    prom_metric_t *m = find_metric_locked(name);
+    if (!m) { pthread_rwlock_unlock(&g_metrics_lock); return -1; }
     m->value = value;
+    pthread_rwlock_unlock(&g_metrics_lock);
     return 0;
 }
 
 int danos_prom_inc(const char *name, double delta)
 {
-    prom_metric_t *m = find_metric(name);
-    if (!m) return -1;
+    pthread_rwlock_wrlock(&g_metrics_lock);
+    prom_metric_t *m = find_metric_locked(name);
+    if (!m) { pthread_rwlock_unlock(&g_metrics_lock); return -1; }
     m->value += delta;
+    pthread_rwlock_unlock(&g_metrics_lock);
     return 0;
 }
 
 int danos_prom_observe(const char *name, double value)
 {
-    prom_metric_t *m = find_metric(name);
-    if (!m) return -1;
+    pthread_rwlock_wrlock(&g_metrics_lock);
+    prom_metric_t *m = find_metric_locked(name);
+    if (!m) { pthread_rwlock_unlock(&g_metrics_lock); return -1; }
     m->hcount++;
     m->hsum += value;
+    pthread_rwlock_unlock(&g_metrics_lock);
     return 0;
 }
 
@@ -211,6 +237,7 @@ int danos_prom_render(char *buf, int buf_size)
     int offset = 0;
 
     danos_prom_refresh();   /* pull bound metrics before exposition */
+    pthread_rwlock_rdlock(&g_metrics_lock);
 
     for (int i = 0; i < PROM_MAX_METRICS; i++) {
         if (!g_metrics[i].used) continue;
@@ -233,6 +260,7 @@ int danos_prom_render(char *buf, int buf_size)
         }
         if (offset >= buf_size - 256) break; /* leave room */
     }
+    pthread_rwlock_unlock(&g_metrics_lock);
     return offset;
 }
 
