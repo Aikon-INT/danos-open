@@ -56,6 +56,12 @@ typedef struct {
 danos_status_t gnmi_model_resolve(const gnmi_path_t *path,
                                   gnmi_model_binding_t *b);
 
+/* Supported model list (capabilities source of truth, v0.13) */
+
+
+void gnmi_model_supported_models(const gnmi_model_data_t **models,
+                                 uint32_t *count);
+
 /* Read a leaf value out of an object blob. Returns DANOS_OK on success
  * (value in `out`), DANOS_ERR_NOT_FOUND for missing key objects. */
 danos_status_t gnmi_model_read_leaf(danos_obj_type_t type, uint64_t key,

@@ -36,6 +36,11 @@
 
 | reconciler 周期线程 | reconciler_start | programming_run(驱动 backend ops)| g_programmed 台账(私有)| 台账 store 自带 rwlock |
 
+## v0.13 增补
+
+| prometheus provider | /metrics render 时调用 | core 统计(programming/reconciler)与 VPP stat | prom rwlock 内调用——provider 必须无再入、无阻塞 |
+| 事件回调(object_registry 发布) | gNMI/CLI/NETCONF 连接线程同步执行 | mark_dirty + store_epoch cond 广播 | 无锁(原子/短临界区)|
+
 ## 待扩展
 
 - gNMI Subscribe STREAM 长连接占用其连接线程;若需单连接多订阅,

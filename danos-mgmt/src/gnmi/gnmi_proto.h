@@ -230,7 +230,6 @@ typedef struct {
     const char *organization;
     const char *version;
 } gnmi_model_data_t;
-
 bool gnmi_encode_capabilities_response(gnmi_pb_t *w,
                                        const gnmi_model_data_t *models,
                                        uint32_t model_count,

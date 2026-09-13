@@ -42,6 +42,10 @@ void danos_reconciler_stop(void);
 /* One-shot reconcile: scan all object types */
 uint64_t danos_reconciler_run_once(void);
 
+/* Global reconciler counters (v0.13, Prometheus-visible) */
+void danos_reconciler_global_stats(uint64_t *runs, uint64_t *diffs,
+                                   uint64_t *repairs, uint64_t *failures);
+
 #ifdef __cplusplus
 }
 #endif

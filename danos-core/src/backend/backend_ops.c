@@ -18,12 +18,40 @@
 #include <danos/core/backend_ops.h>
 #include <danos/core/object_registry.h>
 #include <danos/dpa.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 static const danos_backend_ops_t *g_ops;
 static danos_object_store_t *g_programmed;
+
+/* cumulative programming statistics (v0.13, exposed via Prometheus) */
+static struct {
+    uint64_t attempted, ok, failed;
+} g_prog_stats;
+static pthread_mutex_t g_prog_lock = PTHREAD_MUTEX_INITIALIZER;
+static volatile int g_dirty;   /* set by store mutation events */
+
+void danos_programming_mark_dirty(void)
+{
+    g_dirty = 1;
+}
+
+int danos_programming_dirty_take(void)
+{
+    int d = g_dirty;
+    g_dirty = 0;
+    return d;
+}
+
+void danos_programming_get_stats(uint64_t *attempted, uint64_t *ok,
+                                 uint64_t *failed)
+{
+    if (attempted) *attempted = g_prog_stats.attempted;
+    if (ok)        *ok        = g_prog_stats.ok;
+    if (failed)    *failed    = g_prog_stats.failed;
+}
 
 void danos_backend_ops_set(const danos_backend_ops_t *ops)
 {
@@ -221,8 +249,14 @@ static void program_entry(danos_object_entry_t *e, void *user)
 uint64_t danos_programming_run(uint64_t *attempted, uint64_t *failed)
 {
     program_ctx_t c = {0, 0, 0};
-    if (g_ops && g_default_store)
+    pthread_mutex_lock(&g_prog_lock);
+    if (g_ops && g_default_store) {
         danos_object_iterate(g_default_store, program_entry, &c);
+        g_prog_stats.attempted += c.attempted;
+        g_prog_stats.ok += c.ok;
+        g_prog_stats.failed += c.failed;
+    }
+    pthread_mutex_unlock(&g_prog_lock);
     if (attempted) *attempted = c.attempted;
     if (failed)    *failed    = c.failed;
     return c.ok;

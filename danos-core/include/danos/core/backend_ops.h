@@ -63,6 +63,17 @@ uint64_t danos_programming_run(uint64_t *attempted, uint64_t *failed);
 /* Number of objects currently marked PROGRAMMED for a type. */
 uint64_t danos_programming_programmed_count(danos_obj_type_t type);
 
+/* Mark desired state dirty (e.g. on store mutation): the next
+ * reconciler pass runs immediately instead of waiting for the period. */
+void danos_programming_mark_dirty(void);
+
+/* Consume the dirty flag (reconciler thread). Returns 1 if set. */
+int danos_programming_dirty_take(void);
+
+/* Cumulative programming counters (v0.13, Prometheus-visible). */
+void danos_programming_get_stats(uint64_t *attempted, uint64_t *ok,
+                                 uint64_t *failed);
+
 /* Reconcile the backend against desired state: ledger entries whose
  * desired object disappeared are deleted via ops->route_del (v0.10
  * tombstone tracking, routes only). Returns deletions issued. */

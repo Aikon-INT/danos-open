@@ -26,6 +26,7 @@
 #include "../danos-mgmt/src/gnmi/gnmi_grpc.h"
 #include "../danos-vpp/src/api/vpp_api.h"
 #include "../danos-netlink/danos_netlink.h"
+#include <danos/core/reconciler.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -43,10 +44,56 @@ static void on_signal(int sig)
 
 static uint64_t stat_provider(const char *name)
 {
+    /* v0.13: pipeline/reconciler/gNMI counters first (real telemetry),
+     * then the VPP stat segment (real when connected, mock otherwise). */
+    if (strcmp(name, "danos_programming_attempted_total") == 0 ||
+        strcmp(name, "danos_programming_ok_total") == 0 ||
+        strcmp(name, "danos_programming_failed_total") == 0) {
+        uint64_t a = 0, ok = 0, f = 0;
+        danos_programming_get_stats(&a, &ok, &f);
+        if (strstr(name, "attempted")) return a;
+        if (strstr(name, "_ok_"))      return ok;
+        return f;
+    }
+    if (strcmp(name, "danos_reconcile_total") == 0 ||
+        strcmp(name, "danos_reconcile_failures") == 0) {
+        uint64_t runs = 0, diffs = 0, repairs = 0, failures = 0;
+        danos_reconciler_global_stats(&runs, &diffs, &repairs, &failures);
+        return strcmp(name, "danos_reconcile_total") == 0 ? repairs : failures;
+    }
+    if (strcmp(name, "danos_gnmi_rpcs_total") == 0) {
+        extern uint64_t g_rpcs_total;
+        return g_rpcs_total;
+    }
     /* v0.6: routed through the VPP stat client (real segment when
      * connected, mock counters otherwise — mock falls back to a
      * deterministic hash so scrapes stay meaningful in tests). */
     return danos_vpp_api_stat_query(name);
+}
+
+static void bind_pipeline_metrics(void)
+{
+    struct { const char *metric; const char *help; const char *stat; } m[] = {
+        { "danos_programming_attempted_total", "Backend programming attempts",
+          "danos_programming_attempted_total" },
+        { "danos_programming_ok_total", "Backend programming successes",
+          "danos_programming_ok_total" },
+        { "danos_programming_failed_total", "Backend programming failures",
+          "danos_programming_failed_total" },
+        { "danos_gnmi_rpcs_total", "gNMI RPCs served",
+          "danos_gnmi_rpcs_total" },
+        { "danos_reconcile_total", "Reconciliation repairs issued",
+          "danos_reconcile_total" },
+        { "danos_reconcile_failures", "Reconciliation failures",
+          "danos_reconcile_failures" },
+    };
+    for (size_t i = 0; i < sizeof(m) / sizeof(m[0]); i++) {
+        /* register may fail for defaults that already exist — bind
+         * regardless so the provider drives the value */
+        (void)danos_prom_register(m[i].metric, m[i].help,
+                                  DANOS_METRIC_COUNTER);
+        (void)danos_prom_bind_stat(m[i].metric, m[i].stat);
+    }
 }
 
 static void seed_initial_config(void)
@@ -120,6 +167,7 @@ int main(int argc, char **argv)
     danos_vpp_api_init();
     danos_prom_set_stat_provider(stat_provider);
     bind_vpp_metrics();
+    bind_pipeline_metrics();
     if (use_vpp) {
         if (vpp_sock) danos_vpp_api_set_sock_path(vpp_sock);
         if (danos_vpp_api_connect() == 0) {

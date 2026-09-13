@@ -322,6 +322,23 @@ static int send_grpc_response(h2_conn_t *c, uint32_t stream,
 
 static danos_state_store_t *g_store;
 
+/* store-mutation notification for STREAM subscriptions (v0.13):
+ * object-registry events bump the epoch; waiting loops use the cond */
+static pthread_mutex_t g_store_ev_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t g_store_ev_cond = PTHREAD_COND_INITIALIZER;
+static uint64_t g_store_epoch = 0;
+
+static void store_event_cb(const danos_event_t *ev, void *user)
+{
+    (void)ev; (void)user;
+    pthread_mutex_lock(&g_store_ev_lock);
+    g_store_epoch++;
+    pthread_cond_broadcast(&g_store_ev_cond);
+    pthread_mutex_unlock(&g_store_ev_lock);
+}
+
+uint64_t g_rpcs_total = 0;
+
 static danos_state_store_t *store_or_default(void)
 {
     return g_store ? g_store : NULL;
@@ -542,6 +559,15 @@ static int subscribe_stream_loop(h2_conn_t *c, uint32_t stream,
                 hash ^= (uint64_t)ifaces[i].mtu * 31 + ifaces[i].ifindex;
         }
 
+        /* wait for a store mutation (or 200 ms tick) before re-hashing */
+        pthread_mutex_lock(&g_store_ev_lock);
+        struct timespec ts;
+        clock_gettime(CLOCK_REALTIME, &ts);
+        ts.tv_nsec += 200000000;
+        if (ts.tv_nsec >= 1000000000) { ts.tv_sec++; ts.tv_nsec -= 1000000000; }
+        pthread_cond_timedwait(&g_store_ev_cond, &g_store_ev_lock, &ts);
+        pthread_mutex_unlock(&g_store_ev_lock);
+
         if (first || hash != last_hash) {
             gnmi_path_t paths[GNMI_MAX_ELEMS];
             uint32_t pc = 0;
@@ -645,13 +671,12 @@ int gnmi_handle_capabilities(const uint8_t *req, size_t req_len,
     snprintf(vstr, sizeof(vstr), "DANOS-Open DPA %u.%u.%u",
              ver.major, ver.minor, ver.patch);
 
-    gnmi_model_data_t models[] = {
-        { "openconfig-interfaces", "OpenConfig", "2.4.1" },
-        { "openconfig-network-instance", "OpenConfig", "0.16.2" },
-        { "danos-dpa", "DANOS-Open", "0.3" },
-    };
+    /* model list sourced from the model registry (single truth) */
+    const gnmi_model_data_t *models;
+    uint32_t model_count = 0;
+    gnmi_model_supported_models(&models, &model_count);
     gnmi_encoding_t encs[] = { GNMI_ENC_JSON, GNMI_ENC_JSON_IETF };
-    gnmi_encode_capabilities_response(&w, models, 3, encs, 2, vstr);
+    gnmi_encode_capabilities_response(&w, models, model_count, encs, 2, vstr);
     return w.overflow ? -1 : (int)w.len;
 }
 
@@ -1152,6 +1177,15 @@ int danos_gnmi_grpc_serve_fd(int fd)
     /* 2. our SETTINGS */
     write_frame(fd, H2_F_SETTINGS, 0, 0, NULL, 0);
 
+    /* subscribe to store mutations (once) for STREAM subscriptions */
+    static bool ev_subscribed = false;
+    if (!ev_subscribed) {
+        danos_event_subscribe((danos_event_type_t)
+            (DANOS_EVENT_OBJ_CREATED | DANOS_EVENT_OBJ_UPDATED |
+             DANOS_EVENT_OBJ_DELETED), store_event_cb, NULL);
+        ev_subscribed = true;
+    }
+
     int rc = 0;
     uint8_t msg[MAX_MSG];
 
@@ -1198,6 +1232,8 @@ int danos_gnmi_grpc_serve_fd(int fd)
             rc = -1;
             break;
         }
+
+        g_rpcs_total++;
 
         bool end_stream = (fflags & H2_FLAG_END_STREAM) != 0;
         size_t msg_len = 0;

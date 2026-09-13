@@ -106,14 +106,20 @@ uint64_t danos_reconciler_run_once(void)
     return diffs;
 }
 
-/* Periodic reconcile thread */
+/* Periodic reconcile thread — also wakes immediately when desired
+ * state is marked dirty by a store mutation event (v0.13). */
 static void *reconcile_thread(void *arg)
 {
     (void)arg;
     uint64_t period_us = g_reconciler->config.reconcile_period_ms * 1000;
+    uint64_t waited = 0;
     while (g_reconciler->running) {
-        usleep((useconds_t)period_us);
+        usleep(50000);   /* 50 ms tick */
         if (!g_reconciler->running) break;
+        waited += 50000;
+        if (!danos_programming_dirty_take() && waited < period_us)
+            continue;
+        waited = 0;
         danos_reconciler_run_once();
     }
     return NULL;
@@ -156,4 +162,16 @@ danos_status_t danos_reconcile_get_stats(danos_obj_type_t type,
     *out = g_reconciler->stats;
     pthread_mutex_unlock(&g_reconciler->stats_lock);
     return DANOS_OK;
+}
+
+void danos_reconciler_global_stats(uint64_t *runs, uint64_t *diffs,
+                                   uint64_t *repairs, uint64_t *failures)
+{
+    if (!g_reconciler) return;
+    pthread_mutex_lock(&g_reconciler->stats_lock);
+    if (runs)     *runs     = g_reconciler->stats.total_runs;
+    if (diffs)    *diffs    = g_reconciler->stats.total_diffs;
+    if (repairs)  *repairs  = g_reconciler->stats.total_repairs;
+    if (failures) *failures = g_reconciler->stats.total_failures;
+    pthread_mutex_unlock(&g_reconciler->stats_lock);
 }

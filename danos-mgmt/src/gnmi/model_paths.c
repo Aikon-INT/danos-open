@@ -208,3 +208,20 @@ danos_status_t gnmi_model_apply_leaf(danos_obj_type_t type,
     }
     return DANOS_ERR_INVALID_ARG;
 }
+
+/* ---- capabilities consistency (v0.13) ------------------------------------
+ * The advertised model list lives HERE, next to the path bindings, so
+ * Capabilities can never drift from what the registry implements.
+ */
+static const gnmi_model_data_t k_supported_models[] = {
+    { "openconfig-interfaces",        "OpenConfig",  "2.4.1"  },
+    { "openconfig-network-instance",  "OpenConfig",  "0.16.2" },
+    { "danos-dpa",                    "DANOS-Open",  "0.3"    },
+};
+
+void gnmi_model_supported_models(const gnmi_model_data_t **models,
+                                 uint32_t *count)
+{
+    *models = k_supported_models;
+    *count = sizeof(k_supported_models) / sizeof(k_supported_models[0]);
+}

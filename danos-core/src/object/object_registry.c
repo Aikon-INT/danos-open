@@ -4,7 +4,10 @@
 
 #include <danos/core/object_registry.h>
 #include <danos/core/persist.h>
+#include <danos/core/event_bus.h>
+#include <danos/core/backend_ops.h>
 #include <stdlib.h>
+#include <time.h>
 #include <string.h>
 
 #define DEFAULT_BUCKET_COUNT 1024
@@ -89,6 +92,16 @@ danos_status_t danos_object_create(danos_object_store_t *s,
 
     pthread_rwlock_unlock(&s->lock);
     danos_persist_on_mutation(s, 1 /* WAL_OP_CREATE */, (int)type, id, data, size);
+
+    danos_programming_mark_dirty();
+    if (g_event_bus) {
+        danos_event_t ev = {0};
+        ev.type = DANOS_EVENT_OBJ_CREATED;
+        ev.obj_type = type;
+        ev.obj_id = id;
+        ev.timestamp_ns = (uint64_t)time(NULL) * 1000000000ULL;
+        danos_event_publish(&ev);
+    }
     return DANOS_OK;
 }
 
@@ -141,6 +154,16 @@ danos_status_t danos_object_update(danos_object_store_t *s,
     e->data_size = size;
     pthread_rwlock_unlock(&s->lock);
     danos_persist_on_mutation(s, 2 /* WAL_OP_UPDATE */, (int)type, id, data, size);
+
+    danos_programming_mark_dirty();
+    if (g_event_bus) {
+        danos_event_t ev = {0};
+        ev.type = DANOS_EVENT_OBJ_UPDATED;
+        ev.obj_type = type;
+        ev.obj_id = id;
+        ev.timestamp_ns = (uint64_t)time(NULL) * 1000000000ULL;
+        danos_event_publish(&ev);
+    }
     return DANOS_OK;
 }
 
@@ -164,6 +187,15 @@ danos_status_t danos_object_delete(danos_object_store_t *s,
             pthread_rwlock_unlock(&s->lock);
             danos_persist_on_mutation(s, 3 /* WAL_OP_DELETE */, (int)type, id,
                                       NULL, 0);
+            danos_programming_mark_dirty();
+            if (g_event_bus) {
+                danos_event_t ev = {0};
+                ev.type = DANOS_EVENT_OBJ_DELETED;
+                ev.obj_type = type;
+                ev.obj_id = id;
+                ev.timestamp_ns = (uint64_t)time(NULL) * 1000000000ULL;
+                danos_event_publish(&ev);
+            }
             return DANOS_OK;
         }
         prev = e;
