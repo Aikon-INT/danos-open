@@ -127,6 +127,7 @@ typedef enum {
     DANOS_OBJ_EVPN         = 11,
     DANOS_OBJ_MULTICAST    = 12,
     DANOS_OBJ_BFD          = 13,
+    DANOS_OBJ_QOS_BIND     = 14,  /* QoS policy <-> interface binding */
     DANOS_OBJ_MAX
 } danos_obj_type_t;
 

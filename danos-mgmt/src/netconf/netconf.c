@@ -3,6 +3,9 @@
  */
 
 #include "netconf.h"
+#include "../gnmi/model_paths.h"
+#include <danos/core/object_registry.h>
+#include <danos/dpa.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -86,19 +89,109 @@ static char *error_reply(const char *msg)
     return resp;
 }
 
+/* ---- model-layer wired config view + edit ------------------------------- */
+
+char g_nc_body[8192];
+int g_nc_off = 0;
+
+static void nc_iface_xml_iter(danos_object_entry_t *e, void *user)
+{
+    (void)user;
+    if (e->type != DANOS_OBJ_IFACE || e->data_size < sizeof(danos_iface_t))
+        return;
+    const danos_iface_t *i = e->data;
+    g_nc_off += snprintf(g_nc_body + g_nc_off, sizeof(g_nc_body) - g_nc_off,
+        "      <interface>\n"
+        "        <name>%s</name>\n"
+        "        <mtu>%u</mtu>\n"
+        "        <enabled>%s</enabled>\n"
+        "      </interface>\n",
+        i->name, i->mtu, i->admin_up ? "true" : "false");
+}
+
 static char *get_config_reply(void)
 {
-    /* Return current running config (empty for v0.1) */
-    return strdup(
+    g_nc_off = snprintf(g_nc_body, sizeof(g_nc_body),
         "<rpc-reply xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n"
         "  <data>\n"
-        "    <interfaces xmlns=\"urn:danos:yang:danos-iface\">\n"
+        "    <interfaces xmlns=\"urn:danos:yang:danos-iface\">\n");
+    danos_object_iterate(g_default_store, nc_iface_xml_iter, NULL);
+    g_nc_off += snprintf(g_nc_body + g_nc_off, sizeof(g_nc_body) - g_nc_off,
         "    </interfaces>\n"
-        "    <routes xmlns=\"urn:danos:yang:danos-route\">\n"
-        "    </routes>\n"
         "  </data>\n"
-        "</rpc-reply>\n"
-    );
+        "</rpc-reply>\n");
+    return strdup(g_nc_body);
+}
+
+static void extract_text(const char *xml, const char *tag,
+                         char *out, size_t cap)
+{
+    char open[64], close[64];
+    snprintf(open, sizeof(open), "<%s>", tag);
+    snprintf(close, sizeof(close), "</%s>", tag);
+    const char *p = strstr(xml, open);
+    if (!p) return;
+    p += strlen(open);
+    const char *e = strstr(p, close);
+    if (!e) return;
+    size_t n = (size_t)(e - p);
+    if (n >= cap) n = cap - 1;
+    memcpy(out, p, n);
+    out[n] = '\0';
+}
+
+struct nc_lookup { const char *want; danos_iface_t *out; bool found; };
+
+static void nc_lookup_iface_iter(danos_object_entry_t *e, void *user)
+{
+    struct nc_lookup *lu = user;
+    if (lu->found) return;
+    if (e->type != DANOS_OBJ_IFACE || e->data_size < sizeof(danos_iface_t))
+        return;
+    const danos_iface_t *i = e->data;
+    if (strcmp(i->name, lu->want) == 0) {
+        memcpy(lu->out, i, sizeof(*i));
+        lu->found = true;
+    }
+}
+
+static char *edit_config_apply(const char *xml)
+{
+    const char *iblock = find_tag(xml, "interface>");
+    if (!iblock) return ok_reply();
+
+    char name[64] = {0}, mtu[32] = {0}, enabled[16] = {0};
+    extract_text(iblock, "name", name, sizeof(name));
+    extract_text(iblock, "mtu", mtu, sizeof(mtu));
+    extract_text(iblock, "enabled", enabled, sizeof(enabled));
+    if (!name[0]) return error_reply("interface name missing");
+
+    danos_iface_t target;
+    struct nc_lookup lu = { .want = name, .out = &target, .found = false };
+    danos_object_iterate(g_default_store, nc_lookup_iface_iter, &lu);
+    if (!lu.found) return error_reply("interface not found");
+
+    if (mtu[0]) {
+        gnmi_typed_value_t v = { .kind = GNMI_VAL_JSON_IETF };
+        snprintf(v.s, sizeof(v.s), "%s", mtu);
+        danos_status_t st = gnmi_model_apply_leaf(DANOS_OBJ_IFACE,
+                                                  GNMI_FIELD_MTU,
+                                                  &target, sizeof(target), &v);
+        if (st != DANOS_OK) return error_reply(danos_status_str(st));
+    }
+    if (enabled[0]) {
+        gnmi_typed_value_t v = { .kind = GNMI_VAL_JSON_IETF };
+        snprintf(v.s, sizeof(v.s), "%s", enabled);
+        danos_status_t st = gnmi_model_apply_leaf(DANOS_OBJ_IFACE,
+                                                  GNMI_FIELD_ENABLED,
+                                                  &target, sizeof(target), &v);
+        if (st != DANOS_OK) return error_reply(danos_status_str(st));
+    }
+    danos_status_t st = danos_object_update(g_default_store,
+                                            DANOS_OBJ_IFACE, target.ifindex,
+                                            &target, sizeof(target));
+    if (st != DANOS_OK) return error_reply(danos_status_str(st));
+    return ok_reply();
 }
 
 char *netconf_handle_rpc(netconf_ctx_t *ctx, const char *xml)
@@ -113,8 +206,7 @@ char *netconf_handle_rpc(netconf_ctx_t *ctx, const char *xml)
         return get_config_reply();
 
     case NETCONF_RPC_EDIT_CONFIG:
-        /* In production: parse config and apply via DPA transaction */
-        return ok_reply();
+        return edit_config_apply(xml);
 
     case NETCONF_RPC_GET:
         return get_config_reply();

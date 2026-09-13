@@ -32,6 +32,7 @@ static uint16_t dpa_type_to_wal(danos_obj_type_t t)
     case DANOS_OBJ_TUNNEL:    return 21;
     case DANOS_OBJ_EVPN:      return 22;
     case DANOS_OBJ_MULTICAST: return 23;
+    case DANOS_OBJ_QOS_BIND:  return 24;
     default:                  return 0;
     }
 }
@@ -52,6 +53,7 @@ static danos_obj_type_t wal_type_to_dpa(uint16_t t)
     case 21:                return DANOS_OBJ_TUNNEL;
     case 22:                return DANOS_OBJ_EVPN;
     case 23:                return DANOS_OBJ_MULTICAST;
+    case 24:                return DANOS_OBJ_QOS_BIND;
     default:                return DANOS_OBJ_INVALID;
     }
 }

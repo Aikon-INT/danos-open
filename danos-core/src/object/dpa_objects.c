@@ -214,11 +214,29 @@ danos_status_t danos_route_read(danos_tx_t *tx, danos_vrf_id_t vrf_id,
     return danos_object_read(get_default_store(), DANOS_OBJ_ROUTE, id, out, &sz);
 }
 
+typedef struct {
+    danos_vrf_id_t vrf_id;
+    danos_route_cb_t cb;
+    void *user;
+} route_dump_ctx_t;
+
+static void route_dump_iter(danos_object_entry_t *e, void *user)
+{
+    route_dump_ctx_t *c = user;
+    if (e->type != DANOS_OBJ_ROUTE) return;
+    if (e->data_size < sizeof(danos_route_t)) return;
+    const danos_route_t *r = e->data;
+    if (c->vrf_id != 0 && r->vrf_id != c->vrf_id) return;  /* 0 = all VRFs */
+    c->cb(r, c->user);
+}
+
 danos_status_t danos_route_dump(danos_tx_t *tx, danos_vrf_id_t vrf_id,
                                 danos_route_cb_t cb, void *user)
 {
-    (void)tx; (void)vrf_id; (void)cb; (void)user;
-    /* TODO: iterate store and call cb per route */
+    (void)tx;
+    if (!cb) return DANOS_ERR_INVALID_ARG;
+    route_dump_ctx_t c = { .vrf_id = vrf_id, .cb = cb, .user = user };
+    danos_object_iterate(get_default_store(), route_dump_iter, &c);
     return DANOS_OK;
 }
 
@@ -319,12 +337,35 @@ danos_status_t danos_qos_policy_read(danos_tx_t *tx, danos_obj_id_t policy_id,
                              policy_id, out, &sz);
 }
 
+/* Binding stored as its own object type so it persists and can be
+ * listed; key derived from (policy, ifindex, direction). */
+typedef struct {
+    danos_obj_id_t  policy_id;
+    danos_ifindex_t ifindex;
+    bool            ingress;
+} danos_qos_bind_rec_t;
+
+static danos_obj_id_t qos_bind_key(danos_obj_id_t policy_id,
+                                   danos_ifindex_t ifindex, bool ingress)
+{
+    uint64_t h = 0x51505342ULL;  /* "QPSB" */
+    h = (h ^ policy_id) * 1099511628211ULL;
+    h = (h ^ ifindex) * 1099511628211ULL;
+    h = (h ^ (uint64_t)ingress) * 1099511628211ULL;
+    h |= 1ULL << 63;  /* keep out of the plain policy-id space */
+    return h;
+}
+
 danos_status_t danos_qos_policy_bind(danos_tx_t *tx, danos_obj_id_t policy_id,
                                      danos_ifindex_t ifindex, bool ingress)
 {
-    (void)tx; (void)policy_id; (void)ifindex; (void)ingress;
-    /* TODO: store binding */
-    return DANOS_OK;
+    (void)tx;
+    danos_qos_bind_rec_t rec = {
+        .policy_id = policy_id, .ifindex = ifindex, .ingress = ingress,
+    };
+    return danos_object_create(get_default_store(), DANOS_OBJ_QOS_BIND,
+                               qos_bind_key(policy_id, ifindex, ingress),
+                               &rec, sizeof(rec));
 }
 
 /* =========================================================================

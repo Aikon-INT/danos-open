@@ -1,0 +1,14 @@
+[
+  { "path": "/interfaces",                                   "kind": "list",  "obj": "iface", "field": "none" },
+  { "path": "/interfaces/interface[name]",                   "kind": "entry", "obj": "iface", "field": "none" },
+  { "path": "/interfaces/interface[name]/config/mtu",        "kind": "leaf",  "obj": "iface", "field": "mtu" },
+  { "path": "/interfaces/interface[name]/config/enabled",    "kind": "leaf",  "obj": "iface", "field": "enabled" },
+  { "path": "/interfaces/interface[name]/config/name",       "kind": "leaf",  "obj": "iface", "field": "name" },
+  { "path": "/interfaces/interface[name]/state/mtu",         "kind": "leaf",  "obj": "iface", "field": "mtu" },
+  { "path": "/interfaces/interface[name]/state/enabled",     "kind": "leaf",  "obj": "iface", "field": "enabled" },
+  { "path": "/interfaces/interface[name]/state/link-up",     "kind": "leaf",  "obj": "iface", "field": "link-up" },
+  { "path": "/vrfs",                                         "kind": "list",  "obj": "vrf",   "field": "none" },
+  { "path": "/vrfs/vrf[id]",                                 "kind": "entry", "obj": "vrf",   "field": "none" },
+  { "path": "/vrfs/vrf[id]/config/enabled",                  "kind": "leaf",  "obj": "vrf",   "field": "enabled" },
+  { "path": "/routes",                                       "kind": "list",  "obj": "route", "field": "none" }
+]

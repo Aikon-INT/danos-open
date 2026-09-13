@@ -34,11 +34,31 @@ static void coerce_scalar(const gnmi_typed_value_t *in, gnmi_typed_value_t *out)
     }
 }
 
+/* Generated matchers (tools/gen-model-paths) are authoritative;
+ * the hand-written logic below is the fallback. */
+static bool has_config_segment(const gnmi_path_t *p)
+{
+    for (uint32_t i = 0; i < p->elem_count; i++) {
+        if (strcmp(p->elems[i].name, "config") == 0) return true;
+    }
+    return false;
+}
+
+static danos_status_t gnmi_model_gen_resolve(const gnmi_path_t *p,
+                                             gnmi_model_binding_t *b)
+{
+    if (p->elem_count == 0 || p->elem_count > GNMI_MAX_ELEMS)
+        return DANOS_ERR_NOT_FOUND;
+#include "model_paths_gen.inc"
+    return DANOS_ERR_NOT_FOUND;
+}
+
 danos_status_t gnmi_model_resolve(const gnmi_path_t *path,
                                   gnmi_model_binding_t *b)
 {
     if (!path || path->elem_count == 0) return DANOS_ERR_NOT_FOUND;
     memset(b, 0, sizeof(*b));
+    if (gnmi_model_gen_resolve(path, b) == DANOS_OK) return DANOS_OK;
     const char *top = path->elems[0].name;
     const char *second = path->elem_count > 1 ? path->elems[1].name : NULL;
     const char *third  = path->elem_count > 2 ? path->elems[2].name : NULL;

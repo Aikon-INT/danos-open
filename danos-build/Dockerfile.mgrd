@@ -1,0 +1,18 @@
+# Minimal deployment image for the DANOS-Open control plane.
+# Build the binaries first (cmake), then:
+#   docker build -f danos-build/Dockerfile.mgrd -t danos-mgrd:v0.6.0 .
+# Result: ~85 MB (vs 7.5 GB danos-build toolchain image).
+
+FROM debian:trixie-slim
+
+COPY build/danos-mgrd/danos-mgrd /usr/local/bin/danos-mgrd
+COPY danos-mgrd/danos-mgrd.service /lib/systemd/system/danos-mgrd.service
+
+RUN mkdir -p /var/lib/danos && useradd --system danos || true
+
+EXPOSE 59200 59201
+VOLUME /var/lib/danos
+
+# Control plane only: gNMI (h2c/TLS front-end) + /metrics
+ENTRYPOINT ["/usr/local/bin/danos-mgrd"]
+CMD ["--port", "59200", "--metrics-port", "59201", "--wal", "/var/lib/danos/mgrd.wal", "--seed"]
