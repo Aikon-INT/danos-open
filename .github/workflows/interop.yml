@@ -147,6 +147,24 @@ jobs:
           echo "deb [signed-by=/usr/share/keyrings/fdio.gpg] https://packagecloud.io/fdio/release/ubuntu noble main" | sudo tee /etc/apt/sources.list.d/fdio.list
           sudo apt-get update
           sudo apt-get install -y vpp vpp-plugin-core vpp-plugin-dpdk || sudo apt-get install -y vpp vpp-plugin-core
+      - name: Record installed versions -> job summary
+        if: always()
+        run: |
+          {
+            echo "## Platform baseline (installed on this runner)"
+            echo ""
+            echo "| Component | Version |"
+            echo "|-----------|---------|"
+            echo "| Debian | $(cat /etc/debian_version) |"
+            echo "| Kernel | $(uname -r) |"
+            echo "| VPP | $(dpkg -l vpp 2>/dev/null | awk '/^ii/{print $3}' || echo 'not installed') |"
+            echo "| vpp-plugin-core | $(dpkg -l vpp-plugin-core 2>/dev/null | awk '/^ii/{print $3}' || echo '-') |"
+            echo "| DPDK (via vpp) | $(dpkg -l | awk '/libdpdk|dpdk/{print $3; exit}' || echo 'bundled') |"
+            echo "| FRR | (not used in this job) |"
+            echo "| P4 | n/a |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          # Also echo for log scraping / matrix backfill:
+          echo "VPP_VERSION=$(dpkg -l vpp 2>/dev/null | awk '/^ii/{print $3}')" >> "$GITHUB_ENV"
       - name: Configure VPP (api socket + stat segment)
         run: |
           sudo mkdir -p /run/vpp /etc/vpp
