@@ -104,7 +104,7 @@ Management (CLI/gNMI/NETCONF)
    Linux / DPDK / NIC
 ```
 
-See `v1.1/DANOS-Open_Architecture_Specification_v1.1.md` for full spec.
+Historical spec archive: `v1.1/` (frozen); active docs: `docs/` + `danos-docs/`.
 
 ## Repository Structure
 
@@ -124,10 +124,10 @@ See `v1.1/DANOS-Open_Architecture_Specification_v1.1.md` for full spec.
 | `danos-mgrd` | system daemon: WAL boot + gNMI + Prometheus /metrics + crash recovery | v0.6 |
 | `danos-netlink` | kernel backend adapter: rtnetlink (real) / in-memory FIB (mock), drives the ADR-0007 programming pipeline | v0.9 |
 | (core) `programming` | desired→backend pipeline with PROGRAMMED ledger, tombstone sweep | v0.10 |
-| `danos-compat/` | OcNOS-like CLI & semantic compatibility layer | v0.3+ |
+| `danos-compat/` | OcNOS-like CLI translation (minimal; awaiting model-layer rebasing) | v0.3 |
 | `danos-platform/` | Platform adaptation: x86 / ARM / generic | v0.3+ |
 | `danos-ovs/` | OVS-DPDK backend | v0.3+ |
-| `danos-p4/` | P4Runtime / P4 backend | v0.4+ |
+| `danos-p4/` | P4Runtime / P4 backend | not started (intentional) |
 | `danos-test/` | Unit / integration / conformance / topology / perf tests | v0.2 |
 | `danos-build/` | Debian / Ubuntu / container / OCI image | v0.1 |
 | `danos-docs/` | Architecture / RFC / API spec / ADR / runbook | v0.1 |

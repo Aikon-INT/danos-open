@@ -309,11 +309,21 @@ int danos_vpp_api_transact(uint16_t msg_id, const uint8_t *payload,
                            uint32_t reply_size)
 {
     if (g_ctx.state == VPP_API_MOCK) {
-        if (reply && reply_size >= 8) memset(reply, 0, 8);
         g_ctx.last_msg_id = msg_id;
         g_ctx.last_msg_size = payload_size;
         g_ctx.msgs_sent++;
-        return 8;
+        if (reply && reply_size >= 10) {
+            /* well-formed reply: [msg_id BE][context BE][retval 0] */
+            g_ctx.context++;
+            uint32_t ctx = g_ctx.context;
+            reply[0] = (uint8_t)(msg_id >> 8);
+            reply[1] = (uint8_t)msg_id;
+            reply[2] = (uint8_t)(ctx >> 24); reply[3] = (uint8_t)(ctx >> 16);
+            reply[4] = (uint8_t)(ctx >> 8);  reply[5] = (uint8_t)ctx;
+            reply[6] = 0; reply[7] = 0; reply[8] = 0; reply[9] = 0;
+            return 10;
+        }
+        return 0;
     }
     if (danos_vpp_api_send(msg_id, payload, payload_size) != 0) return -1;
 

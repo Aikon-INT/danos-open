@@ -42,6 +42,50 @@ static danos_object_store_t *ledger(void)
     return g_programmed;
 }
 
+/* ---- dependency digest (v0.11) -------------------------------------------
+ * A route's programmed state depends on the NH group and the NH object
+ * it resolves through. The ledger records their digest alongside the
+ * route bytes, so a gateway change (or NH deletion) invalidates the
+ * entry even though the route object itself is unchanged. */
+
+static uint64_t hash_bytes(const void *data, size_t size)
+{
+    uint64_t h = 14695981039346656037ULL;
+    const uint8_t *b = data;
+    for (size_t i = 0; i < size; i++) {
+        h ^= b[i];
+        h *= 1099511628211ULL;
+    }
+    return h;
+}
+
+static uint64_t dep_digest(danos_obj_type_t type, const void *data, size_t size)
+{
+    uint64_t h = 0;
+    if (type != DANOS_OBJ_ROUTE || size < sizeof(danos_route_t)) return h;
+    const danos_route_t *r = data;
+    if (r->nhgroup_id == 0) return h;
+
+    danos_nhgroup_t grp;
+    size_t sz = sizeof(grp);
+    if (danos_object_read(g_default_store, DANOS_OBJ_NHGROUP, r->nhgroup_id,
+                          &grp, &sz) != DANOS_OK) {
+        return 0xDEADBEEFULL;   /* group gone: digest differs -> dirty */
+    }
+    h = hash_bytes(&grp, sizeof(grp));
+    for (uint32_t i = 0; i < grp.nh_count && i < 64; i++) {
+        danos_nexthop_t nh;
+        sz = sizeof(nh);
+        if (danos_object_read(g_default_store, DANOS_OBJ_NEXTHOP,
+                              grp.nh_ids[i], &nh, &sz) == DANOS_OK) {
+            h ^= hash_bytes(&nh, sizeof(nh));
+        } else {
+            h ^= 0x535A4AULL;  /* member gone */
+        }
+    }
+    return h;
+}
+
 /* ---- route next-hop resolution ------------------------------------------ */
 
 /* nhgroup -> first member NH object -> gateway + egress ifindex */
@@ -120,34 +164,58 @@ typedef struct {
     uint64_t attempted, ok, failed;
 } program_ctx_t;
 
+/* ledger record layout: [u64 dep_digest][object bytes] */
 static void program_entry(danos_object_entry_t *e, void *user)
 {
     program_ctx_t *c = user;
     if (type_skipped(e->type)) return;
 
-    /* in sync with ledger? */
+    uint64_t dep = dep_digest(e->type, e->data, e->data_size);
+
+    /* in sync with ledger (object bytes AND dependency digest)? */
     uint8_t last[512];
     size_t lsz = sizeof(last);
     bool have_last = danos_object_read(ledger(), e->type, e->id,
                                        last, &lsz) == DANOS_OK;
-    if (have_last && lsz == e->data_size &&
-        memcmp(last, e->data, e->data_size) == 0)
-        return;   /* in sync */
+    if (have_last && lsz == e->data_size + 8) {
+        uint64_t last_dep;
+        memcpy(&last_dep, last, 8);
+        if (last_dep == dep &&
+            memcmp(last + 8, e->data, e->data_size) == 0)
+            return;   /* in sync */
+    }
 
     c->attempted++;
     danos_status_t st = program_one(e->type, e->id, e->data, e->data_size);
     if (st != DANOS_OK) {
         c->failed++;
+        /* v0.11: a previously-programmed route whose next hop became
+         * unusable must be WITHDRAWN, not left forwarding via a stale
+         * gateway. */
+        if (st == DANOS_ERR_RETRY && have_last &&
+            e->type == DANOS_OBJ_ROUTE && g_ops->route_del &&
+            lsz >= 8 + sizeof(danos_route_t)) {
+            danos_resolved_route_t rr;
+            memset(&rr, 0, sizeof(rr));
+            memcpy(&rr.route, last + 8, sizeof(danos_route_t));
+            if (g_ops->route_del(&rr, g_ops->user) == DANOS_OK) {
+                danos_object_delete(ledger(), e->type, e->id);
+                c->failed--;
+            }
+        }
         return;
     }
     c->ok++;
 
-    if (have_last && lsz == e->data_size)
-        (void)danos_object_update(ledger(), e->type, e->id, e->data,
-                                  e->data_size);
+    uint8_t rec[520];
+    memcpy(rec, &dep, 8);
+    memcpy(rec + 8, e->data, e->data_size);
+    if (have_last && lsz == e->data_size + 8)
+        (void)danos_object_update(ledger(), e->type, e->id, rec,
+                                  e->data_size + 8);
     else
-        (void)danos_object_create(ledger(), e->type, e->id, e->data,
-                                  e->data_size);
+        (void)danos_object_create(ledger(), e->type, e->id, rec,
+                                  e->data_size + 8);
 }
 
 uint64_t danos_programming_run(uint64_t *attempted, uint64_t *failed)
@@ -226,15 +294,16 @@ uint64_t danos_programming_sweep(uint64_t *failed)
         danos_obj_type_t type = g_sweep_ids[i].type;
         danos_obj_id_t id = g_sweep_ids[i].id;
 
-        uint8_t last[512];
+        uint8_t last[520];
         size_t lsz = sizeof(last);
         if (danos_object_read(ledger(), type, id, last, &lsz) != DANOS_OK)
             continue;
+        if (lsz < 8 + sizeof(danos_route_t)) continue;
 
         if (type == DANOS_OBJ_ROUTE && g_ops && g_ops->route_del &&
-            lsz >= sizeof(danos_route_t)) {
+            lsz >= 8 + sizeof(danos_route_t)) {
             danos_route_t r;
-            memcpy(&r, last, sizeof(r));
+            memcpy(&r, last + 8, sizeof(r));
             danos_resolved_route_t rr;
             memset(&rr, 0, sizeof(rr));
             rr.route = r;
@@ -246,6 +315,15 @@ uint64_t danos_programming_sweep(uint64_t *failed)
                 continue;   /* keep ledger entry: retry next sweep */
             }
         }
+        if (type == DANOS_OBJ_IFACE && g_ops && g_ops->iface_up &&
+            lsz >= 8 + sizeof(danos_iface_t)) {
+            /* withdraw = admin down (we never delete kernel ifaces we
+             * did not create) */
+            danos_iface_t i;
+            memcpy(&i, last + 8, sizeof(i));
+            (void)g_ops->iface_up(i.ifindex, false, g_ops->user);
+        }
+        /* VRF: registration-only backend ops — ledger drop suffices */
         danos_object_delete(ledger(), type, id);
         c.issued++;
     }

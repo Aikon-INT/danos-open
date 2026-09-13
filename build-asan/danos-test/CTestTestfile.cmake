@@ -18,3 +18,5 @@ add_test(fuzz_decoders "/home/aikon/danos-open/build-asan/danos-test/fuzz_decode
 set_tests_properties(fuzz_decoders PROPERTIES  TIMEOUT "300" _BACKTRACE_TRIPLES "/home/aikon/danos-open/danos-test/CMakeLists.txt;55;add_test;/home/aikon/danos-open/danos-test/CMakeLists.txt;0;")
 add_test(concurrent_conns "/home/aikon/danos-open/build-asan/danos-test/concurrent_conns_test")
 set_tests_properties(concurrent_conns PROPERTIES  TIMEOUT "120" _BACKTRACE_TRIPLES "/home/aikon/danos-open/danos-test/CMakeLists.txt;61;add_test;/home/aikon/danos-open/danos-test/CMakeLists.txt;0;")
+add_test(programming_pipeline "/home/aikon/danos-open/build-asan/danos-test/programming_pipeline_test")
+set_tests_properties(programming_pipeline PROPERTIES  _BACKTRACE_TRIPLES "/home/aikon/danos-open/danos-test/CMakeLists.txt;68;add_test;/home/aikon/danos-open/danos-test/CMakeLists.txt;0;")

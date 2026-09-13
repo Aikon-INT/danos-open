@@ -6,6 +6,7 @@ add_library(danos-vpp STATIC
   src/api/vpp_stat.c
   src/api/vpp_msgs.c
   src/capability/vpp_capability.c
+  src/vpp_adapter.c
   src/mapper/vpp_mapper.c
 )
 target_include_directories(danos-vpp PUBLIC src)
