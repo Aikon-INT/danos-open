@@ -121,6 +121,7 @@ Documentation map: `docs/README.md` (single doc root; v1.1 spec archived at `doc
 | `danos-observability/` | Prometheus exposition (real HTTP server, stat-provider bridge) / structured logging | v0.6 |
 | (core) `persist` | WAL-backed durable config: boot replay + torn-record tolerance | v0.3 |
 | (mgmt) `model_paths` | YANG path registry: leaf-level gNMI Get/Set, gRPC NotFound/InvalidArgument errors | v0.5 |
+| (mgmt) `model_routes` | composite route write: one gNMI update -> NH+Group+Route, cascade delete | v0.12 |
 | `danos-mgrd` | system daemon: WAL boot + gNMI + Prometheus /metrics + crash recovery | v0.6 |
 | `danos-netlink` | kernel backend adapter: rtnetlink (real) / in-memory FIB (mock), drives the ADR-0007 programming pipeline | v0.9 |
 | (core) `programming` | desired→backend pipeline with PROGRAMMED ledger, tombstone sweep | v0.10 |

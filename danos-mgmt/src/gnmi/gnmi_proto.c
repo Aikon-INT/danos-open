@@ -305,7 +305,20 @@ bool gnmi_path_from_str(gnmi_path_t *p, const char *dotted)
 
     while (*s && p->elem_count < GNMI_MAX_ELEMS) {
         gnmi_path_elem_t *e = &p->elems[p->elem_count++];
-        const char *end = strchr(s, '/');
+
+        /* a keyed segment may contain '/' inside its value (e.g.
+         * route[prefix=10.99.0.0/24]); when a '[' is present the
+         * segment ends after the matching ']'. */
+        const char *br0 = strchr(s, '[');
+        const char *next_slash = strchr(s, '/');
+        const char *end;
+        if (br0 && (!next_slash || br0 < next_slash)) {
+            /* keyed segment: extend to the matching ']' */
+            const char *close0 = strchr(br0, ']');
+            end = close0 ? close0 + 1 : next_slash;
+        } else {
+            end = next_slash;
+        }
         size_t n = end ? (size_t)(end - s) : strlen(s);
 
         /* check for [key=value] */
@@ -333,7 +346,7 @@ bool gnmi_path_from_str(gnmi_path_t *p, const char *dotted)
         }
 
         if (!end) break;
-        s = end + 1;
+        s = (*end == '/') ? end + 1 : end;
     }
     return p->elem_count > 0;
 }

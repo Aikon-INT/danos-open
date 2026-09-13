@@ -116,10 +116,19 @@ danos_status_t gnmi_model_resolve(const gnmi_path_t *path,
         return DANOS_OK;
     }
 
-    if (strcmp(top, "routes") == 0 && path->elem_count == 1) {
+    if (strcmp(top, "routes") == 0) {
         b->obj_type = DANOS_OBJ_ROUTE;
-        b->kind = GNMI_MODEL_LIST;
-        return DANOS_OK;
+        if (path->elem_count == 1) {
+            b->kind = GNMI_MODEL_LIST;
+            return DANOS_OK;
+        }
+        /* composite entry: /routes/route[prefix=X] (v0.12) */
+        if (path->elem_count == 2 && second &&
+            strcmp(second, "route") == 0 && path->elems[1].has_key) {
+            b->kind = GNMI_MODEL_ENTRY;
+            return DANOS_OK;
+        }
+        return DANOS_ERR_NOT_FOUND;
     }
 
     return DANOS_ERR_NOT_FOUND;

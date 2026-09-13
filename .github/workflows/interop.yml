@@ -78,3 +78,28 @@ jobs:
           cmake --build build -j$(nproc)
       - name: Concurrent connections
         run: ctest --test-dir build -R concurrent_conns --output-on-failure
+
+  oci-image:
+    name: mgrd OCI image
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake
+      - name: Build
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j$(nproc) --target danos-mgrd
+      - name: Build OCI image
+        run: docker build -f danos-build/Dockerfile.mgrd -t danos-mgrd:${{ github.sha }} .
+      - name: Smoke test image
+        run: |
+          docker run -d --name mgrd-smoke danos-mgrd:${{ github.sha }} \
+            --port 59200 --metrics-port 59201 --wal /tmp/smoke.wal --seed
+          sleep 2
+          curl -sf http://127.0.0.1:59201/metrics | grep -q danos_ \
+            && echo "metrics OK"
+          docker logs mgrd-smoke | grep -q "gNMI" && echo "gNMI OK"
+          docker rm -f mgrd-smoke

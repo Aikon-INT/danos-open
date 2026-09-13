@@ -8,6 +8,7 @@
 #include "gnmi_grpc.h"
 #include "gnmi_proto.h"
 #include "model_paths.h"
+#include "model_routes.h"
 #include "hpack.h"
 #include "gnmi.h"          /* existing DPA-backed set helpers reuse */
 #include <danos/dpa.h>
@@ -761,9 +762,26 @@ int gnmi_handle_get(danos_state_store_t *store,
             uint32_t n = collect_objects(ss, DANOS_OBJ_ROUTE, routes,
                                          sizeof(routes[0]), 32);
             for (uint32_t j = 0; j < n; j++) {
+                /* entry filter: /routes/route[prefix=X] */
+                if (p->elem_count >= 2 && p->elems[1].has_key) {
+                    char want[64];
+                    snprintf(want, sizeof(want), "%s",
+                             p->elems[1].key_value);
+                    char pfx[64];
+                    if (routes[j].prefix.addr.af == DANOS_AF_IPV4) {
+                        snprintf(pfx, sizeof(pfx), "%u.%u.%u.%u/%u",
+                                 routes[j].prefix.addr.addr[0],
+                                 routes[j].prefix.addr.addr[1],
+                                 routes[j].prefix.addr.addr[2],
+                                 routes[j].prefix.addr.addr[3],
+                                 routes[j].prefix.prefix_len);
+                    } else {
+                        continue;
+                    }
+                    if (strcmp(pfx, want) != 0) continue;
+                }
                 char json[256];
-                obj_to_json(DANOS_OBJ_ROUTE, &routes[j], sizeof(routes[j]),
-                            json, sizeof(json));
+                gnmi_route_to_json(&routes[j], json, sizeof(json));
                 size_t us = gnmi_pb_begin_nested(&w, 4);
                 gnmi_encode_path(&w, 1, p);
                 gnmi_typed_value_t v = { .kind = GNMI_VAL_JSON_IETF };
@@ -784,6 +802,22 @@ static const char *json_find(const char *body, const char *key)
     if (!p) return NULL;
     p = strchr(p, ':');
     return p ? p + 1 : NULL;
+}
+
+static int json_get_str(const char *body, const char *key,
+                        char *out, size_t cap)
+{
+    const char *p = strstr(body, key);
+    if (!p) return -1;
+    p = strchr(p, ':');
+    if (!p) return -1;
+    p = strchr(p, '"');
+    if (!p) return -1;
+    p++;
+    size_t i = 0;
+    while (*p && *p != '"' && i < cap - 1) out[i++] = *p++;
+    out[i] = '\0';
+    return 0;
 }
 
 static int json_get_uint(const char *body, const char *key, unsigned *out)
@@ -815,6 +849,40 @@ int gnmi_handle_set(danos_state_store_t *store,
     /* update: interfaces/interface[name=X] val=json {"mtu":N,...} */
     for (uint32_t i = 0; i < sr.update_count && status == DANOS_OK; i++) {
         const gnmi_update_t *u = &sr.updates[i];
+
+        /* composite route write: /routes/route[prefix=X] val=json
+         * {"gateway":"a.b.c.d","oif":N,"vrf":N} (v0.12) */
+        if (u->path.elem_count == 2 &&
+            strcmp(u->path.elems[0].name, "routes") == 0 &&
+            strcmp(u->path.elems[1].name, "route") == 0 &&
+            u->path.elems[1].has_key) {
+            danos_ip_prefix_t prefix;
+            danos_status_t pst = gnmi_parse_prefix(
+                u->path.elems[1].key_value, &prefix);
+            if (pst != DANOS_OK) { status = pst; break; }
+            if (u->val.kind != GNMI_VAL_JSON &&
+                u->val.kind != GNMI_VAL_JSON_IETF) {
+                status = DANOS_ERR_INVALID_ARG;
+                break;
+            }
+            danos_ip_addr_t gw;
+            char gwbuf[64] = {0};
+            if (json_get_str(u->val.s, "gateway", gwbuf, sizeof(gwbuf)) != 0) {
+                status = DANOS_ERR_INVALID_ARG;   /* gateway required */
+                break;
+            }
+            pst = gnmi_parse_ipv4(gwbuf, &gw);
+            if (pst != DANOS_OK) { status = pst; break; }
+            unsigned oif = 0, vrf = 0;
+            (void)json_get_uint(u->val.s, "oif", &oif);
+            (void)json_get_uint(u->val.s, "vrf", &vrf);
+            pst = gnmi_route_set((danos_vrf_id_t)vrf, &prefix, &gw, oif);
+            if (pst != DANOS_OK) { status = pst; break; }
+            out.result_paths[out.result_count++] = u->path;
+            out.ops[out.result_count - 1] = GNMI_OP_UPDATE;
+            continue;
+        }
+
         gnmi_model_binding_t mb;
         bool model_leaf = (gnmi_model_resolve(&u->path, &mb) == DANOS_OK &&
                            mb.kind == GNMI_MODEL_LEAF);
@@ -907,8 +975,30 @@ int gnmi_handle_set(danos_state_store_t *store,
         out.ops[out.result_count - 1] = GNMI_OP_UPDATE;
     }
 
-    /* delete: interfaces/interface[name=X] */
+    /* delete: /routes/route[prefix=X] — composite cascade, or
+     * interfaces/interface[name=X] */
     for (uint32_t i = 0; i < sr.delete_count && status == DANOS_OK; i++) {
+        const gnmi_path_t *dp = &sr.deletes[i];
+        if (dp->elem_count == 2 &&
+            strcmp(dp->elems[0].name, "routes") == 0 &&
+            strcmp(dp->elems[1].name, "route") == 0 &&
+            dp->elems[1].has_key) {
+            danos_ip_prefix_t prefix;
+            danos_status_t pst = gnmi_parse_prefix(
+                dp->elems[1].key_value, &prefix);
+            if (pst != DANOS_OK) { status = pst; break; }
+            pst = gnmi_route_delete(0, &prefix);
+            if (pst != DANOS_OK) { status = pst; break; }
+            out.result_paths[out.result_count++] = *dp;
+            out.ops[out.result_count - 1] = GNMI_OP_DELETE;
+            continue;
+        }
+        if (dp->elem_count < 2 ||
+            strcmp(dp->elems[0].name, "interfaces") != 0 ||
+            !dp->elems[1].has_key) {
+            status = DANOS_ERR_INVALID_ARG;
+            break;
+        }
         const gnmi_path_t *p = &sr.deletes[i];
         if (p->elem_count < 2 ||
             strcmp(p->elems[0].name, "interfaces") != 0 ||

@@ -142,6 +142,7 @@ int main(int argc, char **argv)
         danos_netlink_register_backend();
         danos_reconcile_config_t rcfg;
         memset(&rcfg, 0, sizeof(rcfg));
+        rcfg.reconcile_period_ms = 1000;   /* fast pipeline convergence */
         if (danos_reconciler_init(NULL, &rcfg) == 0) {
             danos_reconciler_start();
             printf("mgrd: programming pipeline active (netlink %s)\n",
