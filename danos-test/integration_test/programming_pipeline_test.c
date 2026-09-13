@@ -41,7 +41,9 @@ int main(void)
     danos_netlink_register_backend();
     assert(!danos_netlink_is_real());
 
-    /* ---- 1. desired state via the DPA commit path --------------------- */
+    /* ---- 1. desired state via the DPA commit path ---------------------
+     * iface + nexthop + nhgroup + route (route references the group;
+     * the pipeline resolves gw/oif through it) */
     danos_tx_t tx;
     assert(danos_tx_begin(&tx, "pipe", NULL) == DANOS_OK);
     danos_iface_t ifc;
@@ -52,8 +54,25 @@ int main(void)
     ifc.admin_up = true;
     assert(danos_iface_create(&tx, &ifc) == DANOS_OK);
 
+    danos_nexthop_t nh;
+    memset(&nh, 0, sizeof(nh));
+    nh.id = 100;
+    nh.gateway.af = DANOS_AF_IPV4;
+    nh.gateway.addr[0] = 192; nh.gateway.addr[1] = 168;
+    nh.gateway.addr[2] = 1;   nh.gateway.addr[3] = 1;
+    nh.ifindex = 5;
+    assert(danos_nh_create(&tx, &nh) == DANOS_OK);
+
+    danos_nhgroup_t grp;
+    memset(&grp, 0, sizeof(grp));
+    grp.id = 1;
+    grp.nh_count = 1;
+    grp.nh_ids[0] = 100;
+    assert(danos_nhgroup_create(&tx, &grp) == DANOS_OK);
+
     danos_route_t rt;
     make_route(1, &rt);
+    rt.nhgroup_id = 1;
     assert(danos_route_create(&tx, &rt) == DANOS_OK);
     danos_tx_prepare(&tx);
     danos_tx_validate(&tx);
@@ -90,6 +109,19 @@ int main(void)
     assert(danos_netlink_mock_route_exists(rt.prefix.addr.addr,
                                            rt.prefix.prefix_len, 0));
 
+    /* ---- 5b. v0.10 tombstone: delete the desired object -> withdraw ---- */
+    assert(danos_tx_begin(&tx, "pipe", NULL) == DANOS_OK);
+    assert(danos_route_delete(&tx, 0, rt.prefix,
+                              DANOS_ROUTE_PROTO_STATIC) == DANOS_OK);
+    danos_tx_commit(&tx);
+    assert(danos_netlink_mock_route_exists(rt.prefix.addr.addr,
+                                           rt.prefix.prefix_len, 0));  /* still in kernel */
+    uint64_t swept = danos_programming_sweep(&failed);
+    assert(swept == 1 && failed == 0);
+    assert(!danos_netlink_mock_route_exists(rt.prefix.addr.addr,
+                                            rt.prefix.prefix_len, 0));
+    assert(danos_netlink_mock_route_count() == 1);
+
     /* ---- 6. reconciler honesty ----------------------------------------- */
     danos_reconcile_config_t cfg;
     memset(&cfg, 0, sizeof(cfg));
@@ -107,7 +139,7 @@ int main(void)
     danos_tx_commit(&tx);
     diffs = danos_reconciler_run_once();
     assert(diffs == 1);   /* the new route was actually programmed */
-    assert(danos_netlink_mock_route_count() == 3);
+    assert(danos_netlink_mock_route_count() == 2);
 
     danos_reconciler_fini();
     danos_netlink_shutdown();

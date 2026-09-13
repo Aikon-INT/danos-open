@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <errno.h>
 #include <unistd.h>
 #include <stdint.h>
 
@@ -87,6 +88,7 @@ bool danos_netlink_is_real(void)
  * ========================================================================= */
 
 static int nl_fd = -1;
+int danos_netlink_last_kernel_error = 0;
 
 #include <sys/socket.h>
 #include <linux/netlink.h>
@@ -101,7 +103,7 @@ static int nl_open(void)
 }
 
 /* Build and send RTM_NEWROUTE for an IPv4 route (kernel table_id). */
-static int nl_route_msg(const danos_route_t *r, int add)
+static int nl_route_msg(const danos_resolved_route_t *res, int add)
 {
     struct {
         struct nlmsghdr nh;
@@ -116,9 +118,11 @@ static int nl_route_msg(const danos_route_t *r, int add)
     msg.nh.nlmsg_seq = 1;
 
     msg.rt.rtm_family = AF_INET;
+    const danos_route_t *r = &res->route;
     msg.rt.rtm_dst_len = r->prefix.prefix_len;
-    msg.rt.rtm_table = r->vrf_id < 256 ? r->vrf_id : RT_TABLE_MAIN;
-    msg.rt.rtm_type = RTN_UNICAST;
+    msg.rt.rtm_table = (r->vrf_id == 0 || r->vrf_id >= 256) ? RT_TABLE_MAIN : r->vrf_id;
+    msg.rt.rtm_type = (r->flags & DANOS_ROUTE_FLAG_BLACKHOLE)
+                          ? RTN_BLACKHOLE : RTN_UNICAST;
     msg.rt.rtm_protocol = RTPROT_STATIC;
 
     struct rtattr *rta = (struct rtattr *)msg.attrbuf;
@@ -127,6 +131,24 @@ static int nl_route_msg(const danos_route_t *r, int add)
     rta->rta_len = RTA_LENGTH(4);
     memcpy(RTA_DATA(rta), r->prefix.addr.addr, 4);
     msg.nh.nlmsg_len += RTA_LENGTH(4);
+
+    /* RTA_GW + RTA_OIF when the pipeline resolved a next hop */
+    if (add && res->has_gw) {
+        rta = (struct rtattr *)((char *)rta + RTA_LENGTH(4));
+        rta->rta_type = RTA_GATEWAY;
+        rta->rta_len = RTA_LENGTH(4);
+        memcpy(RTA_DATA(rta), res->gw, 4);
+        msg.nh.nlmsg_len += RTA_LENGTH(4);
+
+        if (res->oif) {
+            rta = (struct rtattr *)((char *)rta + RTA_LENGTH(4));
+            rta->rta_type = RTA_OIF;
+            rta->rta_len = RTA_LENGTH(4);
+            uint32_t oif = res->oif;
+            memcpy(RTA_DATA(rta), &oif, 4);
+            msg.nh.nlmsg_len += RTA_LENGTH(4);
+        }
+    }
 
     if (send(nl_fd, &msg, msg.nh.nlmsg_len, 0) < 0) return -1;
 
@@ -137,6 +159,7 @@ static int nl_route_msg(const danos_route_t *r, int add)
     struct nlmsghdr *nh = (struct nlmsghdr *)resp;
     if (nh->nlmsg_type == NLMSG_ERROR) {
         struct nlmsgerr *err = (struct nlmsgerr *)NLMSG_DATA(nh);
+        danos_netlink_last_kernel_error = err->error;
         return err->error == 0 ? 0 : -1;
     }
     return 0;
@@ -186,9 +209,11 @@ static danos_status_t ops_iface_up(danos_ifindex_t ifindex, bool up, void *user)
     return nl_iface_up(ifindex, up) == 0 ? DANOS_OK : DANOS_ERR_BACKEND_IO;
 }
 
-static danos_status_t ops_route_add(const danos_route_t *route, void *user)
+static danos_status_t ops_route_add(const danos_resolved_route_t *res,
+                                    void *user)
 {
     (void)user;
+    const danos_route_t *route = &res->route;
     if (!route || route->prefix.addr.af != DANOS_AF_IPV4)
         return DANOS_ERR_INVALID_ARG;
     if (route->prefix.prefix_len > 32) return DANOS_ERR_INVALID_ARG;
@@ -211,12 +236,18 @@ static danos_status_t ops_route_add(const danos_route_t *route, void *user)
         g_mock.route_count++;
         return DANOS_OK;
     }
-    return nl_route_msg(route, 1) == 0 ? DANOS_OK : DANOS_ERR_BACKEND_IO;
+    if (nl_route_msg(res, 1) == 0) return DANOS_OK;
+    fprintf(stderr, "netlink: route add kernel error %d (%s)\n",
+            danos_netlink_last_kernel_error,
+            strerror(-danos_netlink_last_kernel_error));
+    return DANOS_ERR_BACKEND_IO;
 }
 
-static danos_status_t ops_route_del(const danos_route_t *route, void *user)
+static danos_status_t ops_route_del(const danos_resolved_route_t *res,
+                                    void *user)
 {
     (void)user;
+    const danos_route_t *route = &res->route;
     if (!route || route->prefix.addr.af != DANOS_AF_IPV4)
         return DANOS_ERR_INVALID_ARG;
     if (!g_nl.real) {
@@ -227,7 +258,7 @@ static danos_status_t ops_route_del(const danos_route_t *route, void *user)
         if (g_mock.route_count) g_mock.route_count--;
         return DANOS_OK;
     }
-    return nl_route_msg(route, 0) == 0 ? DANOS_OK : DANOS_ERR_BACKEND_IO;
+    return nl_route_msg(res, 0) == 0 ? DANOS_OK : DANOS_ERR_BACKEND_IO;
 }
 
 static danos_status_t ops_vrf_add(const danos_vrf_t *vrf, void *user)

@@ -71,6 +71,7 @@ typedef enum {
     DANOS_ERR_NO_MEMORY       = 4,   /* Out of memory */
     DANOS_ERR_NO_CAPACITY     = 5,   /* Backend capability/resource exhausted */
     DANOS_ERR_NOT_SUPPORTED   = 6,   /* Backend does not support this object/op */
+    DANOS_ERR_RETRY           = 7,   /* Transient: retry later (e.g. path not usable yet) */
     DANOS_ERR_PERMISSION      = 7,   /* Authorization denied */
 
     /* Transaction errors */
