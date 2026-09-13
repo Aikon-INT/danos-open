@@ -83,14 +83,14 @@ protobuf/HPACK/HTTP2/gRPC stack:
 | 32 concurrent connections (scale test, plain + ASAN) | pass |
 
 Reproduce: `bash danos-test/integration/run_v0.4_interop.sh`
-(see `danos-docs/interop/v0.4_interop_dod.md`).
+(see `docs/interop/v0.4_interop_dod.md`).
 
 Release acceptance: `bash danos-test/integration/release_check.sh`
 (ctest + gnmic interop + mgrd boot/crash-recovery smoke).
 
 Quality gates in CI: full ctest, ASAN+UBSAN (incl. decoder fuzzing),
 gnmic interop, 32-connection scale test — see
-`.github/workflows/{ci,interop}.yml` and `danos-docs/threading.md`.
+`.github/workflows/{ci,interop}.yml` and `docs/threading.md`.
 
 ## Architecture
 
@@ -104,35 +104,35 @@ Management (CLI/gNMI/NETCONF)
    Linux / DPDK / NIC
 ```
 
-Historical spec archive: `v1.1/` (frozen); active docs: `docs/` + `danos-docs/`.
+Documentation map: `docs/README.md` (single doc root; v1.1 spec archived at `docs/archive/v1.1/`).
 
 ## Repository Structure
 
 | Module | Description | Status |
 |--------|-------------|-------|
-| `danos-core/` | Core engine: object/state/transaction/capability/event/reconciler | v0.2 |
+| `danos-core/` | Core engine: object/store/transaction/capability/event, WAL persist, dependency-aware programming pipeline, reconciler | v0.10 |
 | `danos-dpa/` | DPA public API (C ABI + Protobuf) | v0.2 |
 | `danos-fib/` | FRR zebra/FIB adapter | v0.2 |
-| `danos-vpp/` | VPP backend: real binary API (handshake + msg table + typed messages) + stat segment | v0.3 |
-| `danos-models/` | YANG / OpenConfig models (13 models) | v0.2 |
-| `danos-mgmt/` | CLI / gNMI (real protobuf + gRPC/HTTP2) / NETCONF | v0.3 |
-| `danos-security/` | RBAC / CoPP / audit log | v0.2 |
-| `danos-ha/` | BFD multihop / VRRP / supervisor | v0.2 |
-| `danos-observability/` | Prometheus / structured logging / alerts | v0.2 |
+| `danos-vpp/` | VPP backend: real binary API (handshake + msg table + typed messages) + stat segment + programming adapter (v0.11) | v0.11 |
+| `danos-models/` | YANG / OpenConfig models (13 models; interfaces subtree bound to gNMI via model_paths) | v0.5 |
+| `danos-mgmt/` | CLI / gNMI (real gRPC, model-driven, streaming Subscribe) / NETCONF (model-wired edit-config) — all three share the model layer | v0.7 |
+| `danos-security/` | RBAC / audit log; CoPP policer programming (vpp_msgs) | v0.2 (CoPP v0.4) |
+| `danos-ha/` | BFD session manager (protocol delegated to FRR bfdd per ADR-0006; translation layer pending) / VRRP skeleton / supervisor | v0.2 |
+| `danos-observability/` | Prometheus exposition (real HTTP server, stat-provider bridge) / structured logging | v0.6 |
 | (core) `persist` | WAL-backed durable config: boot replay + torn-record tolerance | v0.3 |
 | (mgmt) `model_paths` | YANG path registry: leaf-level gNMI Get/Set, gRPC NotFound/InvalidArgument errors | v0.5 |
 | `danos-mgrd` | system daemon: WAL boot + gNMI + Prometheus /metrics + crash recovery | v0.6 |
 | `danos-netlink` | kernel backend adapter: rtnetlink (real) / in-memory FIB (mock), drives the ADR-0007 programming pipeline | v0.9 |
 | (core) `programming` | desired→backend pipeline with PROGRAMMED ledger, tombstone sweep | v0.10 |
 | `danos-compat/` | OcNOS-like CLI translation (minimal; awaiting model-layer rebasing) | v0.3 |
-| `danos-platform/` | Platform adaptation: x86 / ARM / generic | v0.3+ |
-| `danos-ovs/` | OVS-DPDK backend | v0.3+ |
+| `danos-platform/` | Platform adaptation: x86 / ARM / generic | not started (intentional) |
+| `danos-ovs/` | OVS-DPDK backend | not started (intentional) |
 | `danos-p4/` | P4Runtime / P4 backend | not started (intentional) |
-| `danos-test/` | Unit / integration / conformance / topology / perf tests | v0.2 |
-| `danos-build/` | Debian / Ubuntu / container / OCI image | v0.1 |
-| `danos-docs/` | Architecture / RFC / API spec / ADR / runbook | v0.1 |
+| `danos-test/` | conformance / interop / fuzz / scale / perf / kernel tests (33 suites total) | v0.10 |
+| `danos-build/` | Toolchain image + minimal mgrd deployment image (`Dockerfile.mgrd`) | v0.6 |
+| `docs/` | Single documentation root: ADRs, interop DoD, compat matrix, threading contract, release notes | rolling |
 
-See `v1.1/repo-structure/repository_structure_v1.1.md` for full module charter.
+Module charters (design-era): see `docs/archive/v1.1/repo-structure/`.
 
 ## License
 

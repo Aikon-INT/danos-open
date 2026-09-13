@@ -15,10 +15,11 @@ bash ../danos-test/integration/release_check.sh
    + `build-asan/danos-test/fuzz_decoders`
 
 ## Where things live
+- Documentation map / rules: `docs/README.md`
 - Architecture decisions: `docs/adr/` (read 0001-0007 first)
-- Interop acceptance: `danos-docs/interop/v0.4_interop_dod.md`
-- Version/compat policy: `danos-docs/interop/v0.5_compat_matrix.md`
-- Threading contract: `danos-docs/threading.md`
+- Interop acceptance: `docs/interop/v0.4_interop_dod.md`
+- Version/compat policy: `docs/interop/v0.5_compat_matrix.md`
+- Threading contract: `docs/threading.md`
 - Pending work: `TODO.md`
 
 ## Rules
@@ -26,4 +27,4 @@ bash ../danos-test/integration/release_check.sh
   vector) — see vpp_proto_test / gnmi_proto_test / hpack_test
 - Every adapter/backend needs a mock for offline testing
 - Hand-written parsers are fuzz targets: extend fuzz_decoders.c
-- Update `danos-docs/threading.md` when touching threads
+- Update `docs/threading.md` when touching threads

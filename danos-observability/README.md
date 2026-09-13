@@ -1,7 +1,7 @@
 # danos-observability — 可观测性与 Telemetry
 
 > v0.2+ 计划模块。telemetry / prometheus / tracing / audit。
-> 设计依据：`v1.1/observability/observability_telemetry.md`（第 22 章）。
+> 设计依据：`docs/archive/v1.1/observability/observability_telemetry.md`（第 22 章）。
 
 ## 职责
 

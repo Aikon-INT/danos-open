@@ -119,7 +119,7 @@ if [ "${1:-}" = "--with-vpp" ]; then
     if [ ! -S "$VPP_SOCK" ]; then
         echo -e "${RED}[SKIP]${NC} V1-V5: no VPP api socket at $VPP_SOCK"
         echo "       Start VPP first (container: docker run --privileged -v /run/vpp ...)"
-        echo "       or set VPP_API_SOCK. See danos-docs/interop/v0.4_interop_dod.md"
+        echo "       or set VPP_API_SOCK. See docs/interop/v0.4_interop_dod.md"
     else
         export VPP_API_SOCK="$VPP_SOCK"
         if "$BUILD_DIR/danos-test/vpp_live_test" > "$OUT" 2>&1; then

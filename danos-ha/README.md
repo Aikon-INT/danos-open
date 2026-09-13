@@ -1,7 +1,7 @@
 # danos-ha — 高可用
 
 > v0.2+ 计划模块。NSR / VRRP / EVPN-MH / supervisor / ISSU。
-> 设计依据：`v1.1/ha/ha_design.md`（第 21 章）。
+> 设计依据：`docs/archive/v1.1/ha/ha_design.md`（第 21 章）。
 
 ## 职责
 

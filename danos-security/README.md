@@ -1,7 +1,7 @@
 # danos-security — 安全
 
 > v0.2+ 计划模块。AAA / TLS / key management / CoPP。
-> 设计依据：`v1.1/security/security_architecture.md`（第 20 章）。
+> 设计依据：`docs/archive/v1.1/security/security_architecture.md`（第 20 章）。
 
 ## 职责
 
