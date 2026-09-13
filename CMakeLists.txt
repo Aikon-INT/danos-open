@@ -54,6 +54,7 @@ add_subdirectory(danos-security)
 add_subdirectory(danos-ha)
 add_subdirectory(danos-observability)
 add_subdirectory(danos-compat)
+add_subdirectory(danos-netlink)
 
 if(DANOS_BUILD_MGMT AND DANOS_BUILD_VPP)
   add_subdirectory(danos-mgrd)

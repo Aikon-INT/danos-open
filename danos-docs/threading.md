@@ -32,6 +32,10 @@
   事务提交的全局写锁(transaction.c)——性能基线显示
   0.001 ms/obj,非瓶颈。
 
+## v0.9 增补
+
+| reconciler 周期线程 | reconciler_start | programming_run(驱动 backend ops)| g_programmed 台账(私有)| 台账 store 自带 rwlock |
+
 ## 待扩展
 
 - gNMI Subscribe STREAM 长连接占用其连接线程;若需单连接多订阅,

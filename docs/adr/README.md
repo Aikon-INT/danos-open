@@ -21,3 +21,4 @@ Each ADR follows:
 - **Consequences**: Positive/negative implications
 - **Alternatives**: What was considered and rejected
 - 0006-bfd-delegate-to-frr-bfdd.md
+- 0007-backend-adapter-programming-pipeline.md

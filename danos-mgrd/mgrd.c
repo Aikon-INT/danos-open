@@ -21,9 +21,11 @@
 #include <danos/core/persist.h>
 #include <danos/core/object_registry.h>
 #include <danos/observability/prometheus.h>
+#include <danos/core/reconciler.h>
 #include <danos/dpa.h>
 #include "../danos-mgmt/src/gnmi/gnmi_grpc.h"
 #include "../danos-vpp/src/api/vpp_api.h"
+#include "../danos-netlink/danos_netlink.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -132,6 +134,23 @@ int main(int argc, char **argv)
         }
     }
 
+    /* 1b. backend programming pipeline (ADR-0007): the netlink adapter
+     * programs desired state into the kernel FIB; the reconciler thread
+     * re-issues anything not yet PROGRAMMED. */
+    bool nl_real = (getenv("MGRD_NETLINK_REAL") != NULL);
+    if (danos_netlink_init(nl_real) == 0) {
+        danos_netlink_register_backend();
+        danos_reconcile_config_t rcfg;
+        memset(&rcfg, 0, sizeof(rcfg));
+        if (danos_reconciler_init(NULL, &rcfg) == 0) {
+            danos_reconciler_start();
+            printf("mgrd: programming pipeline active (netlink %s)\n",
+                   danos_netlink_is_real() ? "real kernel" : "mock");
+        }
+    } else {
+        printf("mgrd: netlink adapter unavailable — no programming\n");
+    }
+
     /* 2. persistence: boot with the last durable configuration */
     if (danos_persist_enable(wal) != 0) {
         fprintf(stderr, "mgrd: cannot open WAL %s\n", wal);
@@ -167,6 +186,9 @@ int main(int argc, char **argv)
     while (!g_stop) pause();
 
     printf("mgrd: shutting down (config persists in %s)\n", wal);
+    danos_reconciler_stop();
+    danos_reconciler_fini();
+    danos_netlink_shutdown();
     danos_gnmi_grpc_stop(&gnmi);
     danos_prom_stop_server();
     danos_vpp_api_disconnect();

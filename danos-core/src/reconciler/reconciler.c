@@ -2,6 +2,8 @@
  * DANOS-Open Core: Reconciler implementation (B8)
  */
 
+#include <danos/core/backend_ops.h>
+#include <danos/core/persist.h>
 #include <danos/core/reconciler.h>
 #include <danos/core/event_bus.h>
 #include <stdlib.h>
@@ -53,14 +55,26 @@ void danos_reconciler_fini(void)
 /* Diff callback: count diffs and emit events */
 static int diff_cb(danos_obj_type_t type, danos_obj_id_t id, void *user)
 {
+    /* v0.9: diff callback only records; actual (re)programming runs in
+     * danos_programming_run() which walks desired state and drives the
+     * backend ops. Kept as a hook for type-specific fast paths. */
     (void)type; (void)id; (void)user;
-    /* In real impl: reprogram object to backend */
     return 0;
 }
 
 uint64_t danos_reconciler_run_once(void)
 {
-    if (!g_reconciler || !g_reconciler->state) return 0;
+    if (!g_reconciler) return 0;
+    if (!g_reconciler->state) {
+        /* programming-only mode: no state store, drive the backend */
+        uint64_t attempted = 0, failed = 0;
+        uint64_t ok = danos_programming_run(&attempted, &failed);
+        pthread_mutex_lock(&g_reconciler->stats_lock);
+        g_reconciler->stats.total_repairs += attempted;
+        g_reconciler->stats.total_failures += failed;
+        pthread_mutex_unlock(&g_reconciler->stats_lock);
+        return ok;
+    }
 
     pthread_mutex_lock(&g_reconciler->stats_lock);
     g_reconciler->stats.total_runs++;
@@ -69,10 +83,17 @@ uint64_t danos_reconciler_run_once(void)
     uint64_t diffs = danos_state_diff_desired_programmed(
         g_reconciler->state, diff_cb, NULL);
 
+    /* v0.9: real programming pass against the installed backend ops */
+    uint64_t attempted = 0, failed = 0;
+    uint64_t programmed = danos_programming_run(&attempted, &failed);
+
     pthread_mutex_lock(&g_reconciler->stats_lock);
     g_reconciler->stats.total_diffs += diffs;
-    g_reconciler->stats.total_repairs += diffs;  /* assume repair succeeds */
+    g_reconciler->stats.total_repairs += attempted;   /* real attempts */
+    g_reconciler->stats.total_failures += failed;     /* honest accounting */
     pthread_mutex_unlock(&g_reconciler->stats_lock);
+
+    (void)programmed;
 
     /* Emit reconcile event */
     if (diffs > 0 && g_event_bus) {

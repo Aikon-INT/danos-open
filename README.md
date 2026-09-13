@@ -122,6 +122,7 @@ See `v1.1/DANOS-Open_Architecture_Specification_v1.1.md` for full spec.
 | (core) `persist` | WAL-backed durable config: boot replay + torn-record tolerance | v0.3 |
 | (mgmt) `model_paths` | YANG path registry: leaf-level gNMI Get/Set, gRPC NotFound/InvalidArgument errors | v0.5 |
 | `danos-mgrd` | system daemon: WAL boot + gNMI + Prometheus /metrics + crash recovery | v0.6 |
+| `danos-netlink` | kernel backend adapter: rtnetlink (real) / in-memory FIB (mock), drives the ADR-0007 programming pipeline | v0.9 |
 | `danos-compat/` | OcNOS-like CLI & semantic compatibility layer | v0.3+ |
 | `danos-platform/` | Platform adaptation: x86 / ARM / generic | v0.3+ |
 | `danos-ovs/` | OVS-DPDK backend | v0.3+ |

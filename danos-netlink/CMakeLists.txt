@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.16)
+# danos-netlink: kernel backend adapter (v0.9, ADR-0007)
+add_library(danos-netlink STATIC src/danos_netlink.c)
+target_include_directories(danos-netlink PUBLIC .)
+target_link_libraries(danos-netlink PUBLIC danos-core danos-dpa)

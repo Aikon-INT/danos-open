@@ -60,3 +60,9 @@ target_link_libraries(concurrent_conns_test PRIVATE danos-mgmt danos-core danos-
 target_compile_options(concurrent_conns_test PRIVATE -UNDEBUG)
 add_test(NAME concurrent_conns COMMAND concurrent_conns_test)
 set_tests_properties(concurrent_conns PROPERTIES TIMEOUT 120)
+
+# v0.9: programming pipeline end to end (desired -> backend -> PROGRAMMED)
+add_executable(programming_pipeline_test integration_test/programming_pipeline_test.c)
+target_link_libraries(programming_pipeline_test PRIVATE danos-netlink danos-mgmt danos-core danos-dpa pthread)
+target_compile_options(programming_pipeline_test PRIVATE -UNDEBUG)
+add_test(NAME programming_pipeline COMMAND programming_pipeline_test)
