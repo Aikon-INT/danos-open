@@ -1,0 +1,39 @@
+name: Release
+
+# Tag push -> GitHub Release with notes + mgrd OCI image artifact.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & publish release
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake
+      - name: Full acceptance (ctest + interop)
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j$(nproc)
+          ctest --test-dir build --output-on-failure
+          bash danos-test/integration/release_check.sh
+      - name: Build mgrd OCI image
+        run: docker build -f danos-build/Dockerfile.mgrd -t danos-mgrd:${{ github.ref_name }} .
+      - name: Export image
+        run: docker save danos-mgrd:${{ github.ref_name }} | gzip > danos-mgrd-${{ github.ref_name }}.tar.gz
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: docs/release/RELEASE_NOTES_${{ github.ref_name }}.md
+          files: danos-mgrd-${{ github.ref_name }}.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

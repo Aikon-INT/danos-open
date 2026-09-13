@@ -23,11 +23,19 @@ FAILED=0
 
 echo "=== DANOS-Open v0.10 kernel verification (user namespace) ==="
 
-# Probe: can we get CAP_NET_ADMIN via a user namespace?
-if ! unshare -Urn true 2>/dev/null; then
-    echo -e "${RED}[SKIP]${NC} user namespaces unavailable "
-        "(kernel.unprivileged_userns_clone?)"
-    echo "       K4/K5 need a privileged or userns-enabled environment."
+# Probe: prefer real root (CI/containers), fall back to a user namespace.
+ROOT_MODE=0
+if [ "$(id -u)" = "0" ]; then
+    ROOT_MODE=1
+    UNSHARE="unshare -n"
+elif command -v sudo >/dev/null && sudo -n unshare -n true 2>/dev/null; then
+    ROOT_MODE=1
+    UNSHARE="sudo -n unshare -n"
+elif unshare -Urn true 2>/dev/null; then
+    UNSHARE="unshare -Urn"
+else
+    echo -e "${RED}[SKIP]${NC} neither root nor user namespaces available"
+    echo "       K4/K5 need CAP_NET_ADMIN (root container or userns)."
     exit 0
 fi
 
@@ -45,6 +53,7 @@ trap 'rm -f "$INNER_SCRIPT"' EXIT
 cat > "$INNER_SCRIPT" <<'INNER'
 set -u
 PROJECT_ROOT="$1"; BUILD_DIR="$2"; GNMIC="$3"
+ROOT_MODE=$([ "$(id -u)" = "0" ] && echo 1 || echo 0)
 YELLOW='\033[0;33m'; RED='\033[0;31m'; GREEN='\033[0;32m'; NC='\033[0m'
 pass() { echo -e "${GREEN}[PASS]${NC} $1"; }
 fail() { echo -e "${RED}[FAIL]${NC} $1"; FAILED=1; }
@@ -67,7 +76,8 @@ nsenter -t $NSPID -n ip link set v1 up
 nsenter -t $NSPID -n ip link set lo up
 # far-end loopback: reachable ONLY via a gnmic-programmed route
 nsenter -t $NSPID -n ip addr add 10.99.0.1/32 dev lo     || echo "NSSETUP-FAIL: addr 10.99" 
-nsenter -t $NSPID -n ip addr add 10.0.0.2/24 dev v1     || echo "NSSETUP-FAIL: addr v1"
+nsenter -t $NSPID -n ip addr add 10.0.0.2/24 dev v1     \
+    && NSSETUP_OK=1 || echo "NSSETUP-FAIL: addr v1"
 nsenter -t $NSPID -n ip link set v1 up || echo "NSSETUP-FAIL: v1 up"
 nsenter -t $NSPID -n ip link set lo up || echo "NSSETUP-FAIL: lo up"
 echo "DEBUG state:"; ip -br link; ip -br addr; nsenter -t $NSPID -n ip -br link
@@ -180,15 +190,28 @@ fi
 if ! echo "NSSETUP-FAIL: addr v1" >/dev/null; then
     :
 fi
-echo -e "${YELLOW}[SKIP]${NC} K5-ping: peer address setup blocked in this userns sandbox; ${NC}\c" 2>/dev/null || true
-echo "run this script as root in a container for full K5 (route + ping)."
+
+# ---- K5-ping: real packet forwarding through the gnmic route ----------
+# Root/netns mode only (the userns sandbox rejects addr-add on the
+# moved veth peer). Child ns has 10.0.0.2 on v1 and 10.99.0.1 on lo.
+if [ "${NSSETUP_OK:-0}" = "1" ]; then
+    nsenter -t $NSPID -n ip addr add 10.99.0.1/32 dev lo 2>/dev/null
+    nsenter -t $NSPID -n ip link set lo up 2>/dev/null
+    if ping -c 2 -W 2 -I v0 10.99.0.1 > /tmp/k5-ping.log 2>&1; then
+        pass "K5-ping: packets forwarded through the gnmic-programmed route"
+    else
+        fail "K5-ping: forwarding failed"; cat /tmp/k5-ping.log
+    fi
+else
+    echo -e "${YELLOW}[SKIP]${NC} K5-ping: needs root (CI runs this job)"
+fi
 
 kill $MGRD 2>/dev/null
 kill $NSPID 2>/dev/null
 echo "=== inner result: $([ $FAILED -eq 0 ] && echo ALL PASS || echo FAILURES) ==="
 exit $FAILED
 INNER
-unshare -Urn bash "$INNER_SCRIPT" "$PROJECT_ROOT" "$BUILD_DIR" "$GNMIC"
+$UNSHARE bash "$INNER_SCRIPT" "$PROJECT_ROOT" "$BUILD_DIR" "$GNMIC"
 RC=$?
 [ $RC -ne 0 ] && FAILED=1
 

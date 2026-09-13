@@ -103,3 +103,83 @@ jobs:
             && echo "metrics OK"
           docker logs mgrd-smoke | grep -q "gNMI" && echo "gNMI OK"
           docker rm -f mgrd-smoke
+
+  kernel-programming:
+    name: Kernel programming (K4/K5-ping)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake iproute2
+      - name: Setup Go (gnmic)
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Build gnmic
+        run: |
+          mkdir -p /tmp/gnmic-build && cd /tmp/gnmic-build
+          go mod init build
+          go get github.com/openconfig/gnmic@v0.35.0
+          go build -o /usr/local/bin/gnmic github.com/openconfig/gnmic
+      - name: Build DANOS
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j$(nproc) --target danos-mgrd --target programming_pipeline_test
+      - name: K4/K5 verification (root runner: real netns + ping)
+        run: sudo -E env PATH="$PATH" bash danos-test/integration/run_v0.10_kernel.sh
+
+  vpp-interop:
+    name: VPP interop (V1-V5)
+    runs-on: ubuntu-24.04
+    continue-on-error: true   # VPP packaging/version drift: report, don't block (until stable)
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake socat
+      - name: Install VPP (FDio)
+        run: |
+          sudo apt-get install -y ca-certificates curl gnupg
+          curl -fsSL https://packagecloud.io/fdio/release/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/fdio.gpg
+          echo "deb [signed-by=/usr/share/keyrings/fdio.gpg] https://packagecloud.io/fdio/release/ubuntu noble main" | sudo tee /etc/apt/sources.list.d/fdio.list
+          sudo apt-get update
+          sudo apt-get install -y vpp vpp-plugin-core vpp-plugin-dpdk || sudo apt-get install -y vpp vpp-plugin-core
+      - name: Configure VPP (api socket + stat segment)
+        run: |
+          sudo mkdir -p /run/vpp /etc/vpp
+          sudo tee /etc/vpp/startup.conf > /dev/null <<'VPPCFG'
+          unix { nodaemon log /tmp/vpp.log }
+          api-segment { prefix danos }
+          socksvr { socket-name /run/vpp/api.sock }
+          statseg { socket-name /run/vpp/stats.sock }
+          VPPCFG
+      - name: Start VPP
+        run: |
+          sudo vpp -c /etc/vpp/startup.conf > /tmp/vpp-stdout.log 2>&1 &
+          sleep 5
+          ls -la /run/vpp/api.sock /run/vpp/stats.sock
+      - name: Setup Go (gnmic)
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Build gnmic
+        run: |
+          mkdir -p /tmp/gnmic-build && cd /tmp/gnmic-build
+          go mod init build
+          go get github.com/openconfig/gnmic@v0.35.0
+          go build -o /usr/local/bin/gnmic github.com/openconfig/gnmic
+      - name: Build DANOS
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j$(nproc)
+      - name: V1-V5 verification against real VPP
+        env:
+          GNMIC: /usr/local/bin/gnmic
+        run: |
+          export VPP_API_SOCK=/run/vpp/api.sock
+          sudo -E env PATH="$PATH" GNMIC="$GNMIC" VPP_API_SOCK="$VPP_API_SOCK" \
+            bash danos-test/integration/run_v0.4_interop.sh --with-vpp || true
+          # V-group is informational until version-drift handling stabilizes
