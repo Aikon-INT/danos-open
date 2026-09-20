@@ -37,6 +37,14 @@ module danos-iface {
       leaf parent-ifindex { type dt:ifindex; }
       leaf outer-vlan { type dt:vlan-id; }
       leaf inner-vlan { type dt:vlan-id; }
+      leaf ipv4-address {
+        type string;
+        description "Primary IPv4 address in prefix notation.";
+      }
+      leaf ipv6-address {
+        type string;
+        description "Primary IPv6 address in prefix notation.";
+      }
 
       /* Operational state (read-only) */
       container state {

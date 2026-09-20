@@ -72,7 +72,7 @@ typedef enum {
     DANOS_ERR_NO_CAPACITY     = 5,   /* Backend capability/resource exhausted */
     DANOS_ERR_NOT_SUPPORTED   = 6,   /* Backend does not support this object/op */
     DANOS_ERR_RETRY           = 7,   /* Transient: retry later (e.g. path not usable yet) */
-    DANOS_ERR_PERMISSION      = 7,   /* Authorization denied */
+    DANOS_ERR_PERMISSION      = 8,   /* Authorization denied */
 
     /* Transaction errors */
     DANOS_ERR_TX_CONFLICT     = 10,  /* Concurrent write conflict */
@@ -259,6 +259,9 @@ typedef struct {
     danos_ifindex_t  parent_ifindex; /* 0 if not subif */
     danos_vlan_id_t  outer_vlan;     /* 0 if none */
     danos_vlan_id_t  inner_vlan;     /* 0 if none (QinQ) */
+    /* Primary L3 addresses; family UNSPEC means unset. */
+    danos_ip_prefix_t ipv4_address;
+    danos_ip_prefix_t ipv6_address;
 } danos_iface_t;
 
 danos_status_t danos_iface_create(danos_tx_t *tx, const danos_iface_t *iface);

@@ -17,6 +17,7 @@ static int test_errors(void)
     assert(strcmp(danos_status_str(DANOS_ERR_NO_CAPACITY), "NO_CAPACITY") == 0);
     assert(strcmp(danos_status_str(DANOS_ERR_NOT_SUPPORTED), "NOT_SUPPORTED") == 0);
     assert(strcmp(danos_status_str(DANOS_ERR_PERMISSION), "PERMISSION") == 0);
+    assert(DANOS_ERR_PERMISSION != DANOS_ERR_RETRY);
     assert(strcmp(danos_status_str(DANOS_ERR_TX_CONFLICT), "TX_CONFLICT") == 0);
     assert(strcmp(danos_status_str(DANOS_ERR_TX_TIMEOUT), "TX_TIMEOUT") == 0);
     assert(strcmp(danos_status_str(DANOS_ERR_TX_ABORTED), "TX_ABORTED") == 0);

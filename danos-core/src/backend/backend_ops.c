@@ -155,9 +155,15 @@ static danos_status_t program_one(danos_obj_type_t type, danos_obj_id_t id,
     (void)id;
     if (type == DANOS_OBJ_IFACE && size >= sizeof(danos_iface_t)) {
         const danos_iface_t *i = data;
-        return g_ops->iface_up ? g_ops->iface_up(i->ifindex, i->admin_up,
-                                                 g_ops->user)
-                               : DANOS_ERR_NOT_SUPPORTED;
+        danos_status_t st = g_ops->iface_up ?
+            g_ops->iface_up(i->ifindex, i->admin_up, g_ops->user) :
+            DANOS_ERR_NOT_SUPPORTED;
+        if (st != DANOS_OK) return st;
+        if (i->ipv4_address.addr.af != DANOS_AF_UNSPEC ||
+            i->ipv6_address.addr.af != DANOS_AF_UNSPEC)
+            return g_ops->iface_addr_set ?
+                g_ops->iface_addr_set(i, g_ops->user) : DANOS_ERR_NOT_SUPPORTED;
+        return DANOS_OK;
     }
     if (type == DANOS_OBJ_ROUTE && size >= sizeof(danos_route_t)) {
         const danos_route_t *r = data;
@@ -214,6 +220,20 @@ static void program_entry(danos_object_entry_t *e, void *user)
     }
 
     c->attempted++;
+    if (e->type == DANOS_OBJ_IFACE && have_last && lsz == e->data_size + 8 &&
+        g_ops->iface_addr_del) {
+        danos_iface_t old_iface;
+        if (e->data_size == sizeof(old_iface)) {
+            memcpy(&old_iface, last + 8, sizeof(old_iface));
+            if (memcmp(&old_iface.ipv4_address, &((const danos_iface_t *)e->data)->ipv4_address,
+                       sizeof(old_iface.ipv4_address)) != 0 ||
+                memcmp(&old_iface.ipv6_address, &((const danos_iface_t *)e->data)->ipv6_address,
+                       sizeof(old_iface.ipv6_address)) != 0) {
+                danos_status_t dst = g_ops->iface_addr_del(&old_iface, g_ops->user);
+                if (dst != DANOS_OK) { c->failed++; return; }
+            }
+        }
+    }
     danos_status_t st = program_one(e->type, e->id, e->data, e->data_size);
     if (st != DANOS_OK) {
         c->failed++;

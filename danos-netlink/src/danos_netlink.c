@@ -192,6 +192,41 @@ static int nl_iface_up(danos_ifindex_t ifindex, bool up)
     return 0;
 }
 
+static int nl_iface_addr_msg(const danos_iface_t *iface, int add)
+{
+    const danos_ip_prefix_t *p = &iface->ipv4_address;
+    if (p->addr.af != DANOS_AF_IPV4) return 0;
+    struct {
+        struct nlmsghdr nh;
+        struct ifaddrmsg ifa;
+        char attrbuf[64];
+    } msg;
+    memset(&msg, 0, sizeof(msg));
+    msg.nh.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
+    msg.nh.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+    if (add) msg.nh.nlmsg_flags |= NLM_F_CREATE | NLM_F_REPLACE;
+    msg.nh.nlmsg_type = add ? RTM_NEWADDR : RTM_DELADDR;
+    msg.ifa.ifa_family = AF_INET;
+    msg.ifa.ifa_prefixlen = p->prefix_len;
+    msg.ifa.ifa_index = iface->ifindex;
+    struct rtattr *rta = (struct rtattr *)msg.attrbuf;
+    rta->rta_type = IFA_LOCAL;
+    rta->rta_len = RTA_LENGTH(4);
+    memcpy(RTA_DATA(rta), p->addr.addr, 4);
+    msg.nh.nlmsg_len += RTA_LENGTH(4);
+    if (send(nl_fd, &msg, msg.nh.nlmsg_len, 0) < 0) return -1;
+    char resp[512];
+    ssize_t n = recv(nl_fd, resp, sizeof(resp), 0);
+    if (n < 0) return -1;
+    struct nlmsghdr *nh = (struct nlmsghdr *)resp;
+    if (nh->nlmsg_type == NLMSG_ERROR) {
+        struct nlmsgerr *err = (struct nlmsgerr *)NLMSG_DATA(nh);
+        danos_netlink_last_kernel_error = err->error;
+        return err->error == 0 ? 0 : -1;
+    }
+    return 0;
+}
+
 /* =========================================================================
  * danos_backend_ops_t implementation
  * ========================================================================= */
@@ -207,6 +242,23 @@ static danos_status_t ops_iface_up(danos_ifindex_t ifindex, bool up, void *user)
         return DANOS_OK;
     }
     return nl_iface_up(ifindex, up) == 0 ? DANOS_OK : DANOS_ERR_BACKEND_IO;
+}
+
+static danos_status_t ops_iface_addr_set(const danos_iface_t *iface, void *user)
+{
+    (void)user;
+    if (!iface || iface->ifindex == 0) return DANOS_ERR_INVALID_ARG;
+    if (!g_nl.real) return DANOS_OK;
+    return nl_iface_addr_msg(iface, 1) == 0 ? DANOS_OK : DANOS_ERR_BACKEND_IO;
+}
+
+static danos_status_t ops_iface_addr_del(const danos_iface_t *iface, void *user)
+{
+    (void)user;
+    if (!iface || iface->ifindex == 0) return DANOS_ERR_INVALID_ARG;
+    if (!g_nl.real) return DANOS_OK;
+    if (iface->ipv4_address.addr.af != DANOS_AF_IPV4) return DANOS_OK;
+    return nl_iface_addr_msg(iface, 0) == 0 ? DANOS_OK : DANOS_ERR_BACKEND_IO;
 }
 
 static danos_status_t ops_route_add(const danos_resolved_route_t *res,
@@ -278,6 +330,8 @@ static danos_status_t ops_vrf_del(danos_vrf_id_t vrf_id, void *user)
 static danos_backend_ops_t g_ops = {
     .name      = "netlink",
     .iface_up  = ops_iface_up,
+    .iface_addr_set = ops_iface_addr_set,
+    .iface_addr_del = ops_iface_addr_del,
     .route_add = ops_route_add,
     .route_del = ops_route_del,
     .vrf_add   = ops_vrf_add,

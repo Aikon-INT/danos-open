@@ -23,6 +23,22 @@ static danos_status_t vpp_adapter_iface_up(danos_ifindex_t ifindex,
     return vpp_msg_sw_interface_set_flags(ifindex, up);
 }
 
+static danos_status_t vpp_adapter_iface_addr_set(const danos_iface_t *iface,
+                                                 void *user)
+{
+    (void)iface; (void)user;
+    /* Address messages are not yet part of the frozen v0.11 VPP adapter
+     * contract; fail explicitly rather than marking the object programmed. */
+    return DANOS_ERR_NOT_SUPPORTED;
+}
+
+static danos_status_t vpp_adapter_iface_addr_del(const danos_iface_t *iface,
+                                                 void *user)
+{
+    (void)iface; (void)user;
+    return DANOS_ERR_NOT_SUPPORTED;
+}
+
 static danos_status_t vpp_adapter_route_add(const danos_resolved_route_t *res,
                                             void *user)
 {
@@ -82,6 +98,8 @@ static danos_status_t vpp_adapter_vrf_del(danos_vrf_id_t vrf_id, void *user)
 static danos_backend_ops_t g_vpp_ops = {
     .name      = "vpp",
     .iface_up  = vpp_adapter_iface_up,
+    .iface_addr_set = vpp_adapter_iface_addr_set,
+    .iface_addr_del = vpp_adapter_iface_addr_del,
     .route_add = vpp_adapter_route_add,
     .route_del = vpp_adapter_route_del,
     .vrf_add   = vpp_adapter_vrf_add,

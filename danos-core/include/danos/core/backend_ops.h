@@ -35,6 +35,9 @@ typedef struct danos_backend_ops {
 
     /* Interface admin state. ifindex is the DPA object id. */
     danos_status_t (*iface_up)(danos_ifindex_t ifindex, bool up, void *user);
+    /* Program the primary interface addresses, if present. */
+    danos_status_t (*iface_addr_set)(const danos_iface_t *iface, void *user);
+    danos_status_t (*iface_addr_del)(const danos_iface_t *iface, void *user);
 
     /* Routes: nhgroup_id == 0 without BLACKHOLE flag means the route
      * carries no usable path yet — the pipeline leaves it unprogrammed
