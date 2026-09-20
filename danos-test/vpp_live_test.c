@@ -25,9 +25,8 @@ int main(void)
 {
     int failed = 0;
     const char *sock = getenv("VPP_API_SOCK");
-    if (sock) danos_vpp_api_set_sock_path(sock);
-
     danos_vpp_api_init();
+    if (sock) danos_vpp_api_set_sock_path(sock);
     if (danos_vpp_api_connect() != 0) {
         fprintf(stderr, "V1 FAIL: cannot connect to %s\n",
                 sock ? sock : "/run/vpp/api.sock");

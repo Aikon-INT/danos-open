@@ -102,6 +102,12 @@ int danos_vpp_api_init(void)
     g_ctx.state = VPP_API_DISCONNECTED;
     snprintf(g_ctx.api_sock_path, sizeof(g_ctx.api_sock_path), "%s", VPP_API_SOCK_PATH);
     snprintf(g_ctx.stat_sock_path, sizeof(g_ctx.stat_sock_path), "%s", VPP_STAT_SOCK_PATH);
+    const char *api_env = getenv("VPP_API_SOCK");
+    const char *stat_env = getenv("VPP_STAT_SOCK");
+    if (api_env && *api_env)
+        snprintf(g_ctx.api_sock_path, sizeof(g_ctx.api_sock_path), "%s", api_env);
+    if (stat_env && *stat_env)
+        snprintf(g_ctx.stat_sock_path, sizeof(g_ctx.stat_sock_path), "%s", stat_env);
     g_ctx.reconnect_delay_ms = VPP_RECONNECT_INITIAL_MS;
     vpp_msg_table_init(&g_ctx.msg_table);
     g_initialized = true;
