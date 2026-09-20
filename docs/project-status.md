@@ -2,7 +2,7 @@
 
 ## Current assessment
 
-As of 2026-09-20, DANOS-Open has moved beyond proof of concept. The project has a runnable management-plane and state-reconciliation core, and is entering the engineering-convergence stage: turning the existing control-plane loop into a repeatable, privileged-environment-verified, deployable NOS baseline.
+As of 2026-09-21, DANOS-Open has moved beyond proof of concept. The project has a runnable management-plane and state-reconciliation core, and is entering the engineering-convergence stage: turning the existing control-plane loop into a repeatable, privileged-environment-verified, deployable NOS baseline.
 
 The strongest capabilities are the DPA object/store/transaction foundation, WAL persistence, desired-to-programmed reconciliation, model-driven gNMI/CLI/NETCONF integration, the initial Linux and VPP backend adapters, observability, and automated protocol/quality tests. The main remaining risk is not the absence of another isolated feature; it is the incomplete proof of the end-to-end loop across FRR, DPA, a real dataplane, restart, deletion, and traffic forwarding.
 
@@ -16,19 +16,16 @@ The strongest capabilities are the DPA object/store/transaction foundation, WAL 
   standard gNMI-to-mgrd K5a, and real raw-ICMP forwarding all pass. The
   validation script now handles minimal images without `ping` and no longer
   duplicates veth address configuration.
-- VPP protocol interop is implemented and the local VPP protocol suite passes; runtime package/API drift is not yet controlled and the external VPP job remains informational in CI.
-- The v0.16 VPP verification script was attempted: DPA conformance passed
-  11/11, while the VPP API/stat sockets were absent and runtime/FRR checks
-  could not run.
+- VPP protocol interop is implemented and the local VPP protocol suite passes.
+  A Debian trixie native-source runtime was built as VPP
+  `26.10-rc0~545-gad99177fe`; its API socket, stat socket, and DPA
+  conformance (11/11) all pass. DPDK mlx4/mlx5 drivers are intentionally
+  disabled for this software/Linux validation image.
 - clang/libFuzzer was closed in a Debian Docker toolchain container: clang 19
   built `fuzz_decoders`, and the target ran 10,000 inputs successfully. The
   local host still intentionally has no clang installation.
-- A real VPP image build was attempted through the official FD.io package
-  repository. Debian trixie has no VPP packages; the available bookworm
-  packages fail signature/dependency compatibility when mixed into trixie.
-  Use a native bookworm base image or a pinned prebuilt VPP image for the next
-  API/stat/forwarding acceptance run.
-- The repository contains an uncommitted gNMI error-mapping/typed-value fix and new Robot/live-image test assets; these should be split into independently verifiable commits.
+- The repository now contains the trixie source-build and privileged runtime
+  validation assets; no bookworm VPP packages are mixed into trixie.
 
 ## Capability maturity
 
@@ -38,8 +35,8 @@ The strongest capabilities are the DPA object/store/transaction foundation, WAL 
 | WAL and restart recovery | Working baseline | Real-disk fsync and migration policy |
 | Desired/programmed reconciliation | Working baseline | Complete dependency deletion semantics |
 | gNMI/CLI/NETCONF | Strong prototype | Multi-stream edge cases, in-process TLS, long-term protocol maintenance |
-| Linux backend | First real backend | Privileged namespace and traffic acceptance |
-| VPP backend | Protocol/adapter baseline | Fixed runtime version and real forwarding acceptance |
+| Linux backend | Real backend verified | Broader topology and recovery acceptance |
+| VPP backend | Runtime/conformance and interface-address baseline verified | Real forwarding acceptance |
 | FRR integration | FIB/ZAPI foundation | BFD translation and multi-protocol topology proof |
 | Data model | Route/VRF/NH plus primary interface IPv4/IPv6 model | VLAN, multi-address, tunnel/EVPN models |
 | Observability/security | Initial implementation | Operational semantics, HA and upgrade evidence |
@@ -86,8 +83,10 @@ Execution status:
   multipath forwarding remains to be verified.
 - Real Linux namespace and traffic proof: blocked in this workspace because
   root/user namespaces are unavailable.
-- VPP runtime forwarding proof and interface-address messages: external VPP
-  environment required and not yet complete.
+- VPP runtime boot, API/stat sockets and DPA conformance: verified in Debian
+  trixie source-built runtime. Interface-address add/delete messages now have
+  typed wire coverage and dual-stack adapter programming; real forwarding
+  remains pending.
 - FRR BGP/OSPF route installation and withdrawal through the full DPA/backend
   path: remains the next integration milestone; the ZAPI mapper now normalizes
   multipath route messages into multi-member DPA NHGroups and has a regression

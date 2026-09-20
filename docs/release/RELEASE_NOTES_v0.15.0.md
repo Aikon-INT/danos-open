@@ -26,6 +26,13 @@ an unqualified local pass.
   runs it under `/var/tmp` rather than the default `/tmp` location.
 - Added gNMI composite ECMP input via `gateways[]`, multi-member NHGroup
   creation/update and cascade deletion coverage.
+- Built a Debian trixie-native VPP runtime from source at
+  `26.10-rc0~545-gad99177fe`; generated `.deb` packages without bookworm
+  mixing, disabled mlx4/mlx5 for the software/Linux validation image, and
+  verified API/stat sockets plus DPA conformance 11/11.
+- Completed privileged K4/K5 real netns/veth/ICMP forwarding verification.
+- Added typed VPP interface-address add/delete encoding and dual-stack adapter
+  programming, with protocol wire-layout regression coverage.
 - Local workspace-filesystem baseline: 1000-object WAL write 3195.0 ms and
   recovery 17.4 ms; CI remains the authoritative `/var/tmp` real-filesystem
   measurement.
@@ -44,9 +51,6 @@ environmental rather than code failures.
 
 ## Remaining roadmap work after the v0.15 CTest gate
 
-- Real VPP runtime version and forwarding interop.
-- Real K4/K5 namespace and ping verification (the current workspace lacks root
-  or user namespaces).
+- Real VPP interface-address forwarding and ECMP interop acceptance.
 - Route/next-hop/next-hop-group dependency deletion acceptance.
-- VPP interface-address messages and multi-address modeling.
 - v0.16 ECMP real-dataplane forwarding and FRR BGP/OSPF full-path evidence.

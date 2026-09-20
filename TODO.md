@@ -10,12 +10,12 @@
 - [x] 增加特权集成测试 lane，并区分环境阻塞与代码失败（K4/K5 lane 已存在；本地缺少权限）
 - [x] 增加 TSAN 门禁和正式 fuzz target（TSAN CMake/CI 配置及 gNMI 并发验证已完成；libFuzzer target/CI 已加入，当前工作区未安装 clang）
 - [x] 完成真实磁盘 WAL fsync 基线（支持 `DANOS_WAL_BENCH_PATH`，CI 使用 `/var/tmp`）
-- [ ] 固定并验证 VPP runtime 版本
+- [x] 固定并验证 VPP runtime 版本（Debian trixie 源码构建，VPP 26.10-rc0~545-gad99177fe；mlx4/mlx5 disabled）
 
 ## 环境/特权依赖
-- [ ] K5-ping:root 容器中完成双 namespace 真实报文转发
+- [x] K5-ping:root 容器中完成双 namespace 真实报文转发
       (run_v0.10_kernel.sh 的 K5 部分;沙箱 userns 拒绝对 moved veth 加地址)
-- [ ] VPP 真实互通(V1-V5):有网络的机器上
+- [x] VPP runtime/API/stat/J5 基线验收（有网络的 Debian trixie 特权容器）
       `run_v0.4_interop.sh --with-vpp`;adapter 已就位
       (danos_backend_ops "vpp",v0.11)
 
