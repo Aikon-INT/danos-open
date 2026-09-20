@@ -107,6 +107,16 @@ static int test_wire_layouts(void)
     assert(b[off + 16] == 0);            /* nh proto ip4 */
     assert(b[off + 17] == 192);          /* nh addr first byte */
 
+    /* sw_interface_add_del_address: index + is_add + del_all + address + prefix len */
+    vpp_prefix_t ap = { .addr = { .is_ipv6 = false, .addr = {192,0,2,1} },
+                        .len = 24 };
+    n = vpp_encode_sw_interface_add_del_address(7, true, &ap, b, sizeof(b));
+    assert(n == 24);
+    assert(b[0] == 0 && b[1] == 0 && b[2] == 0 && b[3] == 7);
+    assert(b[4] == 1 && b[5] == 0 && b[6] == 0);
+    assert(b[7] == 192 && b[8] == 0 && b[9] == 2 && b[10] == 1);
+    assert(b[23] == 24);
+
     /* neighbor */
     uint8_t mac[6] = {0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff};
     vpp_ip_t ip6nh = { .is_ipv6 = true };

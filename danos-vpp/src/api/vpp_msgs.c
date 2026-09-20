@@ -160,6 +160,27 @@ int vpp_encode_sw_interface_set_flags(uint32_t sw_if_index, bool admin_up,
     return n;
 }
 
+int vpp_encode_sw_interface_add_del_address(uint32_t sw_if_index, bool is_add,
+                                            const vpp_prefix_t *prefix,
+                                            uint8_t *out, uint32_t out_size)
+{
+    if (!prefix || !out || (prefix->addr.is_ipv6 && prefix->len > 128) ||
+        (!prefix->addr.is_ipv6 && prefix->len > 32) || out_size < 24)
+        return -1;
+    vpp_buf_t b;
+    vpp_buf_init(&b, 32);
+    vpp_buf_put_u32(&b, sw_if_index);
+    vpp_buf_put_u8(&b, is_add ? 1 : 0);
+    vpp_buf_put_u8(&b, 0); /* del_all */
+    encode_address(&b, &prefix->addr);
+    vpp_buf_put_u8(&b, prefix->len);
+    if (b.len > out_size) { vpp_buf_free(&b); return -1; }
+    memcpy(out, b.data, b.len);
+    int n = (int)b.len;
+    vpp_buf_free(&b);
+    return n;
+}
+
 int vpp_encode_ip_neighbor_add_del(uint8_t is_add, uint32_t sw_if_index,
                                    const uint8_t mac[6], const vpp_ip_t *ip,
                                    uint8_t *out, uint32_t out_size)
@@ -223,6 +244,17 @@ danos_status_t vpp_msg_sw_interface_set_flags(uint32_t sw_if_index, bool admin_u
                                               body, sizeof(body));
     if (n < 0) return DANOS_ERR_INVALID_ARG;
     return transact_named("sw_interface_set_flags", body, (uint32_t)n);
+}
+
+danos_status_t vpp_msg_sw_interface_add_del_address(uint32_t sw_if_index,
+                                                    bool is_add,
+                                                    const vpp_prefix_t *prefix)
+{
+    uint8_t body[32];
+    int n = vpp_encode_sw_interface_add_del_address(sw_if_index, is_add,
+                                                     prefix, body, sizeof(body));
+    if (n < 0) return DANOS_ERR_INVALID_ARG;
+    return transact_named("sw_interface_add_del_address", body, (uint32_t)n);
 }
 
 danos_status_t vpp_msg_ip_table_add_del(uint32_t table_id, bool is_ip6,

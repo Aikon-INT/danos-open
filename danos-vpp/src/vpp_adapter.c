@@ -23,20 +23,42 @@ static danos_status_t vpp_adapter_iface_up(danos_ifindex_t ifindex,
     return vpp_msg_sw_interface_set_flags(ifindex, up);
 }
 
+static danos_status_t vpp_adapter_iface_addr_one(const danos_iface_t *iface,
+                                                 const danos_ip_prefix_t *p,
+                                                 bool is_add)
+{
+    vpp_prefix_t prefix;
+    memset(&prefix, 0, sizeof(prefix));
+    prefix.addr.is_ipv6 = p->addr.af == DANOS_AF_IPV6;
+    memcpy(prefix.addr.addr, p->addr.addr, prefix.addr.is_ipv6 ? 16 : 4);
+    prefix.len = p->prefix_len;
+    return vpp_msg_sw_interface_add_del_address(iface->ifindex, is_add, &prefix);
+}
+
 static danos_status_t vpp_adapter_iface_addr_set(const danos_iface_t *iface,
                                                  void *user)
 {
-    (void)iface; (void)user;
-    /* Address messages are not yet part of the frozen v0.11 VPP adapter
-     * contract; fail explicitly rather than marking the object programmed. */
-    return DANOS_ERR_NOT_SUPPORTED;
+    (void)user;
+    if (iface->ipv4_address.addr.af != DANOS_AF_UNSPEC) {
+        danos_status_t st = vpp_adapter_iface_addr_one(iface, &iface->ipv4_address, true);
+        if (st != DANOS_OK) return st;
+    }
+    if (iface->ipv6_address.addr.af != DANOS_AF_UNSPEC)
+        return vpp_adapter_iface_addr_one(iface, &iface->ipv6_address, true);
+    return DANOS_OK;
 }
 
 static danos_status_t vpp_adapter_iface_addr_del(const danos_iface_t *iface,
                                                  void *user)
 {
-    (void)iface; (void)user;
-    return DANOS_ERR_NOT_SUPPORTED;
+    (void)user;
+    if (iface->ipv4_address.addr.af != DANOS_AF_UNSPEC) {
+        danos_status_t st = vpp_adapter_iface_addr_one(iface, &iface->ipv4_address, false);
+        if (st != DANOS_OK) return st;
+    }
+    if (iface->ipv6_address.addr.af != DANOS_AF_UNSPEC)
+        return vpp_adapter_iface_addr_one(iface, &iface->ipv6_address, false);
+    return DANOS_OK;
 }
 
 static danos_status_t vpp_adapter_route_add(const danos_resolved_route_t *res,

@@ -74,6 +74,9 @@ int vpp_encode_ip_table_add_del(uint8_t is_add, uint32_t table_id,
  * only IF_STATUS_API_FLAG_ADMIN_UP (0x1) is used. */
 int vpp_encode_sw_interface_set_flags(uint32_t sw_if_index, bool admin_up,
                                       uint8_t *out, uint32_t out_size);
+int vpp_encode_sw_interface_add_del_address(uint32_t sw_if_index, bool is_add,
+                                            const vpp_prefix_t *prefix,
+                                            uint8_t *out, uint32_t out_size);
 
 /* ip_neighbor_add_del body: bool is_add; bool is_del_all;
  * ip_neighbor { u32 sw_if_index; u8 flags; mac mac[6]; address ip; } */
@@ -95,6 +98,9 @@ danos_status_t vpp_msg_policer_add_del(bool is_add, const char *name,
 /* --- request/reply transactions --------------------------------------- */
 
 danos_status_t vpp_msg_sw_interface_set_flags(uint32_t sw_if_index, bool admin_up);
+danos_status_t vpp_msg_sw_interface_add_del_address(uint32_t sw_if_index,
+                                                    bool is_add,
+                                                    const vpp_prefix_t *prefix);
 danos_status_t vpp_msg_ip_table_add_del(uint32_t table_id, bool is_ip6,
                                         const char *name, bool is_add);
 danos_status_t vpp_msg_ip_route_add_del(bool is_add, uint32_t table_id,
