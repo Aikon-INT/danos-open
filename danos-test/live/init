@@ -1,0 +1,44 @@
+#!/bin/busybox sh
+/bin/busybox --install -s /bin
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || echo "devtmpfs: using static nodes"
+
+echo ""
+echo "==============================================="
+echo "  DANOS-Open live system (kernel 6.12, mgrd)"
+echo "==============================================="
+
+# network drivers (QEMU e1000)
+insmod /modules/e1000.ko 2>/dev/null || echo "e1000 insmod failed"
+
+ip link set lo up
+# QEMU user-mode networking: static address on eth0
+if ip link show eth0 >/dev/null 2>&1; then
+    ip addr add 10.0.2.15/24 dev eth0
+    ip link set eth0 up
+    ip route add default via 10.0.2.2 2>/dev/null
+    echo "eth0: 10.0.2.15/24 up"
+fi
+
+export MGRD_NETLINK_REAL=1   # VM root: program the real kernel
+echo "--- starting mgrd (gNMI :59200, metrics :59201, netlink real)"
+mgrd --port 59200 --metrics-port 59201 --wal /tmp/mgrd.wal --seed &
+sleep 1
+
+# K4-in-VM: provision a route via gNMI and show the kernel FIB
+(
+    sleep 2
+    echo "--- [demo] gnmic set route 172.16.0.0/16 via 10.0.2.2"
+    gnmic -a 127.0.0.1:59200 --insecure set \
+        --update '/routes/route[prefix=172.16.0.0/16]:::json_ietf:::{"gateway":"10.0.2.2"}' \
+        > /dev/console 2>&1
+    sleep 2
+    echo "--- [demo] kernel FIB (ip route show):"
+    ip route show > /dev/console 2>&1
+    echo "--- [demo] kernel FIB (/proc/net/route):"
+    cat /proc/net/route > /dev/console 2>&1
+) &
+
+echo "--- live system ready. shell:"
+exec /bin/busybox sh

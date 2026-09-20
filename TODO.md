@@ -1,6 +1,16 @@
-# DANOS-Open 待办清单(v0.11 基线)
+# DANOS-Open 待办清单(v0.15 收敛基线)
 
-> 长期事项在这里公开追踪;阶段内工作见各 release notes。
+> 当前状态、版本路线和验收口径见 `docs/project-status.md`。本清单只保留尚未完成的可执行事项。
+
+## v0.15 工程收敛
+- [ ] 统一 README、TODO、release notes、tag 与构建产物版本口径
+- [ ] 将当前 gNMI 修复拆分提交并完成协议回归
+- [ ] 完成 Route/NH/NHGroup 依赖删除、重试和 tombstone 验收
+- [x] 增加 Interface IPv4/IPv6 地址模型及 northbound 测试（Linux backend 已支持；VPP 地址消息仍待）
+- [x] 增加特权集成测试 lane，并区分环境阻塞与代码失败（K4/K5 lane 已存在；本地缺少权限）
+- [x] 增加 TSAN 门禁和正式 fuzz target（TSAN CMake/CI 配置及 gNMI 并发验证已完成；libFuzzer target/CI 已加入，当前工作区未安装 clang）
+- [x] 完成真实磁盘 WAL fsync 基线（支持 `DANOS_WAL_BENCH_PATH`，CI 使用 `/var/tmp`）
+- [ ] 固定并验证 VPP runtime 版本
 
 ## 环境/特权依赖
 - [ ] K5-ping:root 容器中完成双 namespace 真实报文转发
@@ -10,6 +20,8 @@
       (danos_backend_ops "vpp",v0.11)
 
 ## 功能
+- [x] v0.16 ECMP northbound route representation（gNMI `gateways[]` + NHGroup；真实 dataplane 多路径仍待）
+- [ ] v0.16 FRR BGP/OSPF route install/withdraw 全链路验收（ZAPI 多 NH 映射已补；真实拓扑待）
 - [ ] gNMI Subscribe STREAM 多订阅状态机(单连接多流;
       threading.md 已列为候选)
 - [ ] bfdd 翻译层(ADR-0006):DPA BFD 对象 ↔ frr bfdd 配置
@@ -18,6 +30,6 @@
 - [ ] NETCONF over SSH(RFC 6242 传输层)
 
 ## 质量
-- [ ] libFuzzer 集成(当前为内建变异循环)
-- [ ] TSAN 门禁(32 并发连接用例)
-- [ ] 真实磁盘(非 tmpfs)上的 WAL fsync 基线
+- [x] libFuzzer 集成 target/CI（本地未安装 clang）
+- [x] TSAN 门禁（32 并发连接用例）
+- [x] 真实磁盘(非 tmpfs)上的 WAL fsync 基线（CI `/var/tmp`）

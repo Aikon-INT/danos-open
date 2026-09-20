@@ -104,7 +104,8 @@ Management (CLI/gNMI/NETCONF)
    Linux / DPDK / NIC
 ```
 
-Documentation map: `docs/README.md` (single doc root; v1.1 spec archived at `docs/archive/v1.1/`).
+Documentation map: `docs/README.md` (single doc root; current assessment and
+roadmap in `docs/project-status.md`; v1.1 spec archived at `docs/archive/v1.1/`).
 
 ## Repository Structure
 

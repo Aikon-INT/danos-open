@@ -1,5 +1,7 @@
 # Build artifacts
 build/
+build-tsan/
+build-fuzz/
 *.o
 *.a
 *.so

@@ -14,7 +14,13 @@ set -u
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BUILD_DIR="$PROJECT_ROOT/build"
-GNMIC="${GNMIC:-/tmp/gnmic-bin}"
+if [ -z "${GNMIC:-}" ]; then
+    if [ -x "$BUILD_DIR/gnmic" ]; then
+        GNMIC="$BUILD_DIR/gnmic"
+    else
+        GNMIC="/tmp/gnmic-bin"
+    fi
+fi
 
 YELLOW='\033[0;33m'; RED='\033[0;31m'; GREEN='\033[0;32m'; NC='\033[0m'
 pass() { echo -e "${GREEN}[PASS]${NC} $1"; }
@@ -75,9 +81,8 @@ nsenter -t $NSPID -n ip addr add 10.0.0.2/24 dev v1
 nsenter -t $NSPID -n ip link set v1 up
 nsenter -t $NSPID -n ip link set lo up
 # far-end loopback: reachable ONLY via a gnmic-programmed route
-nsenter -t $NSPID -n ip addr add 10.99.0.1/32 dev lo     || echo "NSSETUP-FAIL: addr 10.99" 
-nsenter -t $NSPID -n ip addr add 10.0.0.2/24 dev v1     \
-    && NSSETUP_OK=1 || echo "NSSETUP-FAIL: addr v1"
+nsenter -t $NSPID -n ip addr add 10.99.1.1/32 dev lo     || echo "NSSETUP-FAIL: addr 10.99.1"
+NSSETUP_OK=1
 nsenter -t $NSPID -n ip link set v1 up || echo "NSSETUP-FAIL: v1 up"
 nsenter -t $NSPID -n ip link set lo up || echo "NSSETUP-FAIL: lo up"
 echo "DEBUG state:"; ip -br link; ip -br addr; nsenter -t $NSPID -n ip -br link
@@ -195,9 +200,32 @@ fi
 # Root/netns mode only (the userns sandbox rejects addr-add on the
 # moved veth peer). Child ns has 10.0.0.2 on v1 and 10.99.0.1 on lo.
 if [ "${NSSETUP_OK:-0}" = "1" ]; then
-    nsenter -t $NSPID -n ip addr add 10.99.0.1/32 dev lo 2>/dev/null
+    if ! command -v ping >/dev/null 2>&1; then
+        # Keep the real packet-forwarding check usable in minimal build
+        # images: compile a tiny raw-ICMP probe instead of silently skipping.
+        cat > /tmp/k5-ping.c <<'EOF'
+#include <arpa/inet.h>
+#include <netinet/ip_icmp.h>
+#include <sys/select.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdio.h>
+static unsigned short sum(const void *p, int n) { const unsigned short *w=p; unsigned long s=0; while(n>1){s+=*w++;n-=2;} if(n)s+=*(const unsigned char*)w; while(s>>16)s=(s&0xffff)+(s>>16); return (unsigned short)~s; }
+int main(void) { int s=socket(AF_INET,SOCK_RAW,IPPROTO_ICMP); if(s<0)return 2; struct timeval tv={2,0}; setsockopt(s,SOL_SOCKET,SO_RCVTIMEO,&tv,sizeof(tv)); struct sockaddr_in d={.sin_family=AF_INET}; inet_pton(AF_INET,"10.99.1.1",&d.sin_addr); struct {struct icmphdr h; unsigned char p[8];} q; memset(&q,0,sizeof(q)); q.h.type=ICMP_ECHO; q.h.un.echo.id=htons((unsigned short)getpid()); q.h.un.echo.sequence=htons(1); q.h.checksum=sum(&q,sizeof(q)); if(sendto(s,&q,sizeof(q),0,(struct sockaddr*)&d,sizeof(d))<0)return 3; unsigned char b[2048]; for(;;){int n=recv(s,b,sizeof(b),0); if(n<0)return 4; struct iphdr *ip=(struct iphdr*)b; struct icmphdr *h=(struct icmphdr*)(b+ip->ihl*4); if(h->type==ICMP_ECHOREPLY && h->un.echo.id==q.h.un.echo.id)return 0;} }
+EOF
+        if ! gcc /tmp/k5-ping.c -o /tmp/k5-ping; then
+            fail "K5-ping: no ping utility and raw-ICMP probe build failed"
+            NSSETUP_OK=0
+        fi
+    else
+        cp "$(command -v ping)" /tmp/k5-ping
+    fi
+fi
+if [ "${NSSETUP_OK:-0}" = "1" ]; then
+    nsenter -t $NSPID -n ip addr add 10.99.1.1/32 dev lo 2>/dev/null
     nsenter -t $NSPID -n ip link set lo up 2>/dev/null
-    if ping -c 2 -W 2 -I v0 10.99.0.1 > /tmp/k5-ping.log 2>&1; then
+    if /tmp/k5-ping > /tmp/k5-ping.log 2>&1; then
         pass "K5-ping: packets forwarded through the gnmic-programmed route"
     else
         fail "K5-ping: forwarding failed"; cat /tmp/k5-ping.log

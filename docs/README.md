@@ -12,6 +12,7 @@ contributor needs lives here; everything else is an archive.
 | [Compat matrix](interop/v0.5_compat_matrix.md) | Frozen protocol versions + upgrade policy |
 | [Threading contract](threading.md) | Threads, shared state, lock rules |
 | [Release notes](release/) | Per-tag notes (v0.6.0+) |
+| [Project status](project-status.md) | Current assessment, roadmap and acceptance policy |
 
 ## Entry points outside docs/
 
