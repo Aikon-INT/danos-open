@@ -15,6 +15,7 @@
 #include <danos/core/object_registry.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdatomic.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
@@ -327,6 +328,7 @@ static danos_state_store_t *g_store;
 static pthread_mutex_t g_store_ev_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t g_store_ev_cond = PTHREAD_COND_INITIALIZER;
 static uint64_t g_store_epoch = 0;
+static pthread_once_t g_event_subscribe_once = PTHREAD_ONCE_INIT;
 
 static void store_event_cb(const danos_event_t *ev, void *user)
 {
@@ -337,7 +339,14 @@ static void store_event_cb(const danos_event_t *ev, void *user)
     pthread_mutex_unlock(&g_store_ev_lock);
 }
 
-uint64_t g_rpcs_total = 0;
+static void subscribe_store_events_once(void)
+{
+    danos_event_subscribe((danos_event_type_t)
+        (DANOS_EVENT_OBJ_CREATED | DANOS_EVENT_OBJ_UPDATED |
+         DANOS_EVENT_OBJ_DELETED), store_event_cb, NULL);
+}
+
+_Atomic uint64_t g_rpcs_total = 0;
 
 static danos_state_store_t *store_or_default(void)
 {
@@ -854,6 +863,27 @@ static int json_get_uint(const char *body, const char *key, unsigned *out)
     return 0;
 }
 
+static int json_get_ipv4_array(const char *body, const char *key,
+                               danos_ip_addr_t *out, uint32_t *count)
+{
+    const char *p = strstr(body, key);
+    if (!p || !(p = strchr(p, '['))) return -1;
+    p++;
+    uint32_t n = 0;
+    while (*p && *p != ']' && n < 64) {
+        while (*p == ' ' || *p == ',') p++;
+        if (*p != '"') return -1;
+        char ip[64]; size_t i = 0;
+        for (p++; *p && *p != '"' && i < sizeof(ip) - 1; p++) ip[i++] = *p;
+        ip[i] = '\0';
+        if (*p != '"' || gnmi_parse_ipv4(ip, &out[n]) != DANOS_OK) return -1;
+        n++; p++;
+    }
+    if (*p != ']' || n == 0) return -1;
+    *count = n;
+    return 0;
+}
+
 int gnmi_handle_set(danos_state_store_t *store,
                     const uint8_t *req, size_t req_len,
                     uint8_t *resp, size_t resp_cap)
@@ -892,16 +922,25 @@ int gnmi_handle_set(danos_state_store_t *store,
             }
             danos_ip_addr_t gw;
             char gwbuf[64] = {0};
-            if (json_get_str(u->val.s, "gateway", gwbuf, sizeof(gwbuf)) != 0) {
-                status = DANOS_ERR_INVALID_ARG;   /* gateway required */
-                break;
-            }
-            pst = gnmi_parse_ipv4(gwbuf, &gw);
-            if (pst != DANOS_OK) { status = pst; break; }
             unsigned oif = 0, vrf = 0;
             (void)json_get_uint(u->val.s, "oif", &oif);
             (void)json_get_uint(u->val.s, "vrf", &vrf);
-            pst = gnmi_route_set((danos_vrf_id_t)vrf, &prefix, &gw, oif);
+            danos_ip_addr_t gateways[64]; uint32_t gateway_count = 0;
+            if (json_get_ipv4_array(u->val.s, "gateways", gateways,
+                                    &gateway_count) == 0) {
+                uint32_t oifs[64];
+                for (uint32_t j = 0; j < gateway_count; j++) oifs[j] = oif;
+                pst = gnmi_route_set_ecmp((danos_vrf_id_t)vrf, &prefix,
+                                          gateways, oifs, gateway_count);
+            } else {
+                if (json_get_str(u->val.s, "gateway", gwbuf, sizeof(gwbuf)) != 0) {
+                    status = DANOS_ERR_INVALID_ARG;   /* gateway required */
+                    break;
+                }
+                pst = gnmi_parse_ipv4(gwbuf, &gw);
+                if (pst == DANOS_OK)
+                    pst = gnmi_route_set((danos_vrf_id_t)vrf, &prefix, &gw, oif);
+            }
             if (pst != DANOS_OK) { status = pst; break; }
             out.result_paths[out.result_count++] = u->path;
             out.ops[out.result_count - 1] = GNMI_OP_UPDATE;
@@ -1023,6 +1062,38 @@ int gnmi_handle_set(danos_state_store_t *store,
             !dp->elems[1].has_key) {
             status = DANOS_ERR_INVALID_ARG;
             break;
+        }
+        if (dp->elem_count > 2) {
+            gnmi_model_binding_t mb;
+            if (gnmi_model_resolve(dp, &mb) != DANOS_OK ||
+                mb.kind != GNMI_MODEL_LEAF || !mb.config_tree ||
+                (mb.field != GNMI_FIELD_IPV4_ADDRESS &&
+                 mb.field != GNMI_FIELD_IPV6_ADDRESS)) {
+                status = DANOS_ERR_INVALID_ARG;
+                break;
+            }
+            danos_iface_t ifaces[16];
+            uint32_t n = collect_objects(ss, DANOS_OBJ_IFACE, ifaces,
+                                         sizeof(ifaces[0]), 16);
+            bool found = false;
+            for (uint32_t j = 0; j < n; j++) {
+                if (strcmp(ifaces[j].name, dp->elems[1].key_value) == 0) {
+                    if (mb.field == GNMI_FIELD_IPV4_ADDRESS)
+                        memset(&ifaces[j].ipv4_address, 0, sizeof(ifaces[j].ipv4_address));
+                    else
+                        memset(&ifaces[j].ipv6_address, 0, sizeof(ifaces[j].ipv6_address));
+                    status = danos_object_update(ss->desired, DANOS_OBJ_IFACE,
+                                                 ifaces[j].ifindex, &ifaces[j],
+                                                 sizeof(ifaces[j]));
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) status = DANOS_ERR_NOT_FOUND;
+            if (status != DANOS_OK) break;
+            out.result_paths[out.result_count++] = *dp;
+            out.ops[out.result_count - 1] = GNMI_OP_DELETE;
+            continue;
         }
         const gnmi_path_t *p = &sr.deletes[i];
         if (p->elem_count < 2 ||
@@ -1178,13 +1249,7 @@ int danos_gnmi_grpc_serve_fd(int fd)
     write_frame(fd, H2_F_SETTINGS, 0, 0, NULL, 0);
 
     /* subscribe to store mutations (once) for STREAM subscriptions */
-    static bool ev_subscribed = false;
-    if (!ev_subscribed) {
-        danos_event_subscribe((danos_event_type_t)
-            (DANOS_EVENT_OBJ_CREATED | DANOS_EVENT_OBJ_UPDATED |
-             DANOS_EVENT_OBJ_DELETED), store_event_cb, NULL);
-        ev_subscribed = true;
-    }
+    pthread_once(&g_event_subscribe_once, subscribe_store_events_once);
 
     int rc = 0;
     uint8_t msg[MAX_MSG];
@@ -1233,7 +1298,7 @@ int danos_gnmi_grpc_serve_fd(int fd)
             break;
         }
 
-        g_rpcs_total++;
+        atomic_fetch_add_explicit(&g_rpcs_total, 1, memory_order_relaxed);
 
         bool end_stream = (fflags & H2_FLAG_END_STREAM) != 0;
         size_t msg_len = 0;
@@ -1291,9 +1356,15 @@ int danos_gnmi_grpc_serve_fd(int fd)
             /* map DPA status -> gRPC status: NOT_FOUND(2) -> 5,
              * INVALID_ARG(1) -> 3, everything else -> 2 (Unknown) */
             const char *gs = "2";
-            if (rlen == -(int)DANOS_ERR_NOT_FOUND) gs = "5";
-            else if (rlen == -(int)DANOS_ERR_INVALID_ARG) gs = "3";
-            uint8_t tbuf[128];
+            const char *gmsg = "internal error";
+            if (rlen == -(int)DANOS_ERR_NOT_FOUND) {
+                gs = "5"; gmsg = "path not found";
+            } else if (rlen == -(int)DANOS_ERR_INVALID_ARG) {
+                gs = "3"; gmsg = "invalid argument";
+            } else if (rlen == -(int)DANOS_ERR_EXISTS) {
+                gs = "6"; gmsg = "already exists";
+            }
+            uint8_t tbuf[192];
             size_t tlen = 0;
             int k = hpack_encode_literal(tbuf, sizeof(tbuf) - tlen,
                                          ":status", "200");
@@ -1303,6 +1374,9 @@ int danos_gnmi_grpc_serve_fd(int fd)
             tlen += k;
             k = hpack_encode_literal(tbuf + tlen, sizeof(tbuf) - tlen,
                                      "grpc-status", gs);
+            tlen += k;
+            k = hpack_encode_literal(tbuf + tlen, sizeof(tbuf) - tlen,
+                                     "grpc-message", gmsg);
             tlen += k;
             write_frame(fd, H2_F_HEADERS,
                         H2_FLAG_END_STREAM | H2_FLAG_END_HEADERS,
@@ -1335,7 +1409,7 @@ static void *grpc_conn_thread(void *argp)
     grpc_conn_arg_t *a = argp;
     danos_gnmi_grpc_serve_fd(a->fd);
     close(a->fd);
-    a->ctx->rpcs_served++;
+    atomic_fetch_add_explicit(&a->ctx->rpcs_served, 1, memory_order_relaxed);
     free(a);
     return NULL;
 }
@@ -1418,6 +1492,6 @@ void danos_gnmi_grpc_stop(danos_gnmi_grpc_ctx_t *ctx)
     ctx->running = false;
     shutdown(ctx->listen_fd, SHUT_RDWR);
     close(ctx->listen_fd);
-    ctx->listen_fd = -1;
     pthread_join(g_grpc.thread, NULL);
+    ctx->listen_fd = -1;
 }

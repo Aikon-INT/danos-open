@@ -63,6 +63,38 @@ jobs:
           ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
         run: ./build-asan/danos-test/fuzz_decoders
 
+  tsan:
+    name: ThreadSanitizer (concurrent gNMI)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake
+      - name: Configure (TSAN)
+        run: cmake -B build-tsan -DDANOS_TSAN=ON -DCMAKE_BUILD_TYPE=Debug
+      - name: Build
+        run: cmake --build build-tsan -j$(nproc)
+      - name: Concurrent test under TSAN
+        env:
+          TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1
+        run: ctest --test-dir build-tsan -R '^(concurrent_conns|gnmi)$' --output-on-failure
+
+  libfuzzer:
+    name: LLVM libFuzzer decoder target
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: sudo apt-get update && sudo apt-get install -y clang cmake build-essential
+      - name: Configure
+        run: cmake -B build-fuzz -DCMAKE_C_COMPILER=clang -DDANOS_LIBFUZZER=ON -DCMAKE_BUILD_TYPE=Debug
+      - name: Build
+        run: cmake --build build-fuzz -j$(nproc) --target fuzz_decoders
+      - name: Fuzz smoke
+        run: ./build-fuzz/danos-test/fuzz_decoders -runs=1000
+
   concurrent-scale:
     name: Scale (32 concurrent gNMI connections)
     runs-on: ubuntu-24.04

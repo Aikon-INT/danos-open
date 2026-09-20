@@ -21,6 +21,7 @@
 #include <danos/core/state_store.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdatomic.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,8 +30,8 @@ extern "C" {
 typedef struct {
     int      listen_fd;
     uint16_t port;
-    bool     running;
-    uint64_t rpcs_served;
+    _Atomic bool running;
+    _Atomic uint64_t rpcs_served;
     danos_state_store_t *store;   /* borrowed; NULL = use g_default_store */
 } danos_gnmi_grpc_ctx_t;
 

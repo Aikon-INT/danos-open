@@ -16,6 +16,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <limits.h>
 
 #define N 1000
 
@@ -51,9 +52,18 @@ static int commit_one(unsigned i)
 int main(void)
 {
     int failed = 0;
-    char wal[] = "/tmp/danos-perf-XXXXXX.wal";
-    int fd = mkstemps(wal, 4);
-    if (fd >= 0) close(fd);
+    char wal[PATH_MAX];
+    const char *configured = getenv("DANOS_WAL_BENCH_PATH");
+    if (configured && configured[0] != '\0') {
+        if (strlen(configured) >= sizeof(wal)) return 2;
+        strcpy(wal, configured);
+    } else {
+        strcpy(wal, "/tmp/danos-perf-XXXXXX.wal");
+        int fd = mkstemps(wal, 4);
+        if (fd < 0) return 2;
+        close(fd);
+    }
+    printf("WAL benchmark path: %s\n", wal);
 
     /* --- B1a: 1000 per-object transactions ------------------------------ */
     g_default_store = NULL;

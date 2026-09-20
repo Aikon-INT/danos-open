@@ -22,6 +22,11 @@
 #include <string.h>
 
 #define ITERS 20000
+#if defined(__GNUC__) || defined(__clang__)
+#define FUZZ_UNUSED __attribute__((unused))
+#else
+#define FUZZ_UNUSED
+#endif
 
 static uint64_t rng_state = 0x12345678;
 static uint32_t rnd(void)
@@ -67,7 +72,7 @@ static bool sink_cb(const char *name, const char *value, void *user)
     return true;
 }
 
-static void fuzz_hpack_cb(const uint8_t *seed, size_t n)
+static void FUZZ_UNUSED fuzz_hpack_cb(const uint8_t *seed, size_t n)
 {
     for (int i = 0; i < ITERS / 4; i++) {
         size_t m = mutate(seed, n);
@@ -77,7 +82,7 @@ static void fuzz_hpack_cb(const uint8_t *seed, size_t n)
     }
 }
 
-static void fuzz_pb_requests(const uint8_t *seed, size_t n)
+static void FUZZ_UNUSED fuzz_pb_requests(const uint8_t *seed, size_t n)
 {
     gnmi_get_request_t gr;
     gnmi_set_request_t sr;
@@ -93,7 +98,7 @@ static void fuzz_pb_requests(const uint8_t *seed, size_t n)
     }
 }
 
-static void fuzz_pb_paths(const uint8_t *seed, size_t n)
+static void FUZZ_UNUSED fuzz_pb_paths(const uint8_t *seed, size_t n)
 {
     for (int i = 0; i < ITERS / 4; i++) {
         size_t m = mutate(seed, n);
@@ -105,7 +110,7 @@ static void fuzz_pb_paths(const uint8_t *seed, size_t n)
     }
 }
 
-static void fuzz_model_resolve(void)
+static void FUZZ_UNUSED fuzz_model_resolve(void)
 {
     gnmi_path_t p;
     gnmi_model_binding_t b;
@@ -133,6 +138,37 @@ static void fuzz_model_resolve(void)
     }
 }
 
+#ifdef DANOS_LIBFUZZER
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
+{
+    if (!data || size == 0) return 0;
+    if (!g_default_store) g_default_store = danos_object_store_create(64);
+    hpack_dyn_init(&dyn);
+    hpack_decode(&dyn, data, size, sink_cb, NULL);
+    hpack_dyn_free(&dyn);
+    gnmi_get_request_t gr;
+    gnmi_set_request_t sr;
+    gnmi_subscribe_request_t sub;
+    memset(&gr, 0, sizeof(gr));
+    memset(&sr, 0, sizeof(sr));
+    memset(&sub, 0, sizeof(sub));
+    gnmi_decode_get_request(data, size, &gr);
+    gnmi_decode_set_request(data, size, &sr);
+    gnmi_decode_subscribe_request(data, size, &sub);
+    gnmi_path_t p;
+    gnmi_typed_value_t v;
+    memset(&p, 0, sizeof(p));
+    memset(&v, 0, sizeof(v));
+    gnmi_decode_path(data, size, &p);
+    gnmi_decode_typed_value(data, size, &v);
+    gnmi_path_from_str(&p, (const char *)data);
+    gnmi_model_binding_t b;
+    gnmi_model_resolve(&p, &b);
+    return 0;
+}
+#endif
+
+#ifndef DANOS_LIBFUZZER
 int main(void)
 {
     /* seeds: known-good encodings from the conformance tests */
@@ -160,3 +196,4 @@ int main(void)
     printf("=== fuzz_decoders: %d iterations, no crashes ===\n", ITERS);
     return 0;
 }
+#endif

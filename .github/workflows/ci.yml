@@ -77,3 +77,20 @@ jobs:
           sudo apt-get install -y python3
       - name: Validate YANG models
         run: python3 danos-models/yang/yang_validator.py --all
+
+  wal-disk:
+    name: WAL real-filesystem baseline
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake
+      - name: Build performance target
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j$(nproc) --target txn_scale_test
+      - name: Run on runner filesystem
+        run: |
+          export DANOS_WAL_BENCH_PATH=/var/tmp/danos-open-wal-${GITHUB_RUN_ID}.wal
+          ./build/danos-test/txn_scale_test
+          rm -f "$DANOS_WAL_BENCH_PATH"

@@ -11,6 +11,8 @@ option(DANOS_BUILD_VPP   "Build VPP backend" ON)
 option(DANOS_BUILD_FIB   "Build FRR FIB adapter" ON)
 option(DANOS_BUILD_MGMT  "Build management plane" ON)
 option(DANOS_SANITIZE    "Build with ASAN+UBSAN" OFF)
+option(DANOS_TSAN        "Build with ThreadSanitizer" OFF)
+option(DANOS_LIBFUZZER   "Build decoder fuzz target with LLVM libFuzzer" OFF)
 
 # Enable testing early so add_test() in subdirectories is registered
 if(DANOS_BUILD_TESTS)
@@ -21,6 +23,11 @@ endif()
 if(DANOS_SANITIZE)
   add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer -g)
   add_link_options(-fsanitize=address,undefined)
+endif()
+
+if(DANOS_TSAN)
+  add_compile_options(-fsanitize=thread -fno-omit-frame-pointer -g)
+  add_link_options(-fsanitize=thread)
 endif()
 
 # Common flags
