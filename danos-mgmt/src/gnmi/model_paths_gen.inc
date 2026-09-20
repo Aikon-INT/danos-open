@@ -56,6 +56,30 @@
         b->config_tree = has_config_segment(p);
         return DANOS_OK;
     }
+    /* /interfaces/interface[name]/config/ipv4-address */
+    if (p->elem_count == 4 &&
+        strcmp(p->elems[0].name, "interfaces") == 0 &&
+        strcmp(p->elems[1].name, "interface[name]") == 0 && p->elems[1].has_key &&
+        strcmp(p->elems[2].name, "config") == 0 &&
+        strcmp(p->elems[3].name, "ipv4-address") == 0) {
+        b->kind = GNMI_MODEL_LEAF;
+        b->obj_type = DANOS_OBJ_IFACE;
+        b->field = GNMI_FIELD_NONE;
+        b->config_tree = has_config_segment(p);
+        return DANOS_OK;
+    }
+    /* /interfaces/interface[name]/config/ipv6-address */
+    if (p->elem_count == 4 &&
+        strcmp(p->elems[0].name, "interfaces") == 0 &&
+        strcmp(p->elems[1].name, "interface[name]") == 0 && p->elems[1].has_key &&
+        strcmp(p->elems[2].name, "config") == 0 &&
+        strcmp(p->elems[3].name, "ipv6-address") == 0) {
+        b->kind = GNMI_MODEL_LEAF;
+        b->obj_type = DANOS_OBJ_IFACE;
+        b->field = GNMI_FIELD_NONE;
+        b->config_tree = has_config_segment(p);
+        return DANOS_OK;
+    }
     /* /interfaces/interface[name]/state/mtu */
     if (p->elem_count == 4 &&
         strcmp(p->elems[0].name, "interfaces") == 0 &&

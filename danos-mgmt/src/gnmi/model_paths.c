@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <arpa/inet.h>
 
 /* Coerce JSON_IETF/JSON/ASCII scalar encodings into typed values so
  * that clients sending text (gnmic --encoding json_ietf) work with
@@ -94,6 +95,10 @@ danos_status_t gnmi_model_resolve(const gnmi_path_t *path,
         else if (strcmp(fourth, "name") == 0)    b->field = GNMI_FIELD_NAME;
         else if (strcmp(fourth, "link-up") == 0 && !b->config_tree)
                                                  b->field = GNMI_FIELD_LINK_UP;
+        else if (strcmp(fourth, "ipv4-address") == 0 && b->config_tree)
+                                                 b->field = GNMI_FIELD_IPV4_ADDRESS;
+        else if (strcmp(fourth, "ipv6-address") == 0 && b->config_tree)
+                                                 b->field = GNMI_FIELD_IPV6_ADDRESS;
         else return DANOS_ERR_NOT_FOUND;
         return DANOS_OK;
     }
@@ -154,6 +159,20 @@ danos_status_t gnmi_model_read_leaf(danos_obj_type_t type, uint64_t key,
             return DANOS_OK;
         case GNMI_FIELD_LINK_UP:
             out->kind = GNMI_VAL_BOOL; out->b = i->link_up; return DANOS_OK;
+        case GNMI_FIELD_IPV4_ADDRESS:
+            if (i->ipv4_address.addr.af != DANOS_AF_IPV4) return DANOS_ERR_NOT_FOUND;
+            out->kind = GNMI_VAL_STRING;
+            inet_ntop(AF_INET, i->ipv4_address.addr.addr, out->s, sizeof(out->s));
+            { size_t n = strlen(out->s); snprintf(out->s + n, sizeof(out->s) - n,
+                                                   "/%u", i->ipv4_address.prefix_len); }
+            return DANOS_OK;
+        case GNMI_FIELD_IPV6_ADDRESS:
+            if (i->ipv6_address.addr.af != DANOS_AF_IPV6) return DANOS_ERR_NOT_FOUND;
+            out->kind = GNMI_VAL_STRING;
+            inet_ntop(AF_INET6, i->ipv6_address.addr.addr, out->s, sizeof(out->s));
+            { size_t n = strlen(out->s); snprintf(out->s + n, sizeof(out->s) - n,
+                                                   "/%u", i->ipv6_address.prefix_len); }
+            return DANOS_OK;
         default:
             return DANOS_ERR_INVALID_ARG;
         }
@@ -177,6 +196,7 @@ danos_status_t gnmi_model_apply_leaf(danos_obj_type_t type,
 {
     if (!obj || !val_raw) return DANOS_ERR_INVALID_ARG;
     gnmi_typed_value_t coerced;
+    memset(&coerced, 0, sizeof(coerced));
     coerce_scalar(val_raw, &coerced);
     const gnmi_typed_value_t *val = &coerced;
     if (type == DANOS_OBJ_IFACE && obj_size >= sizeof(danos_iface_t)) {
@@ -194,6 +214,30 @@ danos_status_t gnmi_model_apply_leaf(danos_obj_type_t type,
             return DANOS_OK;
         case GNMI_FIELD_LINK_UP:
             return DANOS_ERR_INVALID_ARG;  /* oper, read-only */
+        case GNMI_FIELD_IPV4_ADDRESS:
+        case GNMI_FIELD_IPV6_ADDRESS: {
+            if (val->kind != GNMI_VAL_STRING && val->kind != GNMI_VAL_ASCII &&
+                val->kind != GNMI_VAL_JSON && val->kind != GNMI_VAL_JSON_IETF)
+                return DANOS_ERR_INVALID_ARG;
+            char buf[80];
+            if (strlen(val->s) >= sizeof(buf)) return DANOS_ERR_INVALID_ARG;
+            strcpy(buf, val->s);
+            char *slash = strchr(buf, '/');
+            if (!slash) return DANOS_ERR_INVALID_ARG;
+            *slash++ = '\0';
+            char *end = NULL;
+            unsigned long plen = strtoul(slash, &end, 10);
+            if (!end || *end != '\0') return DANOS_ERR_INVALID_ARG;
+            danos_ip_prefix_t *dst = field == GNMI_FIELD_IPV4_ADDRESS
+                                   ? &i->ipv4_address : &i->ipv6_address;
+            int af = field == GNMI_FIELD_IPV4_ADDRESS ? AF_INET : AF_INET6;
+            uint8_t max = field == GNMI_FIELD_IPV4_ADDRESS ? 32 : 128;
+            if (plen > max || inet_pton(af, buf, dst->addr.addr) != 1)
+                return DANOS_ERR_INVALID_ARG;
+            dst->addr.af = field == GNMI_FIELD_IPV4_ADDRESS ? DANOS_AF_IPV4 : DANOS_AF_IPV6;
+            dst->prefix_len = (uint8_t)plen;
+            return DANOS_OK;
+        }
         default:
             return DANOS_ERR_INVALID_ARG;
         }

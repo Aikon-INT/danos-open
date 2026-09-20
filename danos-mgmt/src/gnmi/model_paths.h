@@ -42,6 +42,8 @@ typedef enum {
     GNMI_FIELD_ENABLED,
     GNMI_FIELD_NAME,
     GNMI_FIELD_LINK_UP,     /* oper only, read-only */
+    GNMI_FIELD_IPV4_ADDRESS,
+    GNMI_FIELD_IPV6_ADDRESS,
 } gnmi_model_field_t;
 
 typedef struct {

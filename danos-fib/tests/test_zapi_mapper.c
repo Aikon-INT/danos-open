@@ -334,6 +334,32 @@ int test_map_labels_add_delete(void)
     return 0;
 }
 
+int test_map_route_ecmp(void)
+{
+    danos_tx_t tx = {0};
+    assert(danos_tx_begin(&tx, "test-ecmp", NULL) == DANOS_OK);
+    uint8_t payload[128];
+    zapi_encoder_t enc; zapi_encoder_init(&enc, payload, sizeof(payload));
+    zapi_encode_u32(&enc, 7); zapi_encode_u8(&enc, 4); zapi_encode_u8(&enc, 24);
+    uint8_t prefix[4] = {10, 77, 0, 0}; zapi_encode_bytes(&enc, prefix, 4);
+    zapi_encode_u8(&enc, 2); zapi_encode_u8(&enc, 20); zapi_encode_u32(&enc, 10);
+    zapi_encode_u8(&enc, 2);
+    zapi_encode_u8(&enc, 1); uint8_t gw1[4] = {192,0,2,1};
+    zapi_encode_bytes(&enc, gw1, 4); zapi_encode_u32(&enc, 11);
+    zapi_encode_u8(&enc, 1); uint8_t gw2[4] = {192,0,2,2};
+    zapi_encode_bytes(&enc, gw2, 4); zapi_encode_u32(&enc, 12);
+    zapi_message_t msg; memset(&msg, 0, sizeof(msg));
+    msg.header.command = ZEBRA_ROUTE_ADD; msg.payload = payload; msg.payload_size = enc.pos;
+    assert(zapi_dispatch(&msg, &tx) == DANOS_OK);
+    danos_nhgroup_t grp; assert(danos_nhgroup_read(&tx, 1000, &grp) == DANOS_OK);
+    assert(grp.nh_count == 2);
+    danos_nexthop_t nh; assert(danos_nh_read(&tx, grp.nh_ids[1], &nh) == DANOS_OK);
+    assert(nh.ifindex == 12 && (nh.flags & DANOS_NH_FLAG_ECMP));
+    danos_tx_commit(&tx);
+    printf("[PASS] test_map_route_ecmp: ZAPI multipath -> DPA NHGroup\n");
+    return 0;
+}
+
 int main(void)
 {
     int failed = 0;
@@ -347,6 +373,7 @@ int main(void)
     if (test_map_redistribute_add() != 0) failed++;
     if (test_map_nexthop_lookup_not_found() != 0) failed++;
     if (test_map_labels_add_delete() != 0) failed++;
+    if (test_map_route_ecmp() != 0) failed++;
     printf("=== fib_test (zapi_mapper): %s ===\n",
            failed == 0 ? "ALL PASSED" : "FAILURES");
     return failed;

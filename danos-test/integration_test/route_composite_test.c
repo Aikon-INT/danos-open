@@ -39,6 +39,21 @@ static int write_set_route(const char *prefix, const char *gw,
     return (int)w.len;
 }
 
+static int write_set_ecmp_route(const char *prefix, uint8_t *req, size_t cap)
+{
+    gnmi_pb_t w; gnmi_pb_init(&w, req, (uint32_t)cap);
+    gnmi_update_t u; memset(&u, 0, sizeof(u));
+    char p[96]; snprintf(p, sizeof(p), "routes/route[prefix=%s]", prefix);
+    assert(gnmi_path_from_str(&u.path, p));
+    u.val.kind = GNMI_VAL_JSON_IETF;
+    strcpy(u.val.s, "{\"gateways\":[\"10.0.0.2\",\"10.0.0.3\"],\"oif\":1,\"vrf\":0}");
+    size_t us = gnmi_pb_begin_nested(&w, 4);
+    gnmi_encode_path(&w, 1, &u.path);
+    gnmi_encode_typed_value(&w, 3, &u.val);
+    gnmi_pb_end_nested(&w, us);
+    return (int)w.len;
+}
+
 int main(void)
 {
     if (!g_default_store) g_default_store = danos_object_store_create(256);
@@ -97,6 +112,19 @@ int main(void)
     assert(!danos_netlink_mock_route_exists(dst, 24, 0));
     /* composite objects removed from desired */
     assert(danos_programming_programmed_count(DANOS_OBJ_ROUTE) == 0);
+
+    /* 6. ECMP composite set creates a multi-member NHGroup. */
+    danos_ip_prefix_t ecmp_prefix;
+    assert(gnmi_parse_prefix("10.100.0.0/24", &ecmp_prefix) == DANOS_OK);
+    rlen = write_set_ecmp_route("10.100.0.0/24", req, sizeof(req));
+    assert(gnmi_handle_set(NULL, req, (size_t)rlen, resp, sizeof(resp)) >= 0);
+    assert(danos_object_count(g_default_store, DANOS_OBJ_NEXTHOP) == 2);
+    assert(danos_object_count(g_default_store, DANOS_OBJ_NHGROUP) == 1);
+    assert(danos_programming_run(&attempted, &failed) >= 1 && failed == 0);
+    assert(danos_netlink_mock_route_count() == 1);
+    assert(gnmi_route_delete(0, &ecmp_prefix) == DANOS_OK);
+    assert(danos_programming_sweep(&failed) >= 1 && failed == 0);
+    assert(danos_netlink_mock_route_count() == 0);
 
     printf("=== route_composite_test: ALL PASSED ===\n");
     return 0;

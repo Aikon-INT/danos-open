@@ -38,6 +38,13 @@ danos_status_t gnmi_route_set(danos_vrf_id_t vrf_id,
                               const danos_ip_addr_t *gateway,
                               uint32_t oif);
 
+/* Composite ECMP set. Creates a route with one NH per gateway. */
+danos_status_t gnmi_route_set_ecmp(danos_vrf_id_t vrf_id,
+                                   const danos_ip_prefix_t *prefix,
+                                   const danos_ip_addr_t *gateways,
+                                   const uint32_t *oifs,
+                                   uint32_t count);
+
 /* Composite delete: removes the route (matched by vrf+prefix+static
  * proto), its group, and the group's member NHs. Returns OK even when
  * nothing matched (idempotent delete); NOT_FOUND propagates from

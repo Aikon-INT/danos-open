@@ -12,6 +12,8 @@
 #include <string.h>
 #include <stdio.h>
 
+static danos_obj_id_t g_zapi_next_id = 1000;
+
 /* ZAPI route protocol → DPA route protocol */
 static danos_route_proto_t map_protocol(uint8_t zapi_proto)
 {
@@ -71,32 +73,33 @@ danos_status_t zapi_map_route(const zapi_message_t *msg, danos_tx_t *tx,
 
     if (zapi_decode_u8(&d, &nh_count) != 0)    return DANOS_ERR_INVALID_ARG;
 
-    /* For v0.1: single nexthop → create NH + NHGroup */
+    /* Normalize all ZAPI next-hops into one DPA NHGroup. */
     if (nh_count > 0 && is_add) {
-        uint8_t nh_type;
-        if (zapi_decode_u8(&d, &nh_type) != 0) return DANOS_ERR_INVALID_ARG;
-
-        danos_nexthop_t nh;
-        memset(&nh, 0, sizeof(nh));
-        nh.id = 1;  /* simplified */
-        nh.gateway.af = route.prefix.addr.af;
-        size_t gw_bytes = (family == 4) ? 4 : 16;
-        if (zapi_decode_bytes(&d, nh.gateway.addr, gw_bytes) != 0)
-            return DANOS_ERR_INVALID_ARG;
-
-        uint32_t ifindex;
-        if (zapi_decode_u32(&d, &ifindex) != 0) return DANOS_ERR_INVALID_ARG;
-        nh.ifindex = ifindex;
-        nh.weight = 1;
-
-        danos_nh_create(tx, &nh);
-
         danos_nhgroup_t grp;
         memset(&grp, 0, sizeof(grp));
-        grp.id = 1;
-        grp.nh_count = 1;
-        grp.nh_ids[0] = nh.id;
-        danos_nhgroup_create(tx, &grp);
+        grp.id = g_zapi_next_id++;
+        grp.nh_count = nh_count;
+        size_t gw_bytes = (family == 4) ? 4 : 16;
+        for (uint32_t i = 0; i < nh_count; i++) {
+            uint8_t nh_type;
+            if (zapi_decode_u8(&d, &nh_type) != 0) return DANOS_ERR_INVALID_ARG;
+            (void)nh_type;
+            danos_nexthop_t nh;
+            memset(&nh, 0, sizeof(nh));
+            nh.id = g_zapi_next_id++;
+            nh.gateway.af = route.prefix.addr.af;
+            if (zapi_decode_bytes(&d, nh.gateway.addr, gw_bytes) != 0)
+                return DANOS_ERR_INVALID_ARG;
+            if (zapi_decode_u32(&d, &nh.ifindex) != 0)
+                return DANOS_ERR_INVALID_ARG;
+            nh.weight = 1;
+            nh.flags = nh_count > 1 ? DANOS_NH_FLAG_ECMP : 0;
+            grp.nh_ids[i] = nh.id;
+            danos_status_t nst = danos_nh_create(tx, &nh);
+            if (nst != DANOS_OK) return nst;
+        }
+        danos_status_t gst = danos_nhgroup_create(tx, &grp);
+        if (gst != DANOS_OK) return gst;
 
         route.nhgroup_id = grp.id;
     }

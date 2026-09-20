@@ -102,6 +102,23 @@ int main(void)
     free(xml);
     assert(lookup_iface("eth0").mtu == 4000);
 
+    /* 4. Interface L3 address is a model value and survives object update. */
+    danos_iface_t addressed = lookup_iface("eth0");
+    gnmi_typed_value_t ip = { .kind = GNMI_VAL_STRING };
+    strcpy(ip.s, "192.0.2.1/24");
+    assert(gnmi_model_apply_leaf(DANOS_OBJ_IFACE, GNMI_FIELD_IPV4_ADDRESS,
+                                 &addressed, sizeof(addressed), &ip) == DANOS_OK);
+    assert(addressed.ipv4_address.addr.af == DANOS_AF_IPV4);
+    assert(addressed.ipv4_address.prefix_len == 24);
+    assert(danos_object_update(g_default_store, DANOS_OBJ_IFACE,
+                               addressed.ifindex, &addressed,
+                               sizeof(addressed)) == DANOS_OK);
+    gnmi_typed_value_t read_ip;
+    assert(gnmi_model_read_leaf(DANOS_OBJ_IFACE, addressed.ifindex,
+                                GNMI_FIELD_IPV4_ADDRESS, &addressed,
+                                sizeof(addressed), &read_ip) == DANOS_OK);
+    assert(strcmp(read_ip.s, "192.0.2.1/24") == 0);
+
     /* 3b. NETCONF validation: same out-of-range rejected with rpc-error */
     xml = strdup(
         "<rpc><edit-config><config>"

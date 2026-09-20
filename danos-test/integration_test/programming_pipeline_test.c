@@ -54,6 +54,12 @@ int main(void)
     strcpy(ifc.name, "wan0");
     ifc.mtu = 1500;
     ifc.admin_up = true;
+    ifc.ipv4_address.addr.af = DANOS_AF_IPV4;
+    ifc.ipv4_address.addr.addr[0] = 192;
+    ifc.ipv4_address.addr.addr[1] = 0;
+    ifc.ipv4_address.addr.addr[2] = 2;
+    ifc.ipv4_address.addr.addr[3] = 10;
+    ifc.ipv4_address.prefix_len = 24;
     assert(danos_iface_create(&tx, &ifc) == DANOS_OK);
 
     danos_nexthop_t nh;
@@ -92,6 +98,16 @@ int main(void)
     assert(danos_netlink_mock_route_exists(rt.prefix.addr.addr,
                                            rt.prefix.prefix_len, 0));
     assert(danos_netlink_mock_iface_up(5));
+
+    /* Interface address is part of the same desired/programmed lifecycle. */
+    assert(danos_tx_begin(&tx, "pipe", NULL) == DANOS_OK);
+    danos_iface_t ifc_update = ifc;
+    memset(&ifc_update.ipv4_address, 0, sizeof(ifc_update.ipv4_address));
+    assert(danos_iface_update(&tx, &ifc_update) == DANOS_OK);
+    danos_tx_commit(&tx);
+    attempted = failed = 0;
+    assert(danos_programming_run(&attempted, &failed) == 1);
+    assert(failed == 0 && attempted == 1);
 
     /* ---- 4. idempotency ------------------------------------------------ */
     attempted = failed = 0;

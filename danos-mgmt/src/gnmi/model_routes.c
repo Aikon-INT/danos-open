@@ -195,6 +195,75 @@ danos_status_t gnmi_route_set(danos_vrf_id_t vrf_id,
     return st;
 }
 
+danos_status_t gnmi_route_set_ecmp(danos_vrf_id_t vrf_id,
+                                   const danos_ip_prefix_t *prefix,
+                                   const danos_ip_addr_t *gateways,
+                                   const uint32_t *oifs,
+                                   uint32_t count)
+{
+    if (!prefix || !gateways || !oifs || count == 0 || count > 64 ||
+        !g_default_store) return DANOS_ERR_INVALID_ARG;
+    for (uint32_t i = 0; i < count; i++)
+        if (gateways[i].af != DANOS_AF_IPV4) return DANOS_ERR_INVALID_ARG;
+
+    route_lookup_t lu;
+    find_static_route(vrf_id, prefix, &lu);
+    if (lu.found) {
+        danos_nhgroup_t grp;
+        size_t sz = sizeof(grp);
+        if (danos_object_read(g_default_store, DANOS_OBJ_NHGROUP,
+                              lu.group_id, &grp, &sz) != DANOS_OK ||
+            grp.nh_count != count)
+            return DANOS_ERR_INVALID_ARG;
+        danos_tx_t tx;
+        danos_status_t st = danos_tx_begin(&tx, "gnmi-route-ecmp", NULL);
+        if (st != DANOS_OK) return st;
+        for (uint32_t i = 0; i < count && st == DANOS_OK; i++) {
+            danos_nexthop_t nh;
+            memset(&nh, 0, sizeof(nh));
+            nh.id = grp.nh_ids[i]; nh.gateway = gateways[i];
+            nh.ifindex = oifs[i]; nh.weight = 1;
+            nh.flags = DANOS_NH_FLAG_ECMP;
+            st = danos_nh_update(&tx, &nh);
+        }
+        if (st == DANOS_OK) st = danos_tx_prepare(&tx);
+        if (st == DANOS_OK) st = danos_tx_validate(&tx);
+        if (st == DANOS_OK) st = danos_tx_commit(&tx);
+        if (st != DANOS_OK) danos_tx_abort(&tx);
+        return st;
+    }
+
+    danos_tx_t tx;
+    danos_status_t st = danos_tx_begin(&tx, "gnmi-route-ecmp", NULL);
+    if (st != DANOS_OK) return st;
+    danos_nhgroup_t grp;
+    memset(&grp, 0, sizeof(grp));
+    grp.id = next_group_id(); grp.nh_count = count;
+    for (uint32_t i = 0; i < count && st == DANOS_OK; i++) {
+        danos_nexthop_t nh;
+        memset(&nh, 0, sizeof(nh));
+        nh.id = next_nh_id() + i;
+        nh.gateway = gateways[i]; nh.ifindex = oifs[i];
+        nh.weight = 1; nh.flags = DANOS_NH_FLAG_ECMP;
+        grp.nh_ids[i] = nh.id;
+        st = danos_nh_create(&tx, &nh);
+    }
+    if (st == DANOS_OK) st = danos_nhgroup_create(&tx, &grp);
+    if (st == DANOS_OK) {
+        danos_route_t r;
+        memset(&r, 0, sizeof(r));
+        r.vrf_id = vrf_id; r.prefix = *prefix;
+        r.protocol = DANOS_ROUTE_PROTO_STATIC; r.admin_distance = 1;
+        r.nhgroup_id = grp.id;
+        st = danos_route_create(&tx, &r);
+    }
+    if (st == DANOS_OK) st = danos_tx_prepare(&tx);
+    if (st == DANOS_OK) st = danos_tx_validate(&tx);
+    if (st == DANOS_OK) st = danos_tx_commit(&tx);
+    if (st != DANOS_OK) danos_tx_abort(&tx);
+    return st;
+}
+
 /* ---- composite delete ------------------------------------------------------ */
 
 typedef struct {

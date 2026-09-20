@@ -4,6 +4,8 @@
   { "path": "/interfaces/interface[name]/config/mtu",        "kind": "leaf",  "obj": "iface", "field": "mtu" },
   { "path": "/interfaces/interface[name]/config/enabled",    "kind": "leaf",  "obj": "iface", "field": "enabled" },
   { "path": "/interfaces/interface[name]/config/name",       "kind": "leaf",  "obj": "iface", "field": "name" },
+  { "path": "/interfaces/interface[name]/config/ipv4-address", "kind": "leaf", "obj": "iface", "field": "ipv4-address" },
+  { "path": "/interfaces/interface[name]/config/ipv6-address", "kind": "leaf", "obj": "iface", "field": "ipv6-address" },
   { "path": "/interfaces/interface[name]/state/mtu",         "kind": "leaf",  "obj": "iface", "field": "mtu" },
   { "path": "/interfaces/interface[name]/state/enabled",     "kind": "leaf",  "obj": "iface", "field": "enabled" },
   { "path": "/interfaces/interface[name]/state/link-up",     "kind": "leaf",  "obj": "iface", "field": "link-up" },
