@@ -26,6 +26,10 @@ The strongest capabilities are the DPA object/store/transaction foundation, WAL 
   local host still intentionally has no clang installation.
 - The repository now contains the trixie source-build and privileged runtime
   validation assets; no bookworm VPP packages are mixed into trixie.
+- Real VPP CLI validation proves a two-path recursive IPv4 ECMP FIB entry with
+  a two-bucket load-balance and clean route withdrawal. API-driven forwarding
+  remains blocked because the current DANOS binary-API socket framing/
+  handshake is rejected by VPP 26.10.
 
 ## Capability maturity
 
@@ -86,7 +90,8 @@ Execution status:
 - VPP runtime boot, API/stat sockets and DPA conformance: verified in Debian
   trixie source-built runtime. Interface-address add/delete messages now have
   typed wire coverage and dual-stack adapter programming; real forwarding
-  remains pending.
+  remains pending until binary-API socket compatibility is fixed. CLI-based
+  ECMP FIB installation and withdrawal is verified separately.
 - FRR BGP/OSPF route installation and withdrawal through the full DPA/backend
   path: remains the next integration milestone; the ZAPI mapper now normalizes
   multipath route messages into multi-member DPA NHGroups and has a regression
