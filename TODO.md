@@ -36,7 +36,8 @@
 ### 下一阶段执行顺序
 - [ ] 在全新 Debian trixie 特权 FRR+VPP 拓扑运行 `fib_live_bridge`，验收 route add/replace/ECMP/withdraw/traffic
 - [ ] 使用 `run_frr_zapi_vpp.sh` 固化真实 socket 验收日志与 VPP FIB/traffic 证据
-- [ ] 增加 ZAPI client registration、VPP 重连、计数器和 restart recovery（bridge 已支持 `--reconnect`、信号退出）
+- [x] 增加 FRR ZAPI HELLO client registration（真实 10-byte v6 header；bridge 已支持 `--reconnect`、信号退出）
+- [ ] 将 FRR v6 10-byte 接收 header/route payload parser 完整替换旧 9-byte mock framing，并完成真实 route add/withdraw
 - [ ] 完成 Route/NH/NHGroup 依赖删除、tombstone、retry、rollback 的 Linux/VPP 双 backend 验收（Linux mock 已覆盖 NH/NHGroup 撤回；VPP 现场仍待）
 - [ ] 在具备 PCI/VFIO、hugepages 和 DPDK plugin 的专用 runner 执行 VPP+DPDK 64B 单核/多核性能验收
 - [ ] v0.16 收敛前冻结 OVS/P4、BFD 及大范围模型扩展，避免主链路分散

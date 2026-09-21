@@ -55,6 +55,10 @@ int main(int argc, char **argv)
     if (danos_zebra_session_connect() != 0 && !reconnect) {
         fprintf(stderr, "cannot connect zebra socket %s: %s\n", zebra, strerror(errno)); return 1;
     }
+    if (danos_zebra_session_get_state() == 2 &&
+        danos_zebra_session_register(0, 0) != 0) {
+        fprintf(stderr, "zebra client registration failed\n"); return 1;
+    }
 
     uint8_t buf[128 * 1024];
     long processed = 0;
@@ -67,6 +71,11 @@ int main(int argc, char **argv)
                 struct timespec pause = { .tv_sec = 0, .tv_nsec = 100000000L };
                 nanosleep(&pause, NULL);
                 continue;
+            }
+            if (danos_zebra_session_register(0, 0) != 0) {
+                fprintf(stderr, "zebra client re-registration failed\n");
+                failed++;
+                break;
             }
             fprintf(stderr, "zebra session reconnected\n");
         }

@@ -15,10 +15,15 @@
 #include <sys/un.h>
 #include <errno.h>
 #include <time.h>
+#include <arpa/inet.h>
 
 #define ZAPI_SOCK_PATH "/var/run/frr/zebra.zserv"
 #define RECONNECT_INITIAL_MS 1000
 #define RECONNECT_MAX_MS    60000
+#define FRR_ZAPI_HEADER_SIZE 10
+#define FRR_ZAPI_MARKER 254
+#define FRR_ZAPI_VERSION 6
+#define FRR_ZEBRA_HELLO 14
 
 typedef enum {
     ZEBRA_SESSION_DISCONNECTED = 0,
@@ -90,6 +95,37 @@ int danos_zebra_session_connect(void)
     g_session.state = ZEBRA_SESSION_CONNECTED;
     g_session.last_connect_ns = now_ns();
     g_session.reconnect_delay_ms = RECONNECT_INITIAL_MS;
+    return 0;
+}
+
+/* Register this process as a real FRR zclient.  This wire format follows
+ * FRR's public zclient_create_header()/zclient_send_hello() implementation;
+ * it is intentionally separate from the legacy clean-room test framing.
+ */
+int danos_zebra_session_register(uint8_t protocol, uint16_t instance)
+{
+    if (g_session.state != ZEBRA_SESSION_CONNECTED) return -1;
+    uint8_t msg[FRR_ZAPI_HEADER_SIZE + 8];
+    uint16_t length = htons(sizeof(msg));
+    uint32_t vrf = htonl(0);
+    uint16_t command = htons(FRR_ZEBRA_HELLO);
+    uint16_t inst = htons(instance);
+    uint32_t session = htonl(0);
+    memcpy(msg, &length, 2);
+    msg[2] = FRR_ZAPI_MARKER;
+    msg[3] = FRR_ZAPI_VERSION;
+    memcpy(msg + 4, &vrf, 4);
+    memcpy(msg + 8, &command, 2);
+    msg[10] = protocol;
+    memcpy(msg + 11, &inst, 2);
+    memcpy(msg + 13, &session, 4);
+    msg[17] = 0; /* asynchronous client */
+    size_t sent = 0;
+    while (sent < sizeof(msg)) {
+        ssize_t n = send(g_session.fd, msg + sent, sizeof(msg) - sent, MSG_NOSIGNAL);
+        if (n <= 0) { danos_zebra_session_disconnect(); return -1; }
+        sent += (size_t)n;
+    }
     return 0;
 }
 

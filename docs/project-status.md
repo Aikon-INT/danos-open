@@ -130,7 +130,7 @@ The recommended order is:
    FRR zebra, VPP and traffic endpoints. Verify route add, replace, ECMP add,
    withdraw and packet reachability through `vppctl show ip fib`.
 2. Harden the bridge into a long-running `danos-fibd` service: ZAPI client
-   registration, VPP reconnect, counters,
+   VPP reconnect, counters,
    malformed-message isolation and restart recovery.
 3. Close Route/NH/NHGroup dependency deletion, tombstone, retry and rollback
    semantics, then repeat the lifecycle on Linux and VPP backends.
@@ -149,6 +149,12 @@ The v0.16 Definition of Done is a reproducible FRR BGP/OSPF route
 installation and withdrawal trace from ZAPI through DPA to the real VPP FIB,
 including traffic, restart and deletion evidence. OVS/P4, broad model growth
 and additional protocol work remain deferred until this loop is stable.
+
+The bridge now sends the FRR v6 `ZEBRA_HELLO` registration using the official
+10-byte zserv header. The remaining protocol task is to replace the legacy
+9-byte test framing on the receive path with the FRR v6 header and route
+payload decoder; until that is complete, registration is implemented but the
+full live route lifecycle is not claimed.
 
 ### v0.17 Backend semantic consistency
 
