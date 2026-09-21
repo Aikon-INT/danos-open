@@ -145,9 +145,8 @@ int danos_zebra_session_register(uint8_t protocol, uint16_t instance)
         req_len = htons(10); memcpy(req, &req_len, 2);
         cmd = htons(FRR_ZEBRA_INTERFACE_ADD); memcpy(req + 8, &cmd, 2);
         if (send(g_session.fd, req, 10, MSG_NOSIGNAL) != 10) return -1;
-        /* FRR route_types registry: subscribe to every IPv4/IPv6-capable
-         * protocol so the client remains compatible across FRR releases. */
-        const uint8_t route_types[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+        /* FRR route_types registry: request the protocols used by DANOS. */
+        const uint8_t route_types[] = { 2, 4, 7, 10 }; /* connected, static, OSPF, BGP */
         for (size_t route_i = 0; route_i < sizeof(route_types); route_i++) {
             uint8_t route_type = route_types[route_i];
             req_len = htons(14); memcpy(req, &req_len, 2);
