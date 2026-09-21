@@ -151,7 +151,10 @@ static int vpp_handshake(void)
 {
     vpp_buf_t body;
     vpp_buf_init(&body, 96);
-    vpp_buf_put_u32(&body, 0xfeedface);           /* context */
+    /* sockclnt_create is sent as the generated VPP struct: the message id
+     * is network order, while this legacy context is written in host order. */
+    const uint8_t context[4] = {0xce, 0xfa, 0xed, 0xfe};
+    vpp_buf_put_bytes(&body, context, sizeof(context));
     uint8_t name[64] = {0};
     memcpy(name, VPP_CLIENT_NAME, strlen(VPP_CLIENT_NAME));
     vpp_buf_put_bytes(&body, name, sizeof(name)); /* fixed string name[64] */
