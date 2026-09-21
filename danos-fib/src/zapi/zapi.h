@@ -66,6 +66,10 @@ typedef struct {
  * Does not copy payload; caller must keep buffer alive. */
 int zapi_parse(const uint8_t *buf, size_t buf_size, zapi_message_t *out);
 
+/* Parse the real FRR v6 zserv header. Payload remains FRR-native; callers
+ * must use the FRR route decoder rather than the legacy mock mapper. */
+int zapi_parse_frr(const uint8_t *buf, size_t buf_size, zapi_message_t *out);
+
 /* Serializer: serialize a ZAPI message into a buffer.
  * Returns bytes written on success, negative on error. */
 int zapi_serialize(const zapi_message_t *msg, uint8_t *buf, size_t buf_size);

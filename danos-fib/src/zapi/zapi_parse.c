@@ -9,6 +9,9 @@
 #include <string.h>
 #include <arpa/inet.h>
 
+#define FRR_ZAPI_HEADER_SIZE 10
+#define FRR_ZAPI_MARKER 254
+
 /* =========================================================================
  * Message parse / serialize
  * ========================================================================= */
@@ -46,6 +49,24 @@ int zapi_parse(const uint8_t *buf, size_t buf_size, zapi_message_t *out)
     out->header.command = command;
     out->payload        = buf + ZAPI_HEADER_SIZE;
     out->payload_size   = length - ZAPI_HEADER_SIZE;
+    return 0;
+}
+
+int zapi_parse_frr(const uint8_t *buf, size_t buf_size, zapi_message_t *out)
+{
+    if (!buf || !out || buf_size < FRR_ZAPI_HEADER_SIZE) return -1;
+    uint16_t length, command;
+    memcpy(&length, buf, 2);
+    length = ntohs(length);
+    if (length < FRR_ZAPI_HEADER_SIZE || length > buf_size) return -2;
+    if (buf[2] != FRR_ZAPI_MARKER || buf[3] != ZAPI_VERSION) return -3;
+    memcpy(&command, buf + 8, 2);
+    out->header.length = length;
+    out->header.marker = buf[2];
+    out->header.version = buf[3];
+    out->header.command = ntohs(command);
+    out->payload = buf + FRR_ZAPI_HEADER_SIZE;
+    out->payload_size = length - FRR_ZAPI_HEADER_SIZE;
     return 0;
 }
 

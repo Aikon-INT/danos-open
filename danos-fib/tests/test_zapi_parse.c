@@ -81,6 +81,22 @@ int test_zapi_decoder(void)
     return 0;
 }
 
+int test_frr_v6_header(void)
+{
+    /* FRR zserv v6: u16 length, marker, version, u32 VRF, u16 command. */
+    uint8_t buf[] = { 0x00, 0x0B, 0xFE, 0x06, 0, 0, 0, 0,
+                      0x00, ZEBRA_ROUTE_ADD, 0xAA };
+    zapi_message_t msg;
+    assert(zapi_parse_frr(buf, sizeof(buf), &msg) == 0);
+    assert(msg.header.length == sizeof(buf));
+    assert(msg.header.marker == 0xFE);
+    assert(msg.header.version == ZAPI_VERSION);
+    assert(msg.header.command == ZEBRA_ROUTE_ADD);
+    assert(msg.payload_size == 1 && msg.payload[0] == 0xAA);
+    printf("[PASS] test_frr_v6_header: real zserv header parsed\n");
+    return 0;
+}
+
 int test_zapi_invalid(void)
 {
     /* Too short */
@@ -101,6 +117,7 @@ int main(void)
 {
     int failed = 0;
     if (test_zapi_parse_serialize() != 0) failed++;
+    if (test_frr_v6_header() != 0) failed++;
     if (test_zapi_decoder() != 0) failed++;
     if (test_zapi_invalid() != 0) failed++;
     printf("=== fib_test (zapi_parse): %s ===\n",

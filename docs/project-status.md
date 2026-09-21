@@ -151,10 +151,11 @@ including traffic, restart and deletion evidence. OVS/P4, broad model growth
 and additional protocol work remain deferred until this loop is stable.
 
 The bridge now sends the FRR v6 `ZEBRA_HELLO` registration using the official
-10-byte zserv header. The remaining protocol task is to replace the legacy
-9-byte test framing on the receive path with the FRR v6 header and route
-payload decoder; until that is complete, registration is implemented but the
-full live route lifecycle is not claimed.
+10-byte zserv header, and `zapi_parse_frr()` has a regression-tested parser for
+that header. The remaining protocol task is to connect the FRR-native route
+payload decoder to the session/mapper; until that is complete, registration
+and header parsing are implemented but the full live route lifecycle is not
+claimed.
 
 ### v0.17 Backend semantic consistency
 
