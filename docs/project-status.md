@@ -192,6 +192,13 @@ step is to boot a trixie guest image containing VPP, DPDK plugin and the
 startup template, then bind this guest NIC and run the packet/performance
 lane inside the guest.
 
+The same ISO has now passed a QEMU `e1000` network smoke test using the
+project-bundled `e1000.ko`: guest `eth0` received `10.0.2.15/24`, the link
+reported 1000 Mbps full duplex, and the kernel FIB contained the user-mode NAT
+default route. This confirms that a non-VMXNET3 QEMU NIC can test the DANOS
+live networking path; it does not count as VPP/DPDK evidence because the ISO
+still reports `VPP not reachable`.
+
 The archived DANOS dataplane confirms the historical fallback: its
 `vyatta-dataplane/tools/vplane-uio` selects `vfio-pci` when IOMMU groups are
 safe and falls back to `uio_pci_generic` when a group overlaps storage; the
