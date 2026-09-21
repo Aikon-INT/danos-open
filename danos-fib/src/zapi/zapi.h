@@ -59,7 +59,13 @@ typedef struct {
     zapi_header_t header;
     const uint8_t *payload;
     size_t payload_size;
+    uint32_t vrf_id;
 } zapi_message_t;
+
+#define ZEBRA_FRR_INTERFACE_ADD 0
+#define ZEBRA_FRR_ROUTE_ADD 7
+#define ZEBRA_FRR_ROUTE_DELETE 8
+#define ZEBRA_FRR_HELLO 14
 
 #define ZAPI_FRR_MESSAGE_NEXTHOP 0x01
 #define ZAPI_FRR_MESSAGE_NHG     0x80
@@ -98,6 +104,7 @@ int zapi_parse(const uint8_t *buf, size_t buf_size, zapi_message_t *out);
  * must use the FRR route decoder rather than the legacy mock mapper. */
 int zapi_parse_frr(const uint8_t *buf, size_t buf_size, zapi_message_t *out);
 int zapi_decode_frr_route(const zapi_message_t *msg, zapi_frr_route_t *out);
+danos_status_t zapi_dispatch_frr(const zapi_message_t *msg, danos_tx_t *tx);
 
 /* Serializer: serialize a ZAPI message into a buffer.
  * Returns bytes written on success, negative on error. */

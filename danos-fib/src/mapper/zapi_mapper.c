@@ -111,6 +111,54 @@ danos_status_t zapi_map_route(const zapi_message_t *msg, danos_tx_t *tx,
     }
 }
 
+/* Native FRR v6 route payload -> DPA.  This deliberately does not reuse the
+ * legacy test payload mapper above: FRR carries VRF in the header and uses
+ * route/message flags before the prefix. */
+danos_status_t zapi_dispatch_frr(const zapi_message_t *msg, danos_tx_t *tx)
+{
+    if (!msg || !tx) return DANOS_ERR_INVALID_ARG;
+    bool add = msg->header.command == ZEBRA_FRR_ROUTE_ADD;
+    if (!add && msg->header.command != ZEBRA_FRR_ROUTE_DELETE)
+        return DANOS_ERR_NOT_SUPPORTED;
+    zapi_frr_route_t in;
+    if (zapi_decode_frr_route(msg, &in) != 0) return DANOS_ERR_INVALID_ARG;
+    danos_route_t route;
+    memset(&route, 0, sizeof(route));
+    route.vrf_id = msg->vrf_id;
+    route.prefix.addr.af = in.family == 2 ? DANOS_AF_IPV4 : DANOS_AF_IPV6;
+    route.prefix.prefix_len = in.prefix_len;
+    memcpy(route.prefix.addr.addr, in.prefix, in.family == 2 ? 4 : 16);
+    route.protocol = map_protocol(in.type);
+    if (!add) return danos_route_delete(tx, route.vrf_id, route.prefix, route.protocol);
+    if (in.nexthop_count > 0) {
+        danos_nhgroup_t grp;
+        memset(&grp, 0, sizeof(grp));
+        grp.id = g_zapi_next_id++;
+        grp.nh_count = in.nexthop_count;
+        for (uint16_t i = 0; i < in.nexthop_count; i++) {
+            const zapi_frr_nexthop_t *src = &in.nexthops[i];
+            danos_nexthop_t nh;
+            memset(&nh, 0, sizeof(nh));
+            nh.id = g_zapi_next_id++;
+            nh.ifindex = src->ifindex;
+            nh.gateway.af = route.prefix.addr.af;
+            if (src->has_gateway)
+                memcpy(nh.gateway.addr, src->gateway, in.family == 2 ? 4 : 16);
+            nh.weight = 1;
+            nh.flags = in.nexthop_count > 1 ? DANOS_NH_FLAG_ECMP : 0;
+            grp.nh_ids[i] = nh.id;
+            danos_status_t st = danos_nh_create(tx, &nh);
+            if (st != DANOS_OK) return st;
+        }
+        danos_status_t st = danos_nhgroup_create(tx, &grp);
+        if (st != DANOS_OK) return st;
+        route.nhgroup_id = grp.id;
+    } else {
+        route.flags |= DANOS_ROUTE_FLAG_BLACKHOLE;
+    }
+    return danos_route_create(tx, &route);
+}
+
 /* =========================================================================
  * ZEBRA_INTERFACE_ADD / ZEBRA_INTERFACE_DELETE → DPA Interface
  *

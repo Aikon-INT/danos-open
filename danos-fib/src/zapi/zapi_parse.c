@@ -50,6 +50,7 @@ int zapi_parse(const uint8_t *buf, size_t buf_size, zapi_message_t *out)
     out->header.command = command;
     out->payload        = buf + ZAPI_HEADER_SIZE;
     out->payload_size   = length - ZAPI_HEADER_SIZE;
+    out->vrf_id         = 0;
     return 0;
 }
 
@@ -66,6 +67,8 @@ int zapi_parse_frr(const uint8_t *buf, size_t buf_size, zapi_message_t *out)
     out->header.marker = buf[2];
     out->header.version = buf[3];
     out->header.command = ntohs(command);
+    memcpy(&out->vrf_id, buf + 4, 4);
+    out->vrf_id = ntohl(out->vrf_id);
     out->payload = buf + FRR_ZAPI_HEADER_SIZE;
     out->payload_size = length - FRR_ZAPI_HEADER_SIZE;
     return 0;

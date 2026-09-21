@@ -153,9 +153,9 @@ and additional protocol work remain deferred until this loop is stable.
 The bridge now sends the FRR v6 `ZEBRA_HELLO` registration using the official
 10-byte zserv header, and `zapi_parse_frr()` has a regression-tested parser for
 that header. The remaining protocol task is to connect the FRR-native route
-payload decoder to the session/mapper; the core route/prefix/nexthop decoder is
-now regression-tested, but the live wiring and full route lifecycle are not
-yet claimed.
+payload decoder to the live session; the core route/prefix/nexthop decoder and
+`zapi_dispatch_frr()` mapper are now regression-tested, but the live receive
+wiring and full route lifecycle are not yet claimed.
 
 ### v0.17 Backend semantic consistency
 
