@@ -156,6 +156,9 @@ The recommended order is:
    routes are withdrawn from VPP using the programmed ledger copy. With
    `--reconnect`, a live add/delete run processed two route transactions and
    the VPP FIB returned to its default drop entry after the sweep.
+   VPP restart replay logic is implemented, but the current container
+   restart recreates `/run/vpp/api.sock` as root-only (`0775`); the harness
+   must reapply socket permissions/readiness before the bridge can reconnect.
 4. Close Route/NH/NHGroup dependency deletion, tombstone, retry and rollback
    semantics, then repeat the lifecycle on Linux and VPP backends.
 5. Run the dedicated DPDK lane only on a host exposing PCI/VFIO, hugepages and
