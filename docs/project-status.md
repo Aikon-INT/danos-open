@@ -29,6 +29,13 @@ The strongest capabilities are the DPA object/store/transaction foundation, WAL 
 - Real VPP CLI and API validation prove a two-path IPv4 ECMP FIB lifecycle:
   API handshake, control ping, interface flags, route add/delete, stat segment,
   and CLI two-bucket load-balance inspection all pass against VPP 26.10.
+- Packet-level VPP forwarding is verified in a privileged trixie container:
+  two Linux namespaces crossed two VPP af_packet interfaces with bidirectional
+  ICMP success (the initial ARP-learning packet may be lost).
+- FRR trixie topology baseline is verified: BGP EVPN reaches Established and
+  OSPF reaches Full/2-Way; the existing OSPF/LDP acceptance also confirms
+  ldpd is running and configured. Full FRR ZAPI → DPA → VPP route lifecycle
+  remains the integration gap.
 
 ## Capability maturity
 
@@ -39,8 +46,8 @@ The strongest capabilities are the DPA object/store/transaction foundation, WAL 
 | Desired/programmed reconciliation | Working baseline | Complete dependency deletion semantics |
 | gNMI/CLI/NETCONF | Strong prototype | Multi-stream edge cases, in-process TLS, long-term protocol maintenance |
 | Linux backend | Real backend verified | Broader topology and recovery acceptance |
-| VPP backend | Runtime/conformance/API ECMP baseline verified | Packet-forwarding traffic proof |
-| FRR integration | FIB/ZAPI foundation | BFD translation and multi-protocol topology proof |
+| VPP backend | Runtime/conformance/API ECMP and packet-forwarding verified | Traffic scale and recovery |
+| FRR integration | ZAPI plus BGP/OSPF topology baseline verified | Full ZAPI → DPA → backend lifecycle and BFD |
 | Data model | Route/VRF/NH plus primary interface IPv4/IPv6 model | VLAN, multi-address, tunnel/EVPN models |
 | Observability/security | Initial implementation | Operational semantics, HA and upgrade evidence |
 | OVS/P4/platform | Intentionally not started | Defer until backend contract is frozen |
@@ -90,7 +97,7 @@ Execution status:
   trixie source-built runtime. Interface-address add/delete messages now have
   typed wire coverage and dual-stack adapter programming; real forwarding
   and API-driven ECMP route installation/withdrawal are verified. Packet-level
-  forwarding traffic proof remains pending.
+  bidirectional forwarding through VPP af_packet interfaces is also verified.
 - FRR BGP/OSPF route installation and withdrawal through the full DPA/backend
   path: remains the next integration milestone; the ZAPI mapper now normalizes
   multipath route messages into multi-member DPA NHGroups and has a regression

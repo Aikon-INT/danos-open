@@ -38,6 +38,10 @@ an unqualified local pass.
 - Fixed VPP 26.10 socket handshake/runtime message-table compatibility and
   verified API-driven control ping, interface flags, ECMP route add/delete,
   and stat-segment access.
+- Verified packet-level bidirectional ICMP forwarding through two VPP
+  af_packet interfaces between isolated Linux namespaces.
+- Verified Debian trixie FRR BGP EVPN Established and OSPF neighbor baseline;
+  OSPF/LDP acceptance confirms ldpd process/config readiness.
 - Local workspace-filesystem baseline: 1000-object WAL write 3195.0 ms and
   recovery 17.4 ms; CI remains the authoritative `/var/tmp` real-filesystem
   measurement.
@@ -56,6 +60,7 @@ environmental rather than code failures.
 
 ## Remaining roadmap work after the v0.15 CTest gate
 
-- Packet-level VPP interface-address forwarding and ECMP traffic acceptance.
+- Full FRR ZAPI → DPA → backend route lifecycle for BGP/OSPF installation and
+  withdrawal, plus traffic scale/recovery acceptance.
 - Route/next-hop/next-hop-group dependency deletion acceptance.
 - v0.16 ECMP real-dataplane forwarding and FRR BGP/OSPF full-path evidence.

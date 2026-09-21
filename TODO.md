@@ -20,10 +20,12 @@
       (danos_backend_ops "vpp",v0.11)
 - [x] 真实 VPP CLI 双路径 ECMP FIB 安装/核查/撤销
 - [x] 修复 VPP 26.10 binary-API socket framing/handshake，完成 API 驱动 ECMP 路由增删验收
+- [x] VPP packet-level 双 namespace/af_packet/ICMP 转发验收
 
 ## 功能
 - [x] v0.16 ECMP northbound route representation（gNMI `gateways[]` + NHGroup；真实 dataplane 多路径仍待）
-- [ ] v0.16 FRR BGP/OSPF route install/withdraw 全链路验收（ZAPI 多 NH 映射已补；真实拓扑待）
+- [x] FRR trixie BGP EVPN 邻居与 OSPF 邻居特权拓扑基线验收
+- [ ] v0.16 FRR BGP/OSPF → ZAPI → DPA → backend route install/withdraw 全链路验收
 - [ ] gNMI Subscribe STREAM 多订阅状态机(单连接多流;
       threading.md 已列为候选)
 - [ ] bfdd 翻译层(ADR-0006):DPA BFD 对象 ↔ frr bfdd 配置
