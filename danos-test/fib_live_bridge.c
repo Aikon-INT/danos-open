@@ -87,6 +87,12 @@ int main(int argc, char **argv)
             continue;
         }
         if (n < 0) { fprintf(stderr, "zebra receive failed: %d\n", n); failed++; break; }
+        /* Initial replay also carries interface/router-id notifications.
+         * They are control-plane observations, not route programming work. */
+        if (msg.header.command == ZEBRA_FRR_INTERFACE_ADD ||
+            msg.header.command == ZEBRA_FRR_ROUTER_ID_ADD ||
+            msg.header.command == ZEBRA_FRR_ROUTER_ID_UPDATE)
+            continue;
         danos_tx_t tx = {0};
         danos_status_t st = danos_tx_begin(&tx, "frr-zebra", NULL);
         if (st == DANOS_OK) st = zapi_dispatch_frr(&msg, &tx);
