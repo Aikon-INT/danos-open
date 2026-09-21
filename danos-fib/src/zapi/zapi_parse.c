@@ -113,6 +113,15 @@ int zapi_decode_frr_route(const zapi_message_t *msg, zapi_frr_route_t *out)
                 if (nh->type == 3 && zapi_decode_u32(&d, &nh->ifindex) != 0)
                     return -8;
             }
+            /* FRR emits a u32 weight immediately after the nexthop when
+             * ZAPI_NEXTHOP_FLAG_WEIGHT (0x04) is set.  It is not part of
+             * the gateway model, but must be consumed before the next
+             * ECMP member is decoded. */
+            if (nh->flags & 0x04) {
+                uint64_t weight;
+                if (zapi_decode_u64(&d, &weight) != 0) return -9;
+                (void)weight;
+            }
         }
     }
     return 0;
