@@ -55,6 +55,7 @@
 - [ ] 在具备 PCI/VFIO、hugepages 和 DPDK plugin 的专用 runner 执行 VPP+DPDK 64B 单核/多核性能验收
       （已增加 trixie 容器 preflight；当前 PCI `0000:04:00.0` 仍绑定 r8169、runtime 未加载 DPDK）
 - [ ] 在 VMware VMXNET3 guest runner 验证 `15ad:07b0` PCI NIC、VFIO 绑定、VPP DPDK plugin 和 64B 流量性能
+      （QEMU/KVM 已验证 DANOS live guest 可见 `0000:00:02.0 [15ad:07b0]`；仍需注入含 VPP/DPDK 的 guest runtime）
 - [ ] v0.16 收敛前冻结 OVS/P4、BFD 及大范围模型扩展，避免主链路分散
 - [ ] gNMI Subscribe STREAM 多订阅状态机(单连接多流;
       threading.md 已列为候选)

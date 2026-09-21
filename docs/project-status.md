@@ -183,6 +183,15 @@ The dedicated startup template is
 `danos-test/integration/vpp-dpdk-startup.conf`; its BDF must match the
 runner-selected VFIO-bound device before launch.
 
+QEMU/KVM VMXNET3 smoke evidence is now available: launching
+`build/danos-open-live.iso` with QEMU's `-device vmxnet3` produced guest PCI
+`0000:00:02.0 [15ad:07b0]` in the DANOS kernel log. The live ISO currently
+starts `mgrd` without a VPP runtime (`VPP not reachable`), so this proves the
+VMXNET3 PCI exposure but is not yet DPDK forwarding evidence. The next QEMU
+step is to boot a trixie guest image containing VPP, DPDK plugin and the
+startup template, then bind this guest NIC and run the packet/performance
+lane inside the guest.
+
 The archived DANOS dataplane confirms the historical fallback: its
 `vyatta-dataplane/tools/vplane-uio` selects `vfio-pci` when IOMMU groups are
 safe and falls back to `uio_pci_generic` when a group overlaps storage; the
