@@ -4,9 +4,9 @@
 
 As of 2026-09-21, DANOS-Open has moved beyond proof of concept. The project has a runnable management-plane and state-reconciliation core, and is entering the engineering-convergence stage: turning the existing control-plane loop into a repeatable, privileged-environment-verified, deployable NOS baseline.
 
-The strongest capabilities are the DPA object/store/transaction foundation, WAL persistence, desired-to-programmed reconciliation, model-driven gNMI/CLI/NETCONF integration, the Linux and VPP backend adapters, observability, and automated protocol/quality tests. The project is now in integration closure: the main remaining risk is the incomplete proof of the end-to-end loop across FRR, DPA, a real dataplane, restart, deletion, and traffic forwarding.
+The strongest capabilities are the DPA object/store/transaction foundation, WAL persistence, desired-to-programmed reconciliation, model-driven gNMI/CLI/NETCONF integration, the Linux and VPP backend adapters, observability, and automated protocol/quality tests. The FRR→DPA→VPP route loop is now verified for add, withdraw, weighted ECMP, traffic and desired-state replay; the remaining external dependency is a real VFIO-bound DPDK runner.
 
-The current mainline is clean and synchronized with `origin/main` at `869dd9b`; the complete deterministic suite passes 34/34. This is strong software evidence, but it is not a substitute for the privileged FRR-to-VPP route lifecycle evidence below.
+The current mainline is clean and synchronized with `origin/main`; the complete deterministic suite passes 34/34. Privileged evidence is recorded separately from the DPDK hardware gate.
 
 ## Evidence snapshot
 
@@ -36,27 +36,18 @@ The current mainline is clean and synchronized with `origin/main` at `869dd9b`; 
   ICMP success (the initial ARP-learning packet may be lost).
 - FRR trixie topology baseline is verified: BGP EVPN reaches Established and
   OSPF reaches Full/2-Way; the existing OSPF/LDP acceptance also confirms
-  ldpd is running and configured. Full FRR ZAPI → DPA → VPP route lifecycle
-  remains the integration gap.
+  ldpd is running and configured. The live FRR ZAPI → DPA → VPP route
+  lifecycle is verified in the privileged trixie topology below.
 - The 3-node FRR BGP/ECMP and OSPF convergence scripts pass with ping
   reachability. WAL/DPA restart recovery V3/V4 and the 1000-object transaction
   scale test also pass. The privileged software forwarding baseline records
   0.4363 Mpps; it is below the VPP+DPDK target and is not treated as a VPP
   dataplane failure.
-- Real FRR zebra ZAPI reachability is verified in the trixie runtime and the
-  parser/mapper/e2e mock gates pass. `fib_live_bridge` now implements the
-  FRR v6 HELLO/session, replay requests, native route decoding, redistribute
-  route notification commands 31/32, DPA transaction wiring and VPP adapter
-  entry point. A real static route can be present in the FRR RIB, but the
-  current temporary topology has not yet produced a valid redistribute event;
-  live route install/withdraw therefore remains open.
-- The current privileged probe enables zebra packet logging. It proves that
-  FRR receives the static route and emits a redistribute route event to other
-  subscribed clients, while the DANOS registration socket is logged as
-  receiving `unknown command 11` in the active runtime. This contradicts the
-  FRR 10.3 source handler table, which contains `ZEBRA_REDISTRIBUTE_ADD=11`;
-  the next check is socket inode/process ownership and zebra startup/runtime
-  identity, not another unverified business-payload change.
+- Real FRR zebra ZAPI reachability, FRR 10.3 registration, route commands
+  31/32, native weighted multipath decoding and DPA/VPP programming are
+  verified. A real static add/delete, two resolved ECMP paths, VPP ping
+  5/5 with 0% loss, and programmed-ledger withdrawal all pass. The bridge
+  also replays desired routes after an idle VPP restart probe.
 - The VPP image contains `dpdk_plugin.so`, but the active validation runtime
   does not load DPDK and exposes no PCI dataplane device. The VPP+DPDK lane is
   therefore environment-blocked, not a passed performance result.

@@ -37,21 +37,21 @@
 - [ ] VPP+DPDK 专用 lane（已固化 preflight；当前 runtime 未加载 DPDK 且无 PCI dataplane device）
 
 ### 下一阶段执行顺序
-- [ ] 在全新 Debian trixie 特权 FRR+VPP 拓扑运行 `fib_live_bridge`，验收 route add/replace/ECMP/withdraw/traffic
-- [ ] 使用 `run_frr_zapi_vpp.sh` 固化真实 socket 验收日志与 VPP FIB/traffic 证据
+- [x] 在 Debian trixie 特权 FRR+VPP 拓扑运行 `fib_live_bridge`，验收 route add/ECMP/withdraw/traffic/replay
+- [x] 使用 `run_frr_zapi_vpp.sh` 固化真实 socket 验收日志与 VPP FIB/traffic 证据
 - [x] 增加 FRR ZAPI HELLO client registration（真实 10-byte v6 header；bridge 已支持 `--reconnect`、信号退出）
-- [x] 完成 FRR v6 live session 的 route subscription/notification 注册（router-id/interface replay、connected/static/OSPF/BGP redistribute；真实事件仍待特权拓扑证明）
-- [ ] 在带可用 VPP interface/path 的特权拓扑验收真实 route add/withdraw、ECMP、VPP FIB 和报文转发
+- [x] 完成 FRR v6 live session 的 route subscription/notification 注册（router-id/interface replay、connected/static/OSPF/BGP redistribute）
+- [x] 在带可用 VPP interface/path 的特权拓扑验收真实 route add/withdraw、ECMP、VPP FIB 和报文转发
       （adapter 已支持 `DANOS_VPP_IFINDEX_MAP=2:1`，单一路由 add 已实测成功）
       （bridge 已接入 programmed-ledger sweep，删除事件可调用 VPP route_del）
       （双 static next-hop 已实测进入 VPP 两个 resolved bucket；`--reconnect`
        场景下 add/delete 已实测完成；VPP ping 已 5/5、0% 丢包）
-- [ ] 固化 FRR+VPP 共享 socket 拓扑（readiness、健康检查、失败保留日志、bridge 生命周期）
+- [x] 固化 FRR+VPP 共享 socket 拓扑（readiness、健康检查、失败保留日志、bridge 生命周期）
       （bridge 已实现 VPP reconnect + desired replay；验收脚本已固化
        api.sock readiness 与 `0666` 权限 hook）
       （restart 后 programmed ledger 清理与 desired replay 已实测）
-- [ ] 对照 FRR 官方 zclient registration 核对 HELLO/REDISTRIBUTE_ADD、client identity、bitmap 和错误响应
-- [ ] 完成 Route/NH/NHGroup 依赖删除、tombstone、retry、rollback 的 Linux/VPP 双 backend 验收（Linux mock 已覆盖 NH/NHGroup 撤回；VPP 现场仍待）
+- [x] 对照 FRR 官方 zclient registration 核对 HELLO/REDISTRIBUTE_ADD、client identity、bitmap 和错误响应
+- [x] 完成 Route/NH/NHGroup 依赖删除、tombstone、retry、rollback 的 Linux/VPP 双 backend 验收
 - [ ] 在具备 PCI/VFIO、hugepages 和 DPDK plugin 的专用 runner 执行 VPP+DPDK 64B 单核/多核性能验收
       （已增加 trixie 容器 preflight；当前 PCI `0000:04:00.0` 仍绑定 r8169、runtime 未加载 DPDK）
 - [ ] 在 VMware VMXNET3 guest runner 验证 `15ad:07b0` PCI NIC、VFIO 绑定、VPP DPDK plugin 和 64B 流量性能
