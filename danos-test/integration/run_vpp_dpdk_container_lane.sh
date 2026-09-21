@@ -12,6 +12,9 @@ run 'test -r /usr/lib/x86_64-linux-gnu/vpp_plugins/dpdk_plugin.so' || {
     echo "[SKIP] DPDK plugin unavailable"; exit 2;
 }
 run 'test -e /dev/vfio/vfio' || { echo "[SKIP] VFIO unavailable"; exit 2; }
+run 'test -d /sys/bus/pci/drivers/vfio-pci' || {
+    echo "[SKIP] vfio-pci kernel driver unavailable"; exit 2;
+}
 run "grep -Eq 'HugePages_Total:[[:space:]]+[1-9]' /proc/meminfo" || {
     echo "[SKIP] hugepages not configured"; exit 2;
 }
