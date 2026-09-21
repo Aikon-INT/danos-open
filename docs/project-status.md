@@ -177,6 +177,10 @@ created by mounting a driver or socket into a container. The lane preflight now
 requires a real PCI Ethernet function and reports the VMXNET3 device when
 present; the guest NIC must then be made available through the selected DPDK
 binding/VFIO setup.
+Containerized trixie runners can use
+`danos-test/integration/run_vpp_dpdk_container_lane.sh`; the current runner
+has PCI `0000:04:00.0`, VFIO and hugepages, but correctly skips because the
+runtime has no loaded DPDK plugin and the NIC is still bound to `r8169`.
 
 The repeatable socket-level driver is
 `danos-test/integration/run_frr_zapi_vpp.sh`. It classifies missing FRR/VPP
