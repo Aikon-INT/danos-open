@@ -9,6 +9,7 @@
  */
 #include "../danos-fib/src/zapi/zapi.h"
 #include "../danos-vpp/src/vpp_adapter.h"
+#include "../danos-vpp/src/api/vpp_api.h"
 #include <danos/core/backend_ops.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +34,24 @@ static void stop_handler(int sig)
 {
     (void)sig;
     g_running = 0;
+}
+
+static int recover_vpp_backend(bool enabled)
+{
+    if (!enabled || danos_vpp_api_is_connected()) return 0;
+    for (int i = 0; i < 30 && g_running; i++) {
+        if (danos_vpp_api_reconnect() == 0) {
+            uint64_t sweep_failed = 0;
+            (void)danos_programming_sweep(&sweep_failed);
+            if (sweep_failed != 0) return -1;
+            uint64_t attempted = 0, failed = 0;
+            (void)danos_programming_run(&attempted, &failed);
+            return failed == 0 ? 1 : -1;
+        }
+        struct timespec pause = { .tv_sec = 0, .tv_nsec = 100000000L };
+        nanosleep(&pause, NULL);
+    }
+    return -1;
 }
 
 static void usage(const char *p)
@@ -129,6 +148,10 @@ int main(int argc, char **argv)
                         (unsigned long long)withdrawn,
                         (unsigned long long)withdraw_failed);
             programming_failed += withdraw_failed;
+            if (programming_failed != 0 && reconnect) {
+                int recovered = recover_vpp_backend(true);
+                if (recovered > 0) programming_failed = 0;
+            }
             if (programming_failed != 0) {
                 fprintf(stderr, "ZAPI command %u programming failed: attempted=%llu failed=%llu\n",
                         msg.header.command,
