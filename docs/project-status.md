@@ -181,6 +181,9 @@ Containerized trixie runners can use
 `danos-test/integration/run_vpp_dpdk_container_lane.sh`; the current runner
 has PCI `0000:04:00.0`, VFIO and hugepages, but correctly skips because the
 runtime has no loaded DPDK plugin and the NIC is still bound to `r8169`.
+The checked-in software validation image intentionally contains
+`plugins { plugin dpdk_plugin.so { disable } }`; enabling it is reserved for
+the dedicated PCI/VFIO runner and is not mixed into the software baseline.
 
 The repeatable socket-level driver is
 `danos-test/integration/run_frr_zapi_vpp.sh`. It classifies missing FRR/VPP
