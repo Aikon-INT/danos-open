@@ -58,6 +58,7 @@
       （QEMU/KVM 已验证 DANOS live guest 可见 `0000:00:02.0 [15ad:07b0]`；仍需注入含 VPP/DPDK 的 guest runtime）
 - [x] 使用 QEMU `e1000` 验证当前 live ISO 虚拟网卡路径（`eth0`、DHCP、链路和默认路由）
       （仅为 ISO 网络 smoke test，不替代 VPP/DPDK 验收）
+- [ ] 为 live ISO 增加 `virtio-net` 内核模块并完成 QEMU virtio 网络 smoke test
 - [ ] v0.16 收敛前冻结 OVS/P4、BFD 及大范围模型扩展，避免主链路分散
 - [ ] gNMI Subscribe STREAM 多订阅状态机(单连接多流;
       threading.md 已列为候选)

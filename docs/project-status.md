@@ -199,6 +199,11 @@ default route. This confirms that a non-VMXNET3 QEMU NIC can test the DANOS
 live networking path; it does not count as VPP/DPDK evidence because the ISO
 still reports `VPP not reachable`.
 
+A QEMU `virtio-net-pci` boot was also attempted. The guest reached the live
+system but did not create an `eth0` interface or emit virtio-net probe output;
+the current minimal ISO therefore does not yet include a usable virtio-net
+driver. `e1000` remains the validated generic QEMU NIC for this image.
+
 The archived DANOS dataplane confirms the historical fallback: its
 `vyatta-dataplane/tools/vplane-uio` selects `vfio-pci` when IOMMU groups are
 safe and falls back to `uio_pci_generic` when a group overlaps storage; the
