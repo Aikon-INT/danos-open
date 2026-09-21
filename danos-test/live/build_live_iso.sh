@@ -66,10 +66,14 @@ VIRTIO_NET=$(docker exec danos-iso-build sh -c \
 docker cp "danos-iso-build:$VIRTIO_NET" "$WORK/virtio_net.ko.raw"
 NET_FAILOVER=$(docker exec danos-iso-build sh -c \
     'find /lib/modules -name "net_failover.ko*" | head -1')
-docker cp "danos-iso-build:$NET_FAILOVER" "$WORK/net_failover.ko.raw"
 VIRTIO_PCI=$(docker exec danos-iso-build sh -c \
     'find /lib/modules -name "virtio_pci.ko*" | head -1')
-docker cp "danos-iso-build:$VIRTIO_PCI" "$WORK/virtio_pci.ko.raw"
+for module in net_failover virtio_pci; do
+  eval "source=\$${module^^}"
+  if test -n "$source"; then
+    docker cp "danos-iso-build:$source" "$WORK/${module}.ko.raw"
+  fi
+done
 if test -x "$GNMIC_SRC"; then
     cp "$GNMIC_SRC" "$WORK/gnmic"
 else
@@ -106,6 +110,7 @@ case "$VIRTIO_NET" in
 esac
 for module in net_failover virtio_pci; do
   eval "source=\$${module^^}"
+  test -f "$WORK/${module}.ko.raw" || continue
   case "$source" in
     *.xz) xz -q -d -c "$WORK/${module}.ko.raw" > "$WORK/initramfs/modules/${module}.ko" ;;
     *)    cp "$WORK/${module}.ko.raw" "$WORK/initramfs/modules/${module}.ko" ;;
