@@ -43,6 +43,26 @@ int test_map_route_add(void)
     return 0;
 }
 
+int test_map_frr_route_add(void)
+{
+    /* Native FRR v6 payload: type=static, instance=0, flags=0,
+     * message=0, SAFI unicast, IPv4 10.250.0.0/24, no nexthops. */
+    uint8_t payload[] = {1, 0,0, 0,0,0,0, 0,0,0,0, 1,2,24, 10,250,0};
+    zapi_message_t msg;
+    memset(&msg, 0, sizeof(msg));
+    msg.header.command = ZEBRA_FRR_ROUTE_ADD;
+    msg.header.version = ZAPI_VERSION;
+    msg.vrf_id = 0;
+    msg.payload = payload;
+    msg.payload_size = sizeof(payload);
+    danos_tx_t tx = {0};
+    assert(danos_tx_begin(&tx, "frr-test", NULL) == DANOS_OK);
+    assert(zapi_dispatch_frr(&msg, &tx) == DANOS_OK);
+    danos_tx_commit(&tx);
+    printf("[PASS] test_map_frr_route_add: native FRR route -> DPA\n");
+    return 0;
+}
+
 int test_map_interface_add(void)
 {
     danos_tx_t tx = {0};
@@ -364,6 +384,7 @@ int main(void)
 {
     int failed = 0;
     if (test_map_route_add() != 0) failed++;
+    if (test_map_frr_route_add() != 0) failed++;
     if (test_map_interface_add() != 0) failed++;
     if (test_map_unsupported() != 0) failed++;
     /* v0.2 new mappers */
