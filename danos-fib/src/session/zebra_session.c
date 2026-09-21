@@ -17,7 +17,7 @@
 #include <time.h>
 #include <arpa/inet.h>
 
-#define ZAPI_SOCK_PATH "/var/run/frr/zebra.zserv"
+#define ZAPI_SOCK_PATH "/var/run/frr/zserv.api"
 #define RECONNECT_INITIAL_MS 1000
 #define RECONNECT_MAX_MS    60000
 #define FRR_ZAPI_HEADER_SIZE 10

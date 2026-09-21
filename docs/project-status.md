@@ -165,6 +165,9 @@ payload decoder to the live session; the core route/prefix/nexthop decoder,
 The live session now requests router-id/interface replay and IPv4/IPv6 BGP and
 OSPF route notifications. The remaining gap is privileged route lifecycle
 evidence: real add/withdraw, ECMP, VPP FIB inspection and traffic.
+The Debian trixie FRR 10.3 runtime uses `/var/run/frr/zserv.api` as the
+default zserv socket; the session and acceptance harness now use that path,
+while explicit socket overrides remain supported.
 
 ### v0.17 Backend semantic consistency
 

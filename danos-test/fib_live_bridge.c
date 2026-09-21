@@ -87,11 +87,11 @@ int main(int argc, char **argv)
             continue;
         }
         if (n < 0) { fprintf(stderr, "zebra receive failed: %d\n", n); failed++; break; }
-        /* Initial replay also carries interface/router-id notifications.
-         * They are control-plane observations, not route programming work. */
-        if (msg.header.command == ZEBRA_FRR_INTERFACE_ADD ||
-            msg.header.command == ZEBRA_FRR_ROUTER_ID_ADD ||
-            msg.header.command == ZEBRA_FRR_ROUTER_ID_UPDATE)
+        /* Zebra sends interface, nexthop, router-id and other replay
+         * notifications on the same stream. They are not FIB route work;
+         * only the native route add/delete commands enter DPA. */
+        if (msg.header.command != ZEBRA_FRR_ROUTE_ADD &&
+            msg.header.command != ZEBRA_FRR_ROUTE_DELETE)
             continue;
         danos_tx_t tx = {0};
         danos_status_t st = danos_tx_begin(&tx, "frr-zebra", NULL);

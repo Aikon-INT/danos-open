@@ -3,7 +3,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BRIDGE="${BRIDGE:-$ROOT/build/danos-test/fib_live_bridge}"
-ZEBRA_SOCK="${ZEBRA_SOCK:-/var/run/frr/zebra.zserv}"
+ZEBRA_SOCK="${ZEBRA_SOCK:-/var/run/frr/zserv.api}"
 VPP_SOCK="${VPP_SOCK:-/run/vpp/api.sock}"
 MESSAGES="${MESSAGES:-1}"
 RECONNECT=0
