@@ -5,6 +5,8 @@
 #include "vpp_msgs.h"
 #include "vpp_wire.h"
 #include "vpp_api.h"
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 /* fib_path_nh is a union sized by its largest member: address_union
@@ -236,6 +238,11 @@ static danos_status_t transact_named(const char *msg_name,
     (void)vpp_rd_u32(&r);            /* context */
     int32_t retval = (int32_t)vpp_rd_u32(&r);
     if (!vpp_reader_ok(&r)) return DANOS_ERR_BACKEND_IO;
+    if (retval != 0) {
+        const char *debug = getenv("DANOS_VPP_DEBUG");
+        if (debug && debug[0] == '1')
+            fprintf(stderr, "vpp api %s failed: retval=%d\\n", msg_name, retval);
+    }
     return retval_to_status(retval);
 }
 
