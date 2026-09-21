@@ -6,6 +6,7 @@ BRIDGE="${BRIDGE:-$ROOT/build/danos-test/fib_live_bridge}"
 ZEBRA_SOCK="${ZEBRA_SOCK:-/var/run/frr/zserv.api}"
 VPP_SOCK="${VPP_SOCK:-/run/vpp/api.sock}"
 MESSAGES="${MESSAGES:-1}"
+VPP_IFINDEX_MAP="${DANOS_VPP_IFINDEX_MAP:-}"
 RECONNECT=0
 usage() { echo "usage: $0 [--zebra-sock PATH] [--vpp-sock PATH] [--messages N] [--reconnect]"; }
 while [ "$#" -gt 0 ]; do
@@ -24,5 +25,9 @@ test -S "$VPP_SOCK" || { echo "[BLOCKED] VPP API socket missing: $VPP_SOCK"; exi
 args=(--zebra-sock "$ZEBRA_SOCK" --vpp-sock "$VPP_SOCK" --messages "$MESSAGES")
 [ "$RECONNECT" -eq 1 ] && args+=(--reconnect)
 echo "[INFO] running FRR ZAPI -> DPA -> VPP bridge"
+if [ -n "$VPP_IFINDEX_MAP" ]; then
+    echo "[INFO] using FRR->VPP ifindex map: $VPP_IFINDEX_MAP"
+    export DANOS_VPP_IFINDEX_MAP="$VPP_IFINDEX_MAP"
+fi
 "$BRIDGE" "${args[@]}"
 echo "[PASS] FRR ZAPI -> DPA -> VPP bridge processed $MESSAGES message(s)"

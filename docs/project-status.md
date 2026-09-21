@@ -184,9 +184,11 @@ requests router-id/interface replay and IPv4/IPv6 connected, static, OSPF and
 BGP notifications. The remaining gap is a usable VPP dataplane path and
 privileged route lifecycle evidence: real add/withdraw, ECMP, VPP FIB
 inspection and traffic. The current socket-connected runtime receives the FRR
-route and enters DPA, while `ip_route_add_del` returns VPP `-54` because no
-interface/path is available; this is a topology limitation, not a ZAPI
-registration failure.
+route and enters DPA. The adapter accepts an explicit
+`DANOS_VPP_IFINDEX_MAP=linux_ifindex:vpp_sw_if_index,...` mapping for
+namespace-local interface IDs; with `2:1` in the current FRR/VPP host-
+interface topology, the same route reaches VPP and is installed. The mapping
+is a topology requirement, not a ZAPI registration failure.
 The Debian trixie FRR 10.3 runtime uses `/var/run/frr/zserv.api` as the
 default zserv socket; the session and acceptance harness now use that path,
 while explicit socket overrides remain supported.
