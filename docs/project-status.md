@@ -46,7 +46,7 @@ The current mainline is clean and synchronized with `origin/main` at `869dd9b`; 
 - Real FRR zebra ZAPI reachability is verified in the trixie runtime and the
   parser/mapper/e2e mock gates pass. `fib_live_bridge` now implements the
   FRR v6 HELLO/session, replay requests, native route decoding, redistribute
-  route notification commands 30/31, DPA transaction wiring and VPP adapter
+  route notification commands 31/32, DPA transaction wiring and VPP adapter
   entry point. A real static route can be present in the FRR RIB, but the
   current temporary topology has not yet produced a valid redistribute event;
   live route install/withdraw therefore remains open.
@@ -176,7 +176,7 @@ The bridge sends the FRR v6 `ZEBRA_HELLO` registration using the official
 10-byte zserv header, and `zapi_parse_frr()` has a regression-tested parser for
 that header. The FRR-native route payload decoder is connected to the live
 session; redistribute route notifications use the distinct FRR v6 commands
-30/31 rather than the client-originated route commands 8/9. The live session
+  31/32 rather than the client-originated route commands 9/10. The live session
 requests router-id/interface replay and IPv4/IPv6 connected, static, OSPF and
 BGP notifications. The remaining gap is privileged route lifecycle evidence:
 real add/withdraw, ECMP, VPP FIB inspection and traffic.
