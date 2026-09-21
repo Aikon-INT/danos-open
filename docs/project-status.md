@@ -119,9 +119,11 @@ Execution status:
   root/user namespaces are unavailable.
 - VPP runtime boot, API/stat sockets and DPA conformance: verified in Debian
   trixie source-built runtime. Interface-address add/delete messages now have
-  typed wire coverage and dual-stack adapter programming; real forwarding
-  and API-driven ECMP route installation/withdrawal are verified. Packet-level
-  bidirectional forwarding through VPP af_packet interfaces is also verified.
+  typed wire coverage and dual-stack adapter programming. The API client now
+  reaches the live VPP route transaction, but the current software runtime
+  rejects the FRR gateway route with `retval=-54` because it exposes only
+  `local0` and no usable dataplane interface/path. Real API-driven route,
+  ECMP and packet forwarding remain open for the dedicated topology.
 - FRR BGP/OSPF route installation and withdrawal through the full DPA/backend
   path: remains the next integration milestone; the ZAPI mapper now normalizes
   multipath route messages into multi-member DPA NHGroups and has a regression
@@ -141,10 +143,11 @@ The recommended order is:
 1. Replace ad-hoc containers with a fixed Debian trixie FRR+VPP compose/test
    topology. Explicitly share `/run/vpp` and `/var/run/frr`, add readiness
    checks, preserve logs on failure, and keep zebra/VPP/bridge alive together.
-2. Compare the bridge's outgoing frames and FRR `show zebra client` state with
-   the official `zclient_send_reg_requests()` behavior. Prove a single static
-   add/withdraw first, then BGP/OSPF and ECMP. A replay message is not counted
-   as route redistribution evidence.
+2. The FRR 10.3 registration and route-notification path is now proven: the
+   live bridge receives command 31 route events and enters the DPA transaction.
+   Next, provide a VPP interface/path, then prove a single static add/withdraw
+   first, followed by BGP/OSPF and ECMP. A replay message is not counted as
+   route redistribution evidence.
 3. Verify each route event through DPA and `vppctl show ip fib`, then run real
    traffic, reconnect and restart recovery.
 4. Close Route/NH/NHGroup dependency deletion, tombstone, retry and rollback
@@ -178,8 +181,12 @@ that header. The FRR-native route payload decoder is connected to the live
 session; redistribute route notifications use the distinct FRR v6 commands
   31/32 rather than the client-originated route commands 9/10. The live session
 requests router-id/interface replay and IPv4/IPv6 connected, static, OSPF and
-BGP notifications. The remaining gap is privileged route lifecycle evidence:
-real add/withdraw, ECMP, VPP FIB inspection and traffic.
+BGP notifications. The remaining gap is a usable VPP dataplane path and
+privileged route lifecycle evidence: real add/withdraw, ECMP, VPP FIB
+inspection and traffic. The current socket-connected runtime receives the FRR
+route and enters DPA, while `ip_route_add_del` returns VPP `-54` because no
+interface/path is available; this is a topology limitation, not a ZAPI
+registration failure.
 The Debian trixie FRR 10.3 runtime uses `/var/run/frr/zserv.api` as the
 default zserv socket; the session and acceptance harness now use that path,
 while explicit socket overrides remain supported.

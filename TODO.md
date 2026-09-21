@@ -26,6 +26,9 @@
 - [x] v0.16 ECMP northbound route representation（gNMI `gateways[]` + NHGroup；真实 dataplane 多路径仍待）
 - [x] FRR trixie BGP EVPN 邻居与 OSPF 邻居特权拓扑基线验收
 - [ ] v0.16 FRR BGP/OSPF → ZAPI → DPA → backend route install/withdraw 全链路验收
+      （FRR 注册、真实 route notification 与 DPA 入口已验收；当前 VPP
+      software runtime 仅有 local0，`ip_route_add_del` 返回 -54，等待可用
+      dataplane interface/path）
 - [x] 真实 FRR zebra ZAPI socket 可达性验收（V5）
 - [x] 增加可运行的 danos-fib daemon wiring，完成 live ZAPI → DPA → VPP route lifecycle 入口（`fib_live_bridge`；需特权拓扑验收）
 - [x] 3 节点 BGP/ECMP、OSPF 收敛与 ping 验收（F1/F2）
@@ -38,7 +41,7 @@
 - [ ] 使用 `run_frr_zapi_vpp.sh` 固化真实 socket 验收日志与 VPP FIB/traffic 证据
 - [x] 增加 FRR ZAPI HELLO client registration（真实 10-byte v6 header；bridge 已支持 `--reconnect`、信号退出）
 - [x] 完成 FRR v6 live session 的 route subscription/notification 注册（router-id/interface replay、connected/static/OSPF/BGP redistribute；真实事件仍待特权拓扑证明）
-- [ ] 在特权拓扑验收真实 route add/withdraw、ECMP、VPP FIB 和报文转发
+- [ ] 在带可用 VPP interface/path 的特权拓扑验收真实 route add/withdraw、ECMP、VPP FIB 和报文转发
 - [ ] 固化 FRR+VPP 共享 socket 拓扑（readiness、健康检查、失败保留日志、bridge 生命周期）
 - [ ] 对照 FRR 官方 zclient registration 核对 HELLO/REDISTRIBUTE_ADD、client identity、bitmap 和错误响应
 - [ ] 完成 Route/NH/NHGroup 依赖删除、tombstone、retry、rollback 的 Linux/VPP 双 backend 验收（Linux mock 已覆盖 NH/NHGroup 撤回；VPP 现场仍待）
