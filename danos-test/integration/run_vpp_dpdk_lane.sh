@@ -1,9 +1,15 @@
 #!/bin/bash
 # VPP+DPDK dedicated lane preflight. Missing PCI/VFIO is an explicit SKIP.
 set -euo pipefail
+VPP_BIN="${VPP_BIN:-}"
+if test -z "$VPP_BIN"; then
+    VPP_BIN=$(command -v vpp 2>/dev/null || true)
+    test -n "$VPP_BIN" || VPP_BIN=/opt/vpp/build-root/install-vpp-native/vpp/bin/vpp
+fi
 PLUGIN="${VPP_DPDK_PLUGIN:-/usr/lib/x86_64-linux-gnu/vpp_plugins/dpdk_plugin.so}"
+test -r "$PLUGIN" || PLUGIN=/opt/vpp/build-root/install-vpp-native/vpp/lib/x86_64-linux-gnu/vpp_plugins/dpdk_plugin.so
 TARGET_BDF="${DPDK_PCI_BDF:-}"
-command -v vpp >/dev/null 2>&1 || { echo "[SKIP] vpp binary unavailable"; exit 2; }
+test -x "$VPP_BIN" || { echo "[SKIP] vpp binary unavailable"; exit 2; }
 test -r "$PLUGIN" || { echo "[SKIP] DPDK plugin unavailable: $PLUGIN"; exit 2; }
 PCI_COUNT=0
 VMXNET3_COUNT=0
