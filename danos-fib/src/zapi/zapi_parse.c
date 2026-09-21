@@ -8,6 +8,7 @@
 #include "zapi.h"
 #include <string.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
 
 #define FRR_ZAPI_HEADER_SIZE 10
 #define FRR_ZAPI_MARKER 254
@@ -67,6 +68,50 @@ int zapi_parse_frr(const uint8_t *buf, size_t buf_size, zapi_message_t *out)
     out->header.command = ntohs(command);
     out->payload = buf + FRR_ZAPI_HEADER_SIZE;
     out->payload_size = length - FRR_ZAPI_HEADER_SIZE;
+    return 0;
+}
+
+int zapi_decode_frr_route(const zapi_message_t *msg, zapi_frr_route_t *out)
+{
+    if (!msg || !out || msg->header.version != ZAPI_VERSION) return -1;
+    zapi_decoder_t d;
+    zapi_decoder_init(&d, msg->payload, msg->payload_size);
+    memset(out, 0, sizeof(*out));
+    if (zapi_decode_u8(&d, &out->type) != 0 ||
+        zapi_decode_u16(&d, &out->instance) != 0 ||
+        zapi_decode_u32(&d, &out->flags) != 0 ||
+        zapi_decode_u32(&d, &out->message) != 0 ||
+        zapi_decode_u8(&d, &out->safi) != 0 ||
+        zapi_decode_u8(&d, &out->family) != 0 ||
+        zapi_decode_u8(&d, &out->prefix_len) != 0)
+        return -2;
+    size_t bytes = out->family == AF_INET6 ? 16 : out->family == AF_INET ? 4 : 0;
+    if (!bytes || (out->family == AF_INET && out->prefix_len > 32) ||
+        (out->family == AF_INET6 && out->prefix_len > 128) ||
+        zapi_decode_bytes(&d, out->prefix, (out->prefix_len + 7) / 8) != 0)
+        return -3;
+    if (out->message & ZAPI_FRR_MESSAGE_NHG) {
+        if (zapi_decode_u32(&d, &out->nhg_id) != 0) return -4;
+    }
+    if (out->message & ZAPI_FRR_MESSAGE_NEXTHOP) {
+        if (zapi_decode_u16(&d, &out->nexthop_count) != 0 ||
+            out->nexthop_count > ZAPI_FRR_MAX_NEXTHOPS) return -5;
+        for (uint16_t i = 0; i < out->nexthop_count; i++) {
+            zapi_frr_nexthop_t *nh = &out->nexthops[i];
+            uint32_t nh_vrf;
+            if (zapi_decode_u32(&d, &nh_vrf) != 0 ||
+                zapi_decode_u8(&d, &nh->type) != 0 ||
+                zapi_decode_u8(&d, &nh->flags) != 0) return -6;
+            nh->family = out->family;
+            if (nh->type == 1 || nh->type == 3) {
+                size_t gw = out->family == AF_INET ? 4 : 16;
+                if (zapi_decode_bytes(&d, nh->gateway, gw) != 0) return -7;
+                nh->has_gateway = true;
+                if (nh->type == 3 && zapi_decode_u32(&d, &nh->ifindex) != 0)
+                    return -8;
+            }
+        }
+    }
     return 0;
 }
 

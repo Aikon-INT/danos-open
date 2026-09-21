@@ -97,6 +97,23 @@ int test_frr_v6_header(void)
     return 0;
 }
 
+int test_frr_route_decode(void)
+{
+    /* type=2, instance=0, flags=0, message=NEXTHOP, SAFI=1,
+     * AF_INET=2, 10.0.0.0/24, one IPv4 nexthop 192.0.2.1. */
+    uint8_t payload[] = {2, 0, 0, 0,0,0,0, 0,0,0,1, 1, 2,24,
+                         10,0,0, 0,1, 0,0,0,0, 1,0, 192,0,2,1, 0,0,0,2};
+    zapi_message_t msg = { .header = {0, 0xFE, 6, 7},
+                           .payload = payload, .payload_size = sizeof(payload) };
+    zapi_frr_route_t route;
+    assert(zapi_decode_frr_route(&msg, &route) == 0);
+    assert(route.family == 2 && route.prefix_len == 24);
+    assert(route.nexthop_count == 1 && route.nexthops[0].has_gateway);
+    assert(route.nexthops[0].gateway[0] == 192);
+    printf("[PASS] test_frr_route_decode: native route fields decoded\n");
+    return 0;
+}
+
 int test_zapi_invalid(void)
 {
     /* Too short */
@@ -118,6 +135,7 @@ int main(void)
     int failed = 0;
     if (test_zapi_parse_serialize() != 0) failed++;
     if (test_frr_v6_header() != 0) failed++;
+    if (test_frr_route_decode() != 0) failed++;
     if (test_zapi_decoder() != 0) failed++;
     if (test_zapi_invalid() != 0) failed++;
     printf("=== fib_test (zapi_parse): %s ===\n",

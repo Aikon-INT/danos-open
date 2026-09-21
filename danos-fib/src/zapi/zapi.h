@@ -61,6 +61,34 @@ typedef struct {
     size_t payload_size;
 } zapi_message_t;
 
+#define ZAPI_FRR_MESSAGE_NEXTHOP 0x01
+#define ZAPI_FRR_MESSAGE_NHG     0x80
+#define ZAPI_FRR_MAX_NEXTHOPS    64
+typedef struct {
+    uint8_t type;
+    uint8_t flags;
+    uint8_t family;
+    uint8_t prefix_len;
+    uint8_t prefix[16];
+    uint32_t ifindex;
+    uint8_t gateway[16];
+    bool has_gateway;
+} zapi_frr_nexthop_t;
+
+typedef struct {
+    uint8_t type;
+    uint16_t instance;
+    uint32_t flags;
+    uint32_t message;
+    uint8_t safi;
+    uint8_t family;
+    uint8_t prefix_len;
+    uint8_t prefix[16];
+    uint32_t nhg_id;
+    uint16_t nexthop_count;
+    zapi_frr_nexthop_t nexthops[ZAPI_FRR_MAX_NEXTHOPS];
+} zapi_frr_route_t;
+
 /* Parser: parse raw bytes into a ZAPI message.
  * Returns 0 on success, negative on error.
  * Does not copy payload; caller must keep buffer alive. */
@@ -69,6 +97,7 @@ int zapi_parse(const uint8_t *buf, size_t buf_size, zapi_message_t *out);
 /* Parse the real FRR v6 zserv header. Payload remains FRR-native; callers
  * must use the FRR route decoder rather than the legacy mock mapper. */
 int zapi_parse_frr(const uint8_t *buf, size_t buf_size, zapi_message_t *out);
+int zapi_decode_frr_route(const zapi_message_t *msg, zapi_frr_route_t *out);
 
 /* Serializer: serialize a ZAPI message into a buffer.
  * Returns bytes written on success, negative on error. */
