@@ -10,7 +10,6 @@
 #include "zapi/zapi.h"
 #include <danos/dpa.h>
 #include <string.h>
-#include <stdio.h>
 
 static danos_obj_id_t g_zapi_next_id = 1000;
 

@@ -112,10 +112,11 @@ static danos_status_t vpp_adapter_route_add(const danos_resolved_route_t *res,
     }
 
     const char *debug = getenv("DANOS_VPP_DEBUG");
-    if (debug && debug[0] == '1')
+    if (debug && debug[0] == '1') {
         fprintf(stderr, "vpp route add vrf=%u prefix-len=%u gw=%u.%u.%u.%u if=%u\n",
                 r->vrf_id, prefix.len, nhs[0].addr[0], nhs[0].addr[1],
                 nhs[0].addr[2], nhs[0].addr[3], nh_ifs[0]);
+    }
 
     return vpp_msg_ip_route_add_del(true, r->vrf_id, &prefix,
                                     count, nhs, nh_ifs);

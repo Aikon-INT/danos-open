@@ -19,9 +19,9 @@
 #include <danos/core/object_registry.h>
 #include <danos/dpa.h>
 #include <pthread.h>
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 static const danos_backend_ops_t *g_ops;
 static danos_object_store_t *g_programmed;
