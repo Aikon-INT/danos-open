@@ -41,6 +41,13 @@ The strongest capabilities are the DPA object/store/transaction foundation, WAL 
   scale test also pass. The privileged software forwarding baseline records
   0.4363 Mpps; it is below the VPP+DPDK target and is not treated as a VPP
   dataplane failure.
+- Real FRR zebra ZAPI reachability is verified in the trixie runtime and the
+  parser/mapper/e2e mock gates pass. A production FRR→DPA→VPP daemon wiring
+  entry point is not yet present, so the live route install/withdraw claim is
+  intentionally still open.
+- The VPP image contains `dpdk_plugin.so`, but the active validation runtime
+  does not load DPDK and exposes no PCI dataplane device. The VPP+DPDK lane is
+  therefore environment-blocked, not a passed performance result.
 
 ## Capability maturity
 
@@ -52,7 +59,7 @@ The strongest capabilities are the DPA object/store/transaction foundation, WAL 
 | gNMI/CLI/NETCONF | Strong prototype | Multi-stream edge cases, in-process TLS, long-term protocol maintenance |
 | Linux backend | Real backend verified | Broader topology and recovery acceptance |
 | VPP backend | Runtime/conformance/API ECMP and packet-forwarding verified | Traffic scale and recovery |
-| FRR integration | ZAPI plus BGP/OSPF topology baseline verified | Live zebra ZAPI → DPA → backend lifecycle and BFD |
+| FRR integration | Live zebra reachability plus ZAPI/BGP/OSPF baseline | Daemonized ZAPI → DPA → backend lifecycle and BFD |
 | Data model | Route/VRF/NH plus primary interface IPv4/IPv6 model | VLAN, multi-address, tunnel/EVPN models |
 | Observability/security | Initial implementation | Operational semantics, HA and upgrade evidence |
 | OVS/P4/platform | Intentionally not started | Defer until backend contract is frozen |

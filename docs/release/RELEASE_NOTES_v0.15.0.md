@@ -46,6 +46,9 @@ an unqualified local pass.
   WAL/DPA restart recovery, and 1000-object transaction scale. Recorded a
   privileged software forwarding baseline of 0.4363 Mpps; VPP+DPDK performance
   remains a separate dataplane lane.
+- Verified live FRR zebra ZAPI socket reachability. The release does not claim
+  full live ZAPI-to-DPA-to-VPP route lifecycle until a daemonized FIB adapter
+  wiring entry point is added.
 - Local workspace-filesystem baseline: 1000-object WAL write 3195.0 ms and
   recovery 17.4 ms; CI remains the authoritative `/var/tmp` real-filesystem
   measurement.
@@ -66,5 +69,7 @@ environmental rather than code failures.
 
 - Full FRR ZAPI → DPA → backend route lifecycle for BGP/OSPF installation and
   withdrawal, plus traffic scale/recovery acceptance.
+- VPP+DPDK dedicated performance lane on a host with a bound PCI dataplane
+  device and loaded DPDK plugin.
 - Route/next-hop/next-hop-group dependency deletion acceptance.
 - v0.16 ECMP real-dataplane forwarding and FRR BGP/OSPF full-path evidence.
