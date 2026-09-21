@@ -146,6 +146,17 @@ static danos_status_t resolve_route_nh(const danos_route_t *r,
         memcpy(out->gw, nh.gateway.addr, 16);
     }
     out->oif = nh.ifindex;
+    out->nh_count = grp.nh_count > 64 ? 64 : grp.nh_count;
+    for (uint32_t i = 0; i < out->nh_count; i++) {
+        danos_nexthop_t member;
+        sz = sizeof(member);
+        if (danos_object_read(g_default_store, DANOS_OBJ_NEXTHOP,
+                              grp.nh_ids[i], &member, &sz) != DANOS_OK)
+            return DANOS_ERR_RETRY;
+        memcpy(out->nh_gw[i], member.gateway.addr,
+               member.gateway.af == DANOS_AF_IPV6 ? 16 : 4);
+        out->nh_oif[i] = member.ifindex;
+    }
     return DANOS_OK;
 }
 

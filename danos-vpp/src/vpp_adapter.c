@@ -99,21 +99,26 @@ static danos_status_t vpp_adapter_route_add(const danos_resolved_route_t *res,
     memcpy(prefix.addr.addr, r->prefix.addr.addr, 4);
     prefix.len = r->prefix.prefix_len;
 
-    /* paths: gateway route when resolved, else blackhole as a local */
-    vpp_ip_t nh;
-    memset(&nh, 0, sizeof(nh));
-    nh.is_ipv6 = false;
-    memcpy(nh.addr, res->gw, 4);
-    uint32_t nh_if = res->oif ? vpp_adapter_map_ifindex(res->oif) : 1;
+    vpp_ip_t nhs[64];
+    uint32_t nh_ifs[64];
+    uint32_t count = res->nh_count ? res->nh_count : 1;
+    if (count > 64) return DANOS_ERR_INVALID_ARG;
+    memset(nhs, 0, sizeof(nhs));
+    for (uint32_t i = 0; i < count; i++) {
+        nhs[i].is_ipv6 = false;
+        memcpy(nhs[i].addr, res->nh_count ? res->nh_gw[i] : res->gw, 4);
+        nh_ifs[i] = vpp_adapter_map_ifindex(res->nh_count ? res->nh_oif[i] : res->oif);
+        if (nh_ifs[i] == 0) nh_ifs[i] = 1;
+    }
 
     const char *debug = getenv("DANOS_VPP_DEBUG");
     if (debug && debug[0] == '1')
         fprintf(stderr, "vpp route add vrf=%u prefix-len=%u gw=%u.%u.%u.%u if=%u\n",
-                r->vrf_id, prefix.len, nh.addr[0], nh.addr[1], nh.addr[2],
-                nh.addr[3], nh_if);
+                r->vrf_id, prefix.len, nhs[0].addr[0], nhs[0].addr[1],
+                nhs[0].addr[2], nhs[0].addr[3], nh_ifs[0]);
 
     return vpp_msg_ip_route_add_del(true, r->vrf_id, &prefix,
-                                    1, &nh, &nh_if);
+                                    count, nhs, nh_ifs);
 }
 
 static danos_status_t vpp_adapter_route_del(const danos_resolved_route_t *res,

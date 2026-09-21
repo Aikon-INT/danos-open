@@ -21,13 +21,15 @@
 extern "C" {
 #endif
 
-/* A route with its next-hop resolved by the pipeline (gateway and
- * egress interface pulled from the referenced NH group's first member). */
+/* A route with its next-hops resolved by the pipeline. */
 typedef struct {
     danos_route_t route;        /* copy of the desired object */
     bool        has_gw;         /* gateway present */
     uint8_t     gw[16];         /* gateway address (v4 in first 4 bytes) */
     uint32_t    oif;            /* egress ifindex (0 = unresolved) */
+    uint32_t    nh_count;
+    uint8_t     nh_gw[64][16];
+    uint32_t    nh_oif[64];
 } danos_resolved_route_t;
 
 typedef struct danos_backend_ops {
