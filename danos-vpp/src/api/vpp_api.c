@@ -151,8 +151,10 @@ static int vpp_handshake(void)
 {
     vpp_buf_t body;
     vpp_buf_init(&body, 96);
-    vpp_buf_put_u32(&body, 1);                    /* context */
-    vpp_buf_put_string(&body, VPP_CLIENT_NAME);   /* name[64], u8-len-prefixed */
+    vpp_buf_put_u32(&body, 0xfeedface);           /* context */
+    uint8_t name[64] = {0};
+    memcpy(name, VPP_CLIENT_NAME, strlen(VPP_CLIENT_NAME));
+    vpp_buf_put_bytes(&body, name, sizeof(name)); /* fixed string name[64] */
 
     int rc = vpp_wire_send_fd(g_ctx.msg_fd, VPP_MSG_ID_SOCKCLNT_CREATE,
                               body.data, body.len);
@@ -163,7 +165,7 @@ static int vpp_handshake(void)
     int n = vpp_wire_recv_fd(g_ctx.msg_fd, rbuf, sizeof(rbuf));
     if (n <= 2) return -1;
 
-    uint32_t frame_len = (uint32_t)n - 2;
+    uint32_t frame_len = (uint32_t)n;
     uint16_t reply_id = ((uint16_t)rbuf[0] << 8) | rbuf[1];
     if (reply_id != VPP_MSG_ID_SOCKCLNT_CREATE + 1) {
         /* reply ids follow request ids for the socket control range */
@@ -185,13 +187,10 @@ static int vpp_handshake(void)
     vpp_msg_table_init(&g_ctx.msg_table);
     for (uint16_t i = 0; i < count; i++) {
         uint16_t msg_id = vpp_rd_u16(&r);
-        char *name = vpp_rd_string(&r, 71);
-        if (!name || !vpp_reader_ok(&r)) {
-            free(name);
-            break;
-        }
-        vpp_msg_table_add(&g_ctx.msg_table, name, msg_id);
-        free(name);
+        uint8_t name[64] = {0};
+        if (!vpp_rd_bytes(&r, name, sizeof(name)) || !vpp_reader_ok(&r)) break;
+        name[sizeof(name) - 1] = 0;
+        vpp_msg_table_add(&g_ctx.msg_table, (char *)name, msg_id);
     }
 
     g_ctx.client_index = client_index;
@@ -299,15 +298,14 @@ int danos_vpp_api_recv(uint8_t *buf, uint32_t buf_size)
 
     if (g_ctx.state != VPP_API_CONNECTED || g_ctx.msg_fd < 0) return -1;
 
-    /* Return just the frame body (msg_id + struct) for compatibility
-     * with existing callers; the 2-byte length prefix is consumed. */
+    /* Return the API payload (msg_id + struct); the msgbuf header is consumed. */
     int n = vpp_wire_recv_fd(g_ctx.msg_fd, buf, buf_size);
     if (n <= 2) {
         danos_vpp_api_disconnect();
         return -1;
     }
     g_ctx.msgs_received++;
-    return n - 2;
+    return n;
 }
 
 int danos_vpp_api_transact(uint16_t msg_id, const uint8_t *payload,

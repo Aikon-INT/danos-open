@@ -27,15 +27,16 @@ static struct {
     uint32_t last_body_len;
 } g_api_srv;
 
-/* Send one framed message: [u16 BE len][u16 BE msg_id][body] */
+/* Send one VPP socket message: [msgbuf_t header][u16 BE msg_id][body]. */
 static int send_frame(int fd, uint16_t msg_id, const uint8_t *body, uint32_t n)
 {
     uint32_t frame = 2 + n;
-    uint8_t hdr[4] = {
-        (uint8_t)(frame >> 8), (uint8_t)frame,
-        (uint8_t)(msg_id >> 8), (uint8_t)msg_id
-    };
-    if (send(fd, hdr, 4, MSG_NOSIGNAL) != 4) return -1;
+    uint8_t hdr[16] = {0};
+    hdr[8] = (uint8_t)(frame >> 24); hdr[9] = (uint8_t)(frame >> 16);
+    hdr[10] = (uint8_t)(frame >> 8); hdr[11] = (uint8_t)frame;
+    uint8_t id[2] = {(uint8_t)(msg_id >> 8), (uint8_t)msg_id};
+    if (send(fd, hdr, sizeof(hdr), MSG_NOSIGNAL) != (ssize_t)sizeof(hdr)) return -1;
+    if (send(fd, id, sizeof(id), MSG_NOSIGNAL) != (ssize_t)sizeof(id)) return -1;
     if (n && send(fd, body, n, MSG_NOSIGNAL) != (ssize_t)n) return -1;
     return 0;
 }
@@ -54,9 +55,10 @@ static int recv_exact(int fd, void *p, uint32_t n)
 static void serve_client(int fd)
 {
     /* 1. expect sockclnt_create (msg_id 0xF) */
-    uint8_t lhdr[2];
-    if (recv_exact(fd, lhdr, 2) < 0) return;
-    uint32_t frame_len = ((uint32_t)lhdr[0] << 8) | lhdr[1];
+    uint8_t lhdr[16];
+    if (recv_exact(fd, lhdr, sizeof(lhdr)) < 0) return;
+    uint32_t frame_len = ((uint32_t)lhdr[8] << 24) | ((uint32_t)lhdr[9] << 16) |
+                         ((uint32_t)lhdr[10] << 8) | lhdr[11];
     if (frame_len < 2 || frame_len > 4096) return;
     uint8_t frame[4096];
     if (recv_exact(fd, frame, frame_len) < 0) return;
@@ -86,20 +88,21 @@ static void serve_client(int fd)
     /* count u16 */
     body[n++] = 0; body[n++] = (uint8_t)(sizeof(table) / sizeof(table[0]));
     for (size_t i = 0; i < sizeof(table) / sizeof(table[0]); i++) {
-        uint16_t id = table[i].id;
-        body[n++] = (uint8_t)(id >> 8); body[n++] = (uint8_t)id;
         size_t len = strlen(table[i].name);
-        body[n++] = (uint8_t)len;
+        body[n++] = (uint8_t)(table[i].id >> 8);
+        body[n++] = (uint8_t)table[i].id;
+        memset(body + n, 0, 64);
         memcpy(body + n, table[i].name, len);
-        n += (uint32_t)len;
+        n += 64;
     }
     (void)v;
     send_frame(fd, 0x0010, body, n);
 
     /* 3. echo replies for subsequent requests */
     for (;;) {
-        if (recv_exact(fd, lhdr, 2) < 0) return;
-        frame_len = ((uint32_t)lhdr[0] << 8) | lhdr[1];
+        if (recv_exact(fd, lhdr, sizeof(lhdr)) < 0) return;
+        frame_len = ((uint32_t)lhdr[8] << 24) | ((uint32_t)lhdr[9] << 16) |
+                    ((uint32_t)lhdr[10] << 8) | lhdr[11];
         if (frame_len < 2 || frame_len > sizeof(frame)) return;
         if (recv_exact(fd, frame, frame_len) < 0) return;
         uint16_t rid = ((uint16_t)frame[0] << 8) | frame[1];

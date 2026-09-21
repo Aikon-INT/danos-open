@@ -5,8 +5,8 @@
  * FDio VPP src/vlibmemory/socket.c and the .api message definitions:
  *
  *   - Transport: AF_UNIX SOCK_STREAM (default /run/vpp/api.sock).
- *   - Framing: every message is prefixed with a 2-byte big-endian
- *     length field. The length counts the bytes that follow it.
+ *   - Framing: every message is prefixed with VPP's 16-byte msgbuf header;
+ *     data_len at offset 8 is a 4-byte network-order payload length.
  *   - Body layout: [u16 msg_id (big-endian)][message struct (packed,
  *     big-endian fields)].
  *   - Strings ("string name[N]" in .api files) are encoded as
@@ -69,12 +69,10 @@ bool     vpp_rd_bytes(vpp_reader_t *r, void *out, uint32_t n);
  * NULL on error */
 char    *vpp_rd_string(vpp_reader_t *r, uint32_t max_len);
 
-/* Socket framing: send body (msg_id + payload) with 2-byte BE length
- * prefix. Returns 0 on success. */
+/* Socket framing: send body (msg_id + payload) with VPP msgbuf header. */
 int vpp_wire_send_fd(int fd, uint16_t msg_id, const uint8_t *body, uint32_t body_len);
 
-/* Receive one framed message. buf must be large enough for the frame.
- * Returns frame length (including 2-byte prefix), or -1 on error. */
+/* Receive one framed message. buf must be large enough for the payload. */
 int vpp_wire_recv_fd(int fd, uint8_t *buf, uint32_t buf_size);
 
 /* name -> msg_id table (built from sockclnt_create_reply) */

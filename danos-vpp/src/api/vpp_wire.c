@@ -209,16 +209,18 @@ static bool recv_all(int fd, void *p, uint32_t n)
 int vpp_wire_send_fd(int fd, uint16_t msg_id, const uint8_t *body, uint32_t body_len)
 {
     if (fd < 0) return -1;
-    uint32_t frame_len = 2 + body_len;  /* msg_id + struct */
-    if (frame_len > 0xFFFF) return -1;
+    uint32_t data_len = 2 + body_len;  /* msg_id + struct */
+    if (data_len > 0xFFFFFFFFU - 16U) return -1;
 
-    uint8_t hdr[4];
-    hdr[0] = (uint8_t)(frame_len >> 8);
-    hdr[1] = (uint8_t)frame_len;
-    hdr[2] = (uint8_t)(msg_id >> 8);
-    hdr[3] = (uint8_t)msg_id;
-
-    if (!send_all(fd, hdr, 4)) return -1;
+    /* VPP msgbuf_t on 64-bit platforms: q pointer, data_len, gc timestamp. */
+    uint8_t hdr[16] = {0};
+    hdr[8] = (uint8_t)(data_len >> 24);
+    hdr[9] = (uint8_t)(data_len >> 16);
+    hdr[10] = (uint8_t)(data_len >> 8);
+    hdr[11] = (uint8_t)data_len;
+    if (!send_all(fd, hdr, sizeof(hdr))) return -1;
+    uint8_t id[2] = {(uint8_t)(msg_id >> 8), (uint8_t)msg_id};
+    if (!send_all(fd, id, sizeof(id))) return -1;
     if (body_len > 0 && body && !send_all(fd, body, body_len)) return -1;
     return 0;
 }
@@ -227,13 +229,13 @@ int vpp_wire_recv_fd(int fd, uint8_t *buf, uint32_t buf_size)
 {
     if (fd < 0 || !buf || buf_size < 4) return -1;
 
-    uint8_t lhdr[2];
-    if (!recv_all(fd, lhdr, 2)) return -1;
-    uint32_t frame_len = ((uint32_t)lhdr[0] << 8) | lhdr[1];
-    if (frame_len == 0 || frame_len > buf_size) return -1;
-
-    if (!recv_all(fd, buf, frame_len)) return -1;
-    return (int)frame_len + 2;
+    uint8_t hdr[16];
+    if (!recv_all(fd, hdr, sizeof(hdr))) return -1;
+    uint32_t data_len = ((uint32_t)hdr[8] << 24) | ((uint32_t)hdr[9] << 16) |
+                        ((uint32_t)hdr[10] << 8) | hdr[11];
+    if (data_len == 0 || data_len > buf_size) return -1;
+    if (!recv_all(fd, buf, data_len)) return -1;
+    return (int)data_len;
 }
 
 /* =========================================================================
