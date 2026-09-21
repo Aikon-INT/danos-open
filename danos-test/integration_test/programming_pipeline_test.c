@@ -225,7 +225,28 @@ int main(void)
     assert(diffs == 2);
     assert(danos_netlink_mock_route_count() == 2);
 
+    /* v0.16 dependency closure: deleting the NHGroup must withdraw every
+     * route that still references it, rather than leave stale forwarding. */
+    assert(danos_tx_begin(&tx, "pipe", NULL) == DANOS_OK);
+    assert(danos_nhgroup_delete(&tx, 1) == DANOS_OK);
+    danos_tx_commit(&tx);
+    attempted = failed = 0;
+    (void)danos_programming_run(&attempted, &failed);
+    assert(failed == 0);
+    assert(danos_netlink_mock_route_count() == 0);
+    assert(danos_programming_programmed_count(DANOS_OBJ_ROUTE) == 0);
+
     danos_reconciler_fini();
+
+    /* Restore the dependency for the VPP adapter half of this test. */
+    assert(danos_tx_begin(&tx, "pipe", NULL) == DANOS_OK);
+    danos_nhgroup_t restored_grp;
+    memset(&restored_grp, 0, sizeof(restored_grp));
+    restored_grp.id = 1;
+    restored_grp.nh_count = 1;
+    restored_grp.nh_ids[0] = 100;
+    assert(danos_nhgroup_create(&tx, &restored_grp) == DANOS_OK);
+    danos_tx_commit(&tx);
 
     assert(test_vpp_adapter_pipeline() == 0);
     danos_netlink_shutdown();
