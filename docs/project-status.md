@@ -162,6 +162,9 @@ The recommended order is:
    VPP restart replay logic is implemented. The acceptance harness now waits
    for `/run/vpp/api.sock`, reapplies the shared `0666` socket mode after a
    container restart, and fails explicitly if the socket remains unusable.
+   The bridge also forgets stale programmed-ledger entries after a VPP
+   handshake and replays desired routes; an idle health probe reproduced
+   replay with `attempted=1 failed=0`.
 4. Close Route/NH/NHGroup dependency deletion, tombstone, retry and rollback
    semantics, then repeat the lifecycle on Linux and VPP backends.
 5. Run the dedicated DPDK lane only on a host exposing PCI/VFIO, hugepages and

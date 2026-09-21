@@ -335,7 +335,7 @@ static void sweep_collect(danos_object_entry_t *e, void *user)
     /* still desired? */
     uint8_t probe[512];
     size_t psz = sizeof(probe);
-    if (g_default_store &&
+    if (!user && g_default_store &&
         danos_object_read(g_default_store, e->type, e->id,
                           probe, &psz) == DANOS_OK)
         return;   /* alive */
@@ -394,4 +394,18 @@ uint64_t danos_programming_sweep(uint64_t *failed)
     }
     if (failed) *failed = c.failed;
     return c.issued;
+}
+
+uint64_t danos_programming_forget_programmed(void)
+{
+    if (!g_programmed) return 0;
+    g_sweep_n = 0;
+    danos_object_iterate(g_programmed, sweep_collect, (void *)1);
+    uint64_t forgotten = 0;
+    for (unsigned i = 0; i < g_sweep_n; i++) {
+        if (danos_object_delete(g_programmed, g_sweep_ids[i].type,
+                                g_sweep_ids[i].id) == DANOS_OK)
+            forgotten++;
+    }
+    return forgotten;
 }

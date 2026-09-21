@@ -84,6 +84,10 @@ void danos_programming_get_stats(uint64_t *attempted, uint64_t *ok,
  * tombstone tracking, routes only). Returns deletions issued. */
 uint64_t danos_programming_sweep(uint64_t *failed);
 
+/* Forget backend programmed state after a dataplane restart while retaining
+ * desired objects so the next programming pass replays the full FIB. */
+uint64_t danos_programming_forget_programmed(void);
+
 #ifdef __cplusplus
 }
 #endif

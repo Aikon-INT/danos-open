@@ -46,6 +46,7 @@ static int recover_vpp_backend(bool enabled)
             uint64_t sweep_failed = 0;
             (void)danos_programming_sweep(&sweep_failed);
             if (sweep_failed != 0) return -1;
+            (void)danos_programming_forget_programmed();
             uint64_t attempted = 0, failed = 0;
             (void)danos_programming_run(&attempted, &failed);
             if (debug)
