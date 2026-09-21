@@ -15,6 +15,7 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUT_ISO="${1:-$PROJECT_ROOT/build/danos-open-live.iso}"
 GNMIC_SRC="${GNMIC:-/tmp/gnmic-bin}"
 WORK=/tmp/danos-iso-work
+APT_MIRROR="${APT_MIRROR:-https://repo.huaweicloud.com/debian}"
 
 mkdir -p "$WORK" "$PROJECT_ROOT/build"
 
@@ -23,6 +24,12 @@ docker rm -f danos-iso-build >/dev/null 2>&1 || true
 trap 'docker rm -f danos-iso-build >/dev/null 2>&1 || true' EXIT
 docker run -d --name danos-iso-build -v "$PROJECT_ROOT:/src" \
     -w /src debian:trixie-slim sh -c "
+cat > /etc/apt/sources.list.d/danos-mirror.sources <<EOF
+Types: deb
+URIs: $APT_MIRROR
+Suites: trixie trixie-updates
+Components: main contrib non-free non-free-firmware
+EOF
 apt-get update -qq >/dev/null 2>&1
 apt-get install -y -qq build-essential cmake busybox-static \
     linux-image-amd64 isolinux syslinux-common >/dev/null 2>&1
