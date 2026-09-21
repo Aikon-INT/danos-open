@@ -11,6 +11,7 @@ echo "==============================================="
 
 # network drivers (QEMU e1000 and virtio-net)
 insmod /modules/e1000.ko 2>/dev/null || echo "e1000 insmod failed"
+insmod /modules/failover.ko 2>/dev/null || true
 insmod /modules/net_failover.ko 2>/dev/null || true
 insmod /modules/virtio_pci.ko 2>/dev/null || true
 insmod /modules/virtio_net.ko 2>/dev/null || echo "virtio-net insmod failed"
