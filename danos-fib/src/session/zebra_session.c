@@ -16,6 +16,7 @@
 #include <errno.h>
 #include <time.h>
 #include <arpa/inet.h>
+#include <poll.h>
 
 #define ZAPI_SOCK_PATH "/var/run/frr/zserv.api"
 #define RECONNECT_INITIAL_MS 1000
@@ -242,6 +243,14 @@ int danos_zebra_session_recv_frr(uint8_t *buf, size_t buf_size, zapi_message_t *
 {
     if (g_session.state != ZEBRA_SESSION_CONNECTED) return -1;
     if (buf_size < 10) return -2;
+    struct pollfd pfd = { .fd = g_session.fd, .events = POLLIN };
+    int ready = poll(&pfd, 1, 500);
+    if (ready == 0) return 0;
+    if (ready < 0) return errno == EINTR ? 0 : -3;
+    if (pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) {
+        danos_zebra_session_disconnect();
+        return 0;
+    }
     ssize_t n = recv(g_session.fd, buf, 10, MSG_WAITALL);
     if (n <= 0) { danos_zebra_session_disconnect(); return 0; }
     if (n != 10) return -3;
