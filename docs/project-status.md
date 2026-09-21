@@ -4,7 +4,9 @@
 
 As of 2026-09-21, DANOS-Open has moved beyond proof of concept. The project has a runnable management-plane and state-reconciliation core, and is entering the engineering-convergence stage: turning the existing control-plane loop into a repeatable, privileged-environment-verified, deployable NOS baseline.
 
-The strongest capabilities are the DPA object/store/transaction foundation, WAL persistence, desired-to-programmed reconciliation, model-driven gNMI/CLI/NETCONF integration, the initial Linux and VPP backend adapters, observability, and automated protocol/quality tests. The main remaining risk is not the absence of another isolated feature; it is the incomplete proof of the end-to-end loop across FRR, DPA, a real dataplane, restart, deletion, and traffic forwarding.
+The strongest capabilities are the DPA object/store/transaction foundation, WAL persistence, desired-to-programmed reconciliation, model-driven gNMI/CLI/NETCONF integration, the Linux and VPP backend adapters, observability, and automated protocol/quality tests. The project is now in integration closure: the main remaining risk is the incomplete proof of the end-to-end loop across FRR, DPA, a real dataplane, restart, deletion, and traffic forwarding.
+
+The current mainline is clean and synchronized with `origin/main` at `869dd9b`; the complete deterministic suite passes 34/34. This is strong software evidence, but it is not a substitute for the privileged FRR-to-VPP route lifecycle evidence below.
 
 ## Evidence snapshot
 
@@ -42,9 +44,12 @@ The strongest capabilities are the DPA object/store/transaction foundation, WAL 
   0.4363 Mpps; it is below the VPP+DPDK target and is not treated as a VPP
   dataplane failure.
 - Real FRR zebra ZAPI reachability is verified in the trixie runtime and the
-  parser/mapper/e2e mock gates pass. The runnable `fib_live_bridge` now
-  provides the FRR→DPA→VPP transaction wiring, but live route install/withdraw
-  remains open until it runs in a fresh privileged FRR+VPP topology.
+  parser/mapper/e2e mock gates pass. `fib_live_bridge` now implements the
+  FRR v6 HELLO/session, replay requests, native route decoding, redistribute
+  route notification commands 30/31, DPA transaction wiring and VPP adapter
+  entry point. A real static route can be present in the FRR RIB, but the
+  current temporary topology has not yet produced a valid redistribute event;
+  live route install/withdraw therefore remains open.
 - The VPP image contains `dpdk_plugin.so`, but the active validation runtime
   does not load DPDK and exposes no PCI dataplane device. The VPP+DPDK lane is
   therefore environment-blocked, not a passed performance result.
@@ -126,15 +131,18 @@ Execution status:
 The project is now in integration closure rather than broad feature expansion.
 The recommended order is:
 
-1. Run `fib_live_bridge` in a fresh privileged Debian trixie topology with
-   FRR zebra, VPP and traffic endpoints. Verify route add, replace, ECMP add,
-   withdraw and packet reachability through `vppctl show ip fib`.
-2. Harden the bridge into a long-running `danos-fibd` service: ZAPI client
-   VPP reconnect, counters,
-   malformed-message isolation and restart recovery.
-3. Close Route/NH/NHGroup dependency deletion, tombstone, retry and rollback
+1. Replace ad-hoc containers with a fixed Debian trixie FRR+VPP compose/test
+   topology. Explicitly share `/run/vpp` and `/var/run/frr`, add readiness
+   checks, preserve logs on failure, and keep zebra/VPP/bridge alive together.
+2. Compare the bridge's outgoing frames and FRR `show zebra client` state with
+   the official `zclient_send_reg_requests()` behavior. Prove a single static
+   add/withdraw first, then BGP/OSPF and ECMP. A replay message is not counted
+   as route redistribution evidence.
+3. Verify each route event through DPA and `vppctl show ip fib`, then run real
+   traffic, reconnect and restart recovery.
+4. Close Route/NH/NHGroup dependency deletion, tombstone, retry and rollback
    semantics, then repeat the lifecycle on Linux and VPP backends.
-4. Run the dedicated DPDK lane only on a host exposing PCI/VFIO, hugepages and
+5. Run the dedicated DPDK lane only on a host exposing PCI/VFIO, hugepages and
    a loaded VPP DPDK plugin. The current software-forwarding result is a
    baseline, not DPDK evidence.
 
@@ -157,14 +165,14 @@ installation and withdrawal trace from ZAPI through DPA to the real VPP FIB,
 including traffic, restart and deletion evidence. OVS/P4, broad model growth
 and additional protocol work remain deferred until this loop is stable.
 
-The bridge now sends the FRR v6 `ZEBRA_HELLO` registration using the official
+The bridge sends the FRR v6 `ZEBRA_HELLO` registration using the official
 10-byte zserv header, and `zapi_parse_frr()` has a regression-tested parser for
-that header. The remaining protocol task is to connect the FRR-native route
-payload decoder to the live session; the core route/prefix/nexthop decoder,
-`zapi_dispatch_frr()` mapper and FRR receive framing are now regression-tested.
-The live session now requests router-id/interface replay and IPv4/IPv6 BGP and
-OSPF route notifications. The remaining gap is privileged route lifecycle
-evidence: real add/withdraw, ECMP, VPP FIB inspection and traffic.
+that header. The FRR-native route payload decoder is connected to the live
+session; redistribute route notifications use the distinct FRR v6 commands
+30/31 rather than the client-originated route commands 8/9. The live session
+requests router-id/interface replay and IPv4/IPv6 connected, static, OSPF and
+BGP notifications. The remaining gap is privileged route lifecycle evidence:
+real add/withdraw, ECMP, VPP FIB inspection and traffic.
 The Debian trixie FRR 10.3 runtime uses `/var/run/frr/zserv.api` as the
 default zserv socket; the session and acceptance harness now use that path,
 while explicit socket overrides remain supported.

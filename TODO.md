@@ -6,7 +6,7 @@
 - [ ] 统一 README、TODO、release notes、tag 与构建产物版本口径
 - [ ] 将当前 gNMI 修复拆分提交并完成协议回归
 - [ ] 完成 Route/NH/NHGroup 依赖删除、重试和 tombstone 验收
-- [x] 增加 Interface IPv4/IPv6 地址模型及 northbound 测试（Linux backend 已支持；VPP 地址消息仍待）
+- [x] 增加 Interface IPv4/IPv6 地址模型及 northbound 测试（Linux/VPP 地址消息均已有类型化覆盖）
 - [x] 增加特权集成测试 lane，并区分环境阻塞与代码失败（K4/K5 lane 已存在；本地缺少权限）
 - [x] 增加 TSAN 门禁和正式 fuzz target（TSAN CMake/CI 配置及 gNMI 并发验证已完成；libFuzzer target/CI 已加入，当前工作区未安装 clang）
 - [x] 完成真实磁盘 WAL fsync 基线（支持 `DANOS_WAL_BENCH_PATH`，CI 使用 `/var/tmp`）
@@ -37,8 +37,10 @@
 - [ ] 在全新 Debian trixie 特权 FRR+VPP 拓扑运行 `fib_live_bridge`，验收 route add/replace/ECMP/withdraw/traffic
 - [ ] 使用 `run_frr_zapi_vpp.sh` 固化真实 socket 验收日志与 VPP FIB/traffic 证据
 - [x] 增加 FRR ZAPI HELLO client registration（真实 10-byte v6 header；bridge 已支持 `--reconnect`、信号退出）
-- [x] 完成 FRR v6 live session 的 route subscription/notification 注册（router-id/interface replay、IPv4/IPv6 BGP/OSPF redistribute）
+- [x] 完成 FRR v6 live session 的 route subscription/notification 注册（router-id/interface replay、connected/static/OSPF/BGP redistribute；真实事件仍待特权拓扑证明）
 - [ ] 在特权拓扑验收真实 route add/withdraw、ECMP、VPP FIB 和报文转发
+- [ ] 固化 FRR+VPP 共享 socket 拓扑（readiness、健康检查、失败保留日志、bridge 生命周期）
+- [ ] 对照 FRR 官方 zclient registration 核对 HELLO/REDISTRIBUTE_ADD、client identity、bitmap 和错误响应
 - [ ] 完成 Route/NH/NHGroup 依赖删除、tombstone、retry、rollback 的 Linux/VPP 双 backend 验收（Linux mock 已覆盖 NH/NHGroup 撤回；VPP 现场仍待）
 - [ ] 在具备 PCI/VFIO、hugepages 和 DPDK plugin 的专用 runner 执行 VPP+DPDK 64B 单核/多核性能验收
 - [ ] 在 VMware VMXNET3 guest runner 验证 `15ad:07b0` PCI NIC、VFIO 绑定、VPP DPDK plugin 和 64B 流量性能
