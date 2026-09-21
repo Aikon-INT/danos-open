@@ -130,7 +130,7 @@ The recommended order is:
    FRR zebra, VPP and traffic endpoints. Verify route add, replace, ECMP add,
    withdraw and packet reachability through `vppctl show ip fib`.
 2. Harden the bridge into a long-running `danos-fibd` service: ZAPI client
-   registration, reconnect, VPP reconnect, signal handling, counters,
+   registration, VPP reconnect, counters,
    malformed-message isolation and restart recovery.
 3. Close Route/NH/NHGroup dependency deletion, tombstone, retry and rollback
    semantics, then repeat the lifecycle on Linux and VPP backends.

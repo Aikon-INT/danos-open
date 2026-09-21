@@ -111,7 +111,9 @@ danos_status_t zapi_dispatch(const zapi_message_t *msg, danos_tx_t *tx);
 int danos_zebra_session_init(void);
 int danos_zebra_session_set_socket(const char *path);
 int danos_zebra_session_connect(void);
+int danos_zebra_session_reconnect(void);
 void danos_zebra_session_disconnect(void);
+int danos_zebra_session_get_state(void);
 int danos_zebra_session_recv(uint8_t *buf, size_t buf_size, zapi_message_t *out);
 
 /* Individual mappers (exposed for unit testing) */

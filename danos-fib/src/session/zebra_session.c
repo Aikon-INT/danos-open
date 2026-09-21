@@ -158,7 +158,7 @@ int danos_zebra_session_recv(uint8_t *buf, size_t buf_size, zapi_message_t *out)
     return (int)total;
 }
 
-zebra_session_state_t danos_zebra_session_get_state(void)
+int danos_zebra_session_get_state(void)
 {
     return g_session.state;
 }
