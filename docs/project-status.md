@@ -149,7 +149,10 @@ The recommended order is:
    first, followed by BGP/OSPF and ECMP. A replay message is not counted as
    route redistribution evidence.
 3. Verify each route event through DPA and `vppctl show ip fib`, then run real
-   traffic, withdraw, reconnect and restart recovery. The bridge now invokes
+   traffic, withdraw, reconnect and restart recovery. A real FRR static
+   two-next-hop replay now produces a VPP FIB load-balance with two buckets
+   (the second path remains unresolved until its neighbor is present). The
+   bridge now invokes
    the programming sweep after each committed ZAPI transaction so deleted
    routes are withdrawn from VPP using the programmed ledger copy.
 4. Close Route/NH/NHGroup dependency deletion, tombstone, retry and rollback
