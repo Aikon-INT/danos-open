@@ -57,6 +57,16 @@ int danos_zebra_session_init(void)
     return 0;
 }
 
+int danos_zebra_session_set_socket(const char *path)
+{
+    if (!path || path[0] == '\0' || strlen(path) >= sizeof(g_session.sock_path))
+        return -1;
+    if (!g_initialized)
+        danos_zebra_session_init();
+    snprintf(g_session.sock_path, sizeof(g_session.sock_path), "%s", path);
+    return 0;
+}
+
 int danos_zebra_session_connect(void)
 {
     if (!g_initialized) danos_zebra_session_init();

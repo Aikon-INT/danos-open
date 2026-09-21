@@ -114,6 +114,12 @@ Execution status:
   path: remains the next integration milestone; the ZAPI mapper now normalizes
   multipath route messages into multi-member DPA NHGroups and has a regression
   test.
+- The runnable `build/danos-test/fib_live_bridge` now connects a real FRR zebra
+  socket, dispatches each message through the FIB mapper and DPA transaction,
+  and drives the VPP adapter. Use `--messages N` for deterministic acceptance.
+  The DPDK lane preflight is `danos-test/integration/run_vpp_dpdk_lane.sh`; it
+  reports SKIP when no PCI/VFIO device is exposed and never treats a kernel or
+  mock dataplane as DPDK evidence.
 
 ### v0.17 Backend semantic consistency
 

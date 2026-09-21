@@ -107,6 +107,13 @@ int  zapi_encode_bytes(zapi_encoder_t *e, const uint8_t *src, size_t n);
 /* Dispatch a parsed ZAPI message to the appropriate DPA operation. */
 danos_status_t zapi_dispatch(const zapi_message_t *msg, danos_tx_t *tx);
 
+/* Live zebra session API (FRR integration entry point). */
+int danos_zebra_session_init(void);
+int danos_zebra_session_set_socket(const char *path);
+int danos_zebra_session_connect(void);
+void danos_zebra_session_disconnect(void);
+int danos_zebra_session_recv(uint8_t *buf, size_t buf_size, zapi_message_t *out);
+
 /* Individual mappers (exposed for unit testing) */
 danos_status_t zapi_map_interface_set_mtu(const zapi_message_t *msg,
                                           danos_tx_t *tx);

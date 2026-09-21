@@ -42,6 +42,13 @@ add_executable(vpp_live_test vpp_live_test.c)
 target_link_libraries(vpp_live_test PRIVATE danos-vpp danos-core danos-dpa pthread)
 target_compile_options(vpp_live_test PRIVATE -UNDEBUG)
 
+# Live FRR zebra -> FIB/DPA -> VPP bridge.  This is intentionally a small
+# bounded runner so the same production wiring can be used by acceptance
+# harnesses without embedding a second protocol implementation in tests.
+add_executable(fib_live_bridge fib_live_bridge.c)
+target_link_libraries(fib_live_bridge PRIVATE danos-fib danos-vpp danos-core danos-dpa pthread)
+target_compile_options(fib_live_bridge PRIVATE -UNDEBUG)
+
 # v0.5 performance baseline: transaction scale + WAL recovery
 add_executable(txn_scale_test perf/txn_scale_test.c)
 target_link_libraries(txn_scale_test PRIVATE danos-core danos-dpa pthread)
