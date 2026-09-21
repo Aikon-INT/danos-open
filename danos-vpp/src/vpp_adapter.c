@@ -14,13 +14,38 @@
 #include <danos/dpa.h>
 #include "api/vpp_api.h"
 #include "api/vpp_msgs.h"
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+
+static uint32_t vpp_adapter_map_ifindex(uint32_t ifindex);
 
 static danos_status_t vpp_adapter_iface_up(danos_ifindex_t ifindex,
                                            bool up, void *user)
 {
     (void)user;
-    return vpp_msg_sw_interface_set_flags(ifindex, up);
+    return vpp_msg_sw_interface_set_flags(vpp_adapter_map_ifindex(ifindex), up);
+}
+
+/* FRR/Linux ifindexes are namespace-local and must not be assumed to equal
+ * VPP sw_if_index values.  The integration topology supplies a compact,
+ * explicit mapping such as DANOS_VPP_IFINDEX_MAP=2:1,3:2. */
+static uint32_t vpp_adapter_map_ifindex(uint32_t ifindex)
+{
+    const char *map = getenv("DANOS_VPP_IFINDEX_MAP");
+    if (!map || !*map) return ifindex;
+    const char *p = map;
+    while (*p) {
+        char *end = NULL;
+        unsigned long from = strtoul(p, &end, 10);
+        if (end == p || *end != ':') break;
+        p = end + 1;
+        unsigned long to = strtoul(p, &end, 10);
+        if (end == p) break;
+        if (from == ifindex && to <= UINT32_MAX) return (uint32_t)to;
+        p = (*end == ',') ? end + 1 : end;
+    }
+    return ifindex;
 }
 
 static danos_status_t vpp_adapter_iface_addr_one(const danos_iface_t *iface,
@@ -32,7 +57,7 @@ static danos_status_t vpp_adapter_iface_addr_one(const danos_iface_t *iface,
     prefix.addr.is_ipv6 = p->addr.af == DANOS_AF_IPV6;
     memcpy(prefix.addr.addr, p->addr.addr, prefix.addr.is_ipv6 ? 16 : 4);
     prefix.len = p->prefix_len;
-    return vpp_msg_sw_interface_add_del_address(iface->ifindex, is_add, &prefix);
+    return vpp_msg_sw_interface_add_del_address(vpp_adapter_map_ifindex(iface->ifindex), is_add, &prefix);
 }
 
 static danos_status_t vpp_adapter_iface_addr_set(const danos_iface_t *iface,
@@ -79,7 +104,13 @@ static danos_status_t vpp_adapter_route_add(const danos_resolved_route_t *res,
     memset(&nh, 0, sizeof(nh));
     nh.is_ipv6 = false;
     memcpy(nh.addr, res->gw, 4);
-    uint32_t nh_if = res->oif ? res->oif : 1;
+    uint32_t nh_if = res->oif ? vpp_adapter_map_ifindex(res->oif) : 1;
+
+    const char *debug = getenv("DANOS_VPP_DEBUG");
+    if (debug && debug[0] == '1')
+        fprintf(stderr, "vpp route add vrf=%u prefix-len=%u gw=%u.%u.%u.%u if=%u\n",
+                r->vrf_id, prefix.len, nh.addr[0], nh.addr[1], nh.addr[2],
+                nh.addr[3], nh_if);
 
     return vpp_msg_ip_route_add_del(true, r->vrf_id, &prefix,
                                     1, &nh, &nh_if);
