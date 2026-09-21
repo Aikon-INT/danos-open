@@ -113,8 +113,9 @@ Execution status:
   typed wire coverage and dual-stack adapter programming. The API client now
   reaches the live VPP route transaction, but the current software runtime
   rejects the FRR gateway route with `retval=-54` because it exposes only
-  `local0` and no usable dataplane interface/path. Real API-driven route,
-  ECMP and packet forwarding remain open for the dedicated topology.
+  `local0` and no usable dataplane interface/path. The dedicated software
+  topology now proves API-driven route, ECMP and packet forwarding; only the
+  separate DPDK hardware lane remains open.
 - FRR BGP/OSPF route installation and withdrawal through the full DPA/backend
   path: remains the next integration milestone; the ZAPI mapper now normalizes
   multipath route messages into multi-member DPA NHGroups and has a regression
@@ -123,8 +124,9 @@ Execution status:
   socket, dispatches each message through the FIB mapper and DPA transaction,
   and drives the VPP adapter. Use `--messages N` for deterministic acceptance.
   The DPDK lane preflight is `danos-test/integration/run_vpp_dpdk_lane.sh`; it
-  reports SKIP when no PCI/VFIO device is exposed and never treats a kernel or
-  mock dataplane as DPDK evidence.
+  reports SKIP when no PCI/user-space driver is exposed and never treats a
+  kernel or mock dataplane as DPDK evidence. It accepts `DPDK_PCI_DRIVER` as
+  `vfio-pci`, `uio_pci_generic` or `igb_uio` for compatibility testing.
 
 ## Next-stage implementation plan
 
@@ -170,14 +172,24 @@ present; the guest NIC must then be made available through the selected DPDK
 binding/VFIO setup.
 Containerized trixie runners can use
 `danos-test/integration/run_vpp_dpdk_container_lane.sh`; the current runner
-has PCI `0000:04:00.0`, VFIO and hugepages, but correctly skips because the
-runtime has no loaded DPDK plugin and the NIC is still bound to `r8169`.
+has PCI `0000:04:00.0`, VFIO and hugepages. That device is a Realtek
+`10ec:8168` RTL8111/8168; both a VFIO-bound and a historical
+`uio_pci_generic` probe reached DPDK but VPP rejected it as an unsupported PCI
+device, so changing the kernel binding does not make it a DPDK dataplane.
 The checked-in software validation image intentionally contains
 `plugins { plugin dpdk_plugin.so { disable } }`; enabling it is reserved for
 the dedicated PCI/VFIO runner and is not mixed into the software baseline.
 The dedicated startup template is
 `danos-test/integration/vpp-dpdk-startup.conf`; its BDF must match the
 runner-selected VFIO-bound device before launch.
+
+The archived DANOS dataplane confirms the historical fallback: its
+`vyatta-dataplane/tools/vplane-uio` selects `vfio-pci` when IOMMU groups are
+safe and falls back to `uio_pci_generic` when a group overlaps storage; the
+`dpdk-kmods` source separately packages `igb_uio` as DKMS. The same source
+contains VMXNET3 device support (`15ad:07b0`) and the image includes
+`librte-net-vmxnet3-25`, making a VMware VMXNET3 guest the correct remaining
+DPDK acceptance target.
 
 The repeatable socket-level driver is
 `danos-test/integration/run_frr_zapi_vpp.sh`. It classifies missing FRR/VPP

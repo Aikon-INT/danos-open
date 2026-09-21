@@ -34,7 +34,7 @@
 - [x] 3 节点 BGP/ECMP、OSPF 收敛与 ping 验收（F1/F2）
 - [x] WAL/DPA 重启恢复与 1000-object 事务规模验收
 - [x] 特权容器软件转发基线记录（0.4363 Mpps；VPP+DPDK 性能仍需专用 dataplane lane）
-- [ ] VPP+DPDK 专用 lane（已固化 preflight；当前 runtime 未加载 DPDK 且无 PCI dataplane device）
+- [ ] VPP+DPDK 专用 lane（已固化 preflight；RTL8168 经 VFIO/UIO 探测均无可用 DPDK PMD，需 VMXNET3/受支持 PCI NIC）
 
 ### 下一阶段执行顺序
 - [x] 在 Debian trixie 特权 FRR+VPP 拓扑运行 `fib_live_bridge`，验收 route add/ECMP/withdraw/traffic/replay
