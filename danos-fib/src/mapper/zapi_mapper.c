@@ -28,6 +28,22 @@ static danos_route_proto_t map_protocol(uint8_t zapi_proto)
     }
 }
 
+/* FRR route_types.h values are not the compact values used by the legacy
+ * clean-room test payload. Keep the mappings separate. */
+static danos_route_proto_t map_frr_protocol(uint8_t type)
+{
+    switch (type) {
+    case 1:  return DANOS_ROUTE_PROTO_KERNEL;
+    case 2:  return DANOS_ROUTE_PROTO_CONNECTED;
+    case 3:  return DANOS_ROUTE_PROTO_STATIC;
+    case 5:  return DANOS_ROUTE_PROTO_OSPF;
+    case 6:  return DANOS_ROUTE_PROTO_ISIS;
+    case 9:  return DANOS_ROUTE_PROTO_BGP;
+    case 11: return DANOS_ROUTE_PROTO_OSPF;
+    default: return DANOS_ROUTE_PROTO_UNSPEC;
+    }
+}
+
 /* =========================================================================
  * ZEBRA_ROUTE_ADD / ZEBRA_ROUTE_DELETE → DPA Route
  *
@@ -128,7 +144,7 @@ danos_status_t zapi_dispatch_frr(const zapi_message_t *msg, danos_tx_t *tx)
     route.prefix.addr.af = in.family == 2 ? DANOS_AF_IPV4 : DANOS_AF_IPV6;
     route.prefix.prefix_len = in.prefix_len;
     memcpy(route.prefix.addr.addr, in.prefix, in.family == 2 ? 4 : 16);
-    route.protocol = map_protocol(in.type);
+    route.protocol = map_frr_protocol(in.type);
     if (!add) return danos_route_delete(tx, route.vrf_id, route.prefix, route.protocol);
     if (in.nexthop_count > 0) {
         danos_nhgroup_t grp;

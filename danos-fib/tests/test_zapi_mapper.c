@@ -47,7 +47,7 @@ int test_map_frr_route_add(void)
 {
     /* Native FRR v6 payload: type=static, instance=0, flags=0,
      * message=0, SAFI unicast, IPv4 10.250.0.0/24, no nexthops. */
-    uint8_t payload[] = {1, 0,0, 0,0,0,0, 0,0,0,0, 1,2,24, 10,250,0};
+    uint8_t payload[] = {9, 0,0, 0,0,0,0, 0,0,0,0, 1,2,24, 10,250,0};
     zapi_message_t msg;
     memset(&msg, 0, sizeof(msg));
     msg.header.command = ZEBRA_FRR_ROUTE_ADD;
