@@ -24,6 +24,10 @@
 #define FRR_ZAPI_MARKER 254
 #define FRR_ZAPI_VERSION 6
 #define FRR_ZEBRA_HELLO 14
+#define FRR_ZEBRA_INTERFACE_ADD 0
+#define FRR_ZEBRA_ROUTE_ADD 7
+#define FRR_ZEBRA_ROUTER_ID_ADD 10
+#define FRR_ZEBRA_REDISTRIBUTE_ADD 5
 
 typedef enum {
     ZEBRA_SESSION_DISCONNECTED = 0,
@@ -125,6 +129,29 @@ int danos_zebra_session_register(uint8_t protocol, uint16_t instance)
         ssize_t n = send(g_session.fd, msg + sent, sizeof(msg) - sent, MSG_NOSIGNAL);
         if (n <= 0) { danos_zebra_session_disconnect(); return -1; }
         sent += (size_t)n;
+    }
+    /* Request router-id and interface replay, then route notifications for
+     * the protocol families used by the v0.16 L3 acceptance. */
+    uint8_t req[32];
+    uint16_t req_len;
+    uint16_t afi;
+    for (uint16_t family = 1; family <= 2; family++) {
+        req_len = htons(12);
+        memcpy(req, &req_len, 2); req[2] = FRR_ZAPI_MARKER; req[3] = FRR_ZAPI_VERSION;
+        memcpy(req + 4, &vrf, 4); afi = htons(family);
+        uint16_t cmd = htons(FRR_ZEBRA_ROUTER_ID_ADD);
+        memcpy(req + 8, &cmd, 2); memcpy(req + 10, &afi, 2);
+        if (send(g_session.fd, req, 12, MSG_NOSIGNAL) != 12) return -1;
+        req_len = htons(10); memcpy(req, &req_len, 2);
+        cmd = htons(FRR_ZEBRA_INTERFACE_ADD); memcpy(req + 8, &cmd, 2);
+        if (send(g_session.fd, req, 10, MSG_NOSIGNAL) != 10) return -1;
+        for (uint8_t route_type = 2; route_type <= 3; route_type++) {
+            req_len = htons(14); memcpy(req, &req_len, 2);
+            cmd = htons(FRR_ZEBRA_REDISTRIBUTE_ADD); memcpy(req + 8, &cmd, 2);
+            req[10] = (uint8_t)family; req[11] = route_type;
+            uint16_t zero = 0; memcpy(req + 12, &zero, 2);
+            if (send(g_session.fd, req, 14, MSG_NOSIGNAL) != 14) return -1;
+        }
     }
     return 0;
 }

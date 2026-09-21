@@ -155,8 +155,9 @@ The bridge now sends the FRR v6 `ZEBRA_HELLO` registration using the official
 that header. The remaining protocol task is to connect the FRR-native route
 payload decoder to the live session; the core route/prefix/nexthop decoder,
 `zapi_dispatch_frr()` mapper and FRR receive framing are now regression-tested.
-The remaining live gap is route notification/subscription registration and
-privileged route lifecycle evidence.
+The live session now requests router-id/interface replay and IPv4/IPv6 BGP and
+OSPF route notifications. The remaining gap is privileged route lifecycle
+evidence: real add/withdraw, ECMP, VPP FIB inspection and traffic.
 
 ### v0.17 Backend semantic consistency
 
