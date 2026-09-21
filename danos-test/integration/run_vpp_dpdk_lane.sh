@@ -2,9 +2,14 @@
 # VPP+DPDK dedicated lane preflight. Missing PCI/VFIO is an explicit SKIP.
 set -euo pipefail
 VPP_BIN="${VPP_BIN:-}"
+VPPCTL="${VPPCTL:-}"
 if test -z "$VPP_BIN"; then
     VPP_BIN=$(command -v vpp 2>/dev/null || true)
     test -n "$VPP_BIN" || VPP_BIN=/opt/vpp/build-root/install-vpp-native/vpp/bin/vpp
+fi
+if test -z "$VPPCTL"; then
+    VPPCTL=$(command -v vppctl 2>/dev/null || true)
+    test -n "$VPPCTL" || VPPCTL=/opt/vpp/build-root/install-vpp-native/vpp/bin/vppctl
 fi
 PLUGIN="${VPP_DPDK_PLUGIN:-/usr/lib/x86_64-linux-gnu/vpp_plugins/dpdk_plugin.so}"
 test -r "$PLUGIN" || PLUGIN=/opt/vpp/build-root/install-vpp-native/vpp/lib/x86_64-linux-gnu/vpp_plugins/dpdk_plugin.so
@@ -37,7 +42,8 @@ if test -n "$TARGET_BDF"; then
 fi
 grep -Eq 'HugePages_Total:[[:space:]]+[1-9]' /proc/meminfo || { echo "[SKIP] hugepages not configured"; exit 2; }
 test -S /run/vpp/api.sock || { echo "[FAIL] VPP API socket unavailable"; exit 1; }
-vppctl show plugins | grep -qi dpdk || { echo "[FAIL] VPP running without DPDK plugin"; exit 1; }
+test -x "$VPPCTL" || { echo "[FAIL] vppctl unavailable: $VPPCTL"; exit 1; }
+"$VPPCTL" show plugins | grep -qi dpdk || { echo "[FAIL] VPP running without DPDK plugin"; exit 1; }
 echo "[PASS] DPDK plugin, PCI/VFIO and hugepage preflight passed"
 test "$VMXNET3_COUNT" -gt 0 && echo "[INFO] VMXNET3 PCI device detected (15ad:07b0)"
 echo "[INFO] traffic generator must now verify the configured 64-byte single-core target"
