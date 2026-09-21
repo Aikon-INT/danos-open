@@ -78,13 +78,13 @@ static void serve_client(int fd)
     uint32_t v;
     v = 0x1234; memcpy(body + n, &((uint8_t[4]){0,0,0x12,0x34})[0], 0); /* placeholder */
     /* client_index u32 BE */
-    body[n++] = 0; body[n++] = 0; body[n++] = 0x12; body[n++] = 0x34;
+    body[n++] = 0; body[n++] = 0; body[n++] = 0; body[n++] = 0;
     /* context u32 BE */
     body[n++] = 0; body[n++] = 0; body[n++] = 0; body[n++] = 1;
     /* response i32 = 0 */
     body[n++] = 0; body[n++] = 0; body[n++] = 0; body[n++] = 0;
     /* index u32 */
-    body[n++] = 0; body[n++] = 0; body[n++] = 0; body[n++] = 0;
+    body[n++] = 0; body[n++] = 0; body[n++] = 0x12; body[n++] = 0x34;
     /* count u16 */
     body[n++] = 0; body[n++] = (uint8_t)(sizeof(table) / sizeof(table[0]));
     for (size_t i = 0; i < sizeof(table) / sizeof(table[0]); i++) {

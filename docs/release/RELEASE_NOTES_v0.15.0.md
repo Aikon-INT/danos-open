@@ -35,6 +35,9 @@ an unqualified local pass.
   programming, with protocol wire-layout regression coverage.
 - Verified real Debian trixie VPP CLI recursive two-path ECMP installation,
   two-bucket load-balancing state, and route withdrawal.
+- Fixed VPP 26.10 socket handshake/runtime message-table compatibility and
+  verified API-driven control ping, interface flags, ECMP route add/delete,
+  and stat-segment access.
 - Local workspace-filesystem baseline: 1000-object WAL write 3195.0 ms and
   recovery 17.4 ms; CI remains the authoritative `/var/tmp` real-filesystem
   measurement.
@@ -53,7 +56,6 @@ environmental rather than code failures.
 
 ## Remaining roadmap work after the v0.15 CTest gate
 
-- VPP 26.10 binary-API socket framing/handshake compatibility, followed by
-  API-driven interface-address forwarding and ECMP interop acceptance.
+- Packet-level VPP interface-address forwarding and ECMP traffic acceptance.
 - Route/next-hop/next-hop-group dependency deletion acceptance.
 - v0.16 ECMP real-dataplane forwarding and FRR BGP/OSPF full-path evidence.

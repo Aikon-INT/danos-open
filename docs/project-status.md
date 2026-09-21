@@ -26,10 +26,9 @@ The strongest capabilities are the DPA object/store/transaction foundation, WAL 
   local host still intentionally has no clang installation.
 - The repository now contains the trixie source-build and privileged runtime
   validation assets; no bookworm VPP packages are mixed into trixie.
-- Real VPP CLI validation proves a two-path recursive IPv4 ECMP FIB entry with
-  a two-bucket load-balance and clean route withdrawal. API-driven forwarding
-  remains blocked because the current DANOS binary-API socket framing/
-  handshake is rejected by VPP 26.10.
+- Real VPP CLI and API validation prove a two-path IPv4 ECMP FIB lifecycle:
+  API handshake, control ping, interface flags, route add/delete, stat segment,
+  and CLI two-bucket load-balance inspection all pass against VPP 26.10.
 
 ## Capability maturity
 
@@ -40,7 +39,7 @@ The strongest capabilities are the DPA object/store/transaction foundation, WAL 
 | Desired/programmed reconciliation | Working baseline | Complete dependency deletion semantics |
 | gNMI/CLI/NETCONF | Strong prototype | Multi-stream edge cases, in-process TLS, long-term protocol maintenance |
 | Linux backend | Real backend verified | Broader topology and recovery acceptance |
-| VPP backend | Runtime/conformance and interface-address baseline verified | Real forwarding acceptance |
+| VPP backend | Runtime/conformance/API ECMP baseline verified | Packet-forwarding traffic proof |
 | FRR integration | FIB/ZAPI foundation | BFD translation and multi-protocol topology proof |
 | Data model | Route/VRF/NH plus primary interface IPv4/IPv6 model | VLAN, multi-address, tunnel/EVPN models |
 | Observability/security | Initial implementation | Operational semantics, HA and upgrade evidence |
@@ -90,8 +89,8 @@ Execution status:
 - VPP runtime boot, API/stat sockets and DPA conformance: verified in Debian
   trixie source-built runtime. Interface-address add/delete messages now have
   typed wire coverage and dual-stack adapter programming; real forwarding
-  remains pending until binary-API socket compatibility is fixed. CLI-based
-  ECMP FIB installation and withdrawal is verified separately.
+  and API-driven ECMP route installation/withdrawal are verified. Packet-level
+  forwarding traffic proof remains pending.
 - FRR BGP/OSPF route installation and withdrawal through the full DPA/backend
   path: remains the next integration milestone; the ZAPI mapper now normalizes
   multipath route messages into multi-member DPA NHGroups and has a regression

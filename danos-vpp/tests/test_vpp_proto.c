@@ -104,8 +104,8 @@ static int test_wire_layouts(void)
     int off = 29;
     assert(b[off + 3] == 1);             /* sw_if_index = 1 */
     assert(b[off + 12] == 1);            /* weight = 1 */
-    assert(b[off + 16] == 0);            /* nh proto ip4 */
-    assert(b[off + 17] == 192);          /* nh addr first byte */
+    assert(b[off + 22] == 0);            /* nh proto ip4 */
+    assert(b[off + 26] == 192);          /* nh addr first byte */
 
     /* sw_interface_add_del_address: index + is_add + del_all + address + prefix len */
     vpp_prefix_t ap = { .addr = { .is_ipv6 = false, .addr = {192,0,2,1} },

@@ -10,13 +10,13 @@
 /* fib_path_nh is a union sized by its largest member: address_union
  * (u8[16] for ip6). Members at byte 0..15: address[16], via_label
  * (u32 @0), obj_id (u32 @0), classify_table_index (u32 @0). */
-#define FIB_PATH_NH_SIZE 16
+#define FIB_PATH_NH_SIZE 28
 /* fib_mpls_label { u8 is_uniform; u32 label; u8 ttl; u8 exp; } packed = 7 */
 #define FIB_MPLS_LABEL_SIZE 7
 #define FIB_PATH_MAX_LABELS 16
 
 /* fib_path fixed size (see vpp_msgs.h for layout) */
-#define FIB_PATH_SIZE (4 + 4 + 4 + 1 + 1 + 1 + 1 + 1 + \
+#define FIB_PATH_SIZE (4 + 4 + 4 + 1 + 1 + 4 + 4 + 4 + \
                        FIB_PATH_NH_SIZE + 1 + \
                        FIB_PATH_MAX_LABELS * FIB_MPLS_LABEL_SIZE)
 
@@ -55,7 +55,7 @@ static void encode_prefix(vpp_buf_t *b, const vpp_prefix_t *p)
 static void encode_fib_path(vpp_buf_t *b, uint32_t sw_if_index, uint32_t table_id,
                             const vpp_ip_t *nh)
 {
-    uint8_t nhbuf[FIB_PATH_NH_SIZE] = {0};
+    uint8_t nhbuf[16] = {0};
     if (nh) {
         uint32_t n = nh->is_ipv6 ? 16 : 4;
         memcpy(nhbuf, nh->addr, n);
@@ -65,11 +65,13 @@ static void encode_fib_path(vpp_buf_t *b, uint32_t sw_if_index, uint32_t table_i
     vpp_buf_put_u32(b, 0);             /* rpf_id */
     vpp_buf_put_u8(b, 1);              /* weight */
     vpp_buf_put_u8(b, 0);              /* preference */
-    vpp_buf_put_u8(b, FIB_PATH_TYPE_API_NORMAL);  /* type */
-    vpp_buf_put_u8(b, 0);              /* flags */
-    vpp_buf_put_u8(b, nh && nh->is_ipv6 ? FIB_PATH_NH_PROTO_API_IP6
-                                        : FIB_PATH_NH_PROTO_API_IP4);
-    vpp_buf_put_bytes(b, nhbuf, FIB_PATH_NH_SIZE);
+    vpp_buf_put_u32(b, FIB_PATH_TYPE_API_NORMAL);  /* type enum */
+    vpp_buf_put_u32(b, 0);              /* flags enum */
+    vpp_buf_put_u32(b, nh && nh->is_ipv6 ? FIB_PATH_NH_PROTO_API_IP6
+                                         : FIB_PATH_NH_PROTO_API_IP4);
+    vpp_buf_put_bytes(b, nhbuf, sizeof(nhbuf));
+    uint8_t nh_zero[12] = {0};           /* via_label, obj_id, classify index */
+    vpp_buf_put_bytes(b, nh_zero, sizeof(nh_zero));
     vpp_buf_put_u8(b, 0);              /* n_labels */
     vpp_buf_t pad = {0};
     (void)pad;

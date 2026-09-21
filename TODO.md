@@ -19,7 +19,7 @@
       `run_v0.4_interop.sh --with-vpp`;adapter 已就位
       (danos_backend_ops "vpp",v0.11)
 - [x] 真实 VPP CLI 双路径 ECMP FIB 安装/核查/撤销
-- [ ] 修复 VPP 26.10 binary-API socket framing/handshake，完成 API 驱动真实转发验收
+- [x] 修复 VPP 26.10 binary-API socket framing/handshake，完成 API 驱动 ECMP 路由增删验收
 
 ## 功能
 - [x] v0.16 ECMP northbound route representation（gNMI `gateways[]` + NHGroup；真实 dataplane 多路径仍待）

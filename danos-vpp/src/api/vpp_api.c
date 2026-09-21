@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <unistd.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -75,6 +76,16 @@ typedef struct {
 static vpp_api_ctx_impl_t g_ctx;
 static vpp_mock_stat_t    g_mock_stats[VPP_MOCK_STAT_MAX];
 static bool g_initialized = false;
+
+static void vpp_strip_crc_suffix(char *name)
+{
+    size_t n = strlen(name);
+    if (n < 9 || name[n - 9] != '_') return;
+    for (size_t i = n - 8; i < n; i++)
+        if (!isxdigit((unsigned char)name[i])) return;
+    name[n - 9] = 0;
+}
+
 
 static uint64_t now_ns(void)
 {
@@ -164,26 +175,26 @@ static int vpp_handshake(void)
     vpp_buf_free(&body);
     if (rc != 0) return -1;
 
-    uint8_t rbuf[64 * 1024];
+    /* VPP 26.10 advertises ~2000 messages; the table is >128 KiB. */
+    uint8_t rbuf[512 * 1024];
     int n = vpp_wire_recv_fd(g_ctx.msg_fd, rbuf, sizeof(rbuf));
     if (n <= 2) return -1;
 
     uint32_t frame_len = (uint32_t)n;
     uint16_t reply_id = ((uint16_t)rbuf[0] << 8) | rbuf[1];
-    if (reply_id != VPP_MSG_ID_SOCKCLNT_CREATE + 1) {
-        /* reply ids follow request ids for the socket control range */
-        return -1;
-    }
+    /* VPP assigns socket-control reply IDs from the runtime API table; they
+     * are not necessarily request_id + 1 (26.10 returns a dynamic ID). */
+    if (reply_id == 0) return -1;
 
     /* sockclnt_create_reply:
      *   u32 client_index; u32 context; i32 response; u32 index;
      *   u16 count; message_table[count] { u16 msg_id; string name; } */
     vpp_reader_t r;
     vpp_reader_init(&r, rbuf + 2, frame_len);
-    uint32_t client_index = vpp_rd_u32(&r);
+    (void)vpp_rd_u32(&r);             /* client_index is unused for sockets */
     (void)vpp_rd_u32(&r);   /* context */
     int32_t  response = (int32_t)vpp_rd_u32(&r);
-    (void)vpp_rd_u32(&r);   /* index */
+    uint32_t index = vpp_rd_u32(&r); /* socket registration handle */
     uint16_t count = vpp_rd_u16(&r);
     if (!vpp_reader_ok(&r) || response != 0) return -1;
 
@@ -193,10 +204,11 @@ static int vpp_handshake(void)
         uint8_t name[64] = {0};
         if (!vpp_rd_bytes(&r, name, sizeof(name)) || !vpp_reader_ok(&r)) break;
         name[sizeof(name) - 1] = 0;
+        vpp_strip_crc_suffix((char *)name);
         vpp_msg_table_add(&g_ctx.msg_table, (char *)name, msg_id);
     }
 
-    g_ctx.client_index = client_index;
+    g_ctx.client_index = index;
     return 0;
 }
 
@@ -343,7 +355,9 @@ int danos_vpp_api_transact(uint16_t msg_id, const uint8_t *payload,
         uint16_t reply_id = ((uint16_t)rbuf[0] << 8) | rbuf[1];
         vpp_reader_t r;
         vpp_reader_init(&r, rbuf + 2, (uint32_t)n - 2);
-        uint32_t ctx = vpp_rd_u32(&r);  /* replies start with context */
+        vpp_reader_t cr;
+        vpp_reader_init(&cr, rbuf + 2, (uint32_t)n - 2);
+        uint32_t ctx = vpp_rd_u32(&cr);  /* replies start with context */
         if (ctx == g_ctx.context) {
             if (reply) {
                 uint32_t copy = (uint32_t)n;

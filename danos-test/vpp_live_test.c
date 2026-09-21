@@ -57,6 +57,30 @@ int main(void)
                "(verify with: vppctl show int)\n");
     }
 
+    /* V3: exercise the real API route path with two equal-cost members. */
+    vpp_prefix_t route = { .addr = { .is_ipv6 = false,
+                                      .addr = {198, 51, 100, 0} },
+                           .len = 24 };
+    vpp_ip_t nhs[2] = {
+        { .is_ipv6 = false, .addr = {10, 0, 0, 1} },
+        { .is_ipv6 = false, .addr = {10, 0, 0, 2} },
+    };
+    uint32_t nh_ifs[2] = {1, 2};
+    st = vpp_msg_ip_route_add_del(true, 0, &route, 2, nhs, nh_ifs);
+    if (st != DANOS_OK) {
+        fprintf(stderr, "V3 FAIL: ECMP route add -> %s\n", danos_status_str(st));
+        failed++;
+    } else {
+        printf("V3 API ECMP route add accepted (2 paths)\n");
+        st = vpp_msg_ip_route_add_del(false, 0, &route, 2, nhs, nh_ifs);
+        if (st != DANOS_OK) {
+            fprintf(stderr, "V3 FAIL: ECMP route delete -> %s\n", danos_status_str(st));
+            failed++;
+        } else {
+            printf("V3 API ECMP route delete accepted\n");
+        }
+    }
+
     if (danos_vpp_api_connect_stat() != 0) {
         fprintf(stderr, "V4 WARN: stat segment connect failed "
                 "(check statseg socket-name in startup.conf)\n");
