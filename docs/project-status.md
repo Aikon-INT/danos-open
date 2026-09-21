@@ -36,6 +36,11 @@ The strongest capabilities are the DPA object/store/transaction foundation, WAL 
   OSPF reaches Full/2-Way; the existing OSPF/LDP acceptance also confirms
   ldpd is running and configured. Full FRR ZAPI → DPA → VPP route lifecycle
   remains the integration gap.
+- The 3-node FRR BGP/ECMP and OSPF convergence scripts pass with ping
+  reachability. WAL/DPA restart recovery V3/V4 and the 1000-object transaction
+  scale test also pass. The privileged software forwarding baseline records
+  0.4363 Mpps; it is below the VPP+DPDK target and is not treated as a VPP
+  dataplane failure.
 
 ## Capability maturity
 
@@ -47,7 +52,7 @@ The strongest capabilities are the DPA object/store/transaction foundation, WAL 
 | gNMI/CLI/NETCONF | Strong prototype | Multi-stream edge cases, in-process TLS, long-term protocol maintenance |
 | Linux backend | Real backend verified | Broader topology and recovery acceptance |
 | VPP backend | Runtime/conformance/API ECMP and packet-forwarding verified | Traffic scale and recovery |
-| FRR integration | ZAPI plus BGP/OSPF topology baseline verified | Full ZAPI → DPA → backend lifecycle and BFD |
+| FRR integration | ZAPI plus BGP/OSPF topology baseline verified | Live zebra ZAPI → DPA → backend lifecycle and BFD |
 | Data model | Route/VRF/NH plus primary interface IPv4/IPv6 model | VLAN, multi-address, tunnel/EVPN models |
 | Observability/security | Initial implementation | Operational semantics, HA and upgrade evidence |
 | OVS/P4/platform | Intentionally not started | Defer until backend contract is frozen |

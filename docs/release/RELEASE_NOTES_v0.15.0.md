@@ -42,6 +42,10 @@ an unqualified local pass.
   af_packet interfaces between isolated Linux namespaces.
 - Verified Debian trixie FRR BGP EVPN Established and OSPF neighbor baseline;
   OSPF/LDP acceptance confirms ldpd process/config readiness.
+- Verified 3-node FRR BGP/ECMP and OSPF convergence with ping reachability,
+  WAL/DPA restart recovery, and 1000-object transaction scale. Recorded a
+  privileged software forwarding baseline of 0.4363 Mpps; VPP+DPDK performance
+  remains a separate dataplane lane.
 - Local workspace-filesystem baseline: 1000-object WAL write 3195.0 ms and
   recovery 17.4 ms; CI remains the authoritative `/var/tmp` real-filesystem
   measurement.

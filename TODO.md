@@ -26,6 +26,9 @@
 - [x] v0.16 ECMP northbound route representation（gNMI `gateways[]` + NHGroup；真实 dataplane 多路径仍待）
 - [x] FRR trixie BGP EVPN 邻居与 OSPF 邻居特权拓扑基线验收
 - [ ] v0.16 FRR BGP/OSPF → ZAPI → DPA → backend route install/withdraw 全链路验收
+- [x] 3 节点 BGP/ECMP、OSPF 收敛与 ping 验收（F1/F2）
+- [x] WAL/DPA 重启恢复与 1000-object 事务规模验收
+- [x] 特权容器软件转发基线记录（0.4363 Mpps；VPP+DPDK 性能仍需专用 dataplane lane）
 - [ ] gNMI Subscribe STREAM 多订阅状态机(单连接多流;
       threading.md 已列为候选)
 - [ ] bfdd 翻译层(ADR-0006):DPA BFD 对象 ↔ frr bfdd 配置
