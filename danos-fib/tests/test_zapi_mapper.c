@@ -50,7 +50,7 @@ int test_map_frr_route_add(void)
     uint8_t payload[] = {9, 0,0, 0,0,0,0, 0,0,0,0, 1,2,24, 10,250,0};
     zapi_message_t msg;
     memset(&msg, 0, sizeof(msg));
-    msg.header.command = ZEBRA_FRR_ROUTE_ADD;
+    msg.header.command = ZEBRA_FRR_REDISTRIBUTE_ROUTE_ADD;
     msg.header.version = ZAPI_VERSION;
     msg.vrf_id = 0;
     msg.payload = payload;

@@ -133,8 +133,8 @@ danos_status_t zapi_map_route(const zapi_message_t *msg, danos_tx_t *tx,
 danos_status_t zapi_dispatch_frr(const zapi_message_t *msg, danos_tx_t *tx)
 {
     if (!msg || !tx) return DANOS_ERR_INVALID_ARG;
-    bool add = msg->header.command == ZEBRA_FRR_ROUTE_ADD;
-    if (!add && msg->header.command != ZEBRA_FRR_ROUTE_DELETE)
+    bool add = msg->header.command == ZEBRA_FRR_REDISTRIBUTE_ROUTE_ADD;
+    if (!add && msg->header.command != ZEBRA_FRR_REDISTRIBUTE_ROUTE_DELETE)
         return DANOS_ERR_NOT_SUPPORTED;
     zapi_frr_route_t in;
     if (zapi_decode_frr_route(msg, &in) != 0) return DANOS_ERR_INVALID_ARG;
