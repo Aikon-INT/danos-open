@@ -42,9 +42,9 @@ The strongest capabilities are the DPA object/store/transaction foundation, WAL 
   0.4363 Mpps; it is below the VPP+DPDK target and is not treated as a VPP
   dataplane failure.
 - Real FRR zebra ZAPI reachability is verified in the trixie runtime and the
-  parser/mapper/e2e mock gates pass. A production FRR→DPA→VPP daemon wiring
-  entry point is not yet present, so the live route install/withdraw claim is
-  intentionally still open.
+  parser/mapper/e2e mock gates pass. The runnable `fib_live_bridge` now
+  provides the FRR→DPA→VPP transaction wiring, but live route install/withdraw
+  remains open until it runs in a fresh privileged FRR+VPP topology.
 - The VPP image contains `dpdk_plugin.so`, but the active validation runtime
   does not load DPDK and exposes no PCI dataplane device. The VPP+DPDK lane is
   therefore environment-blocked, not a passed performance result.
@@ -59,7 +59,7 @@ The strongest capabilities are the DPA object/store/transaction foundation, WAL 
 | gNMI/CLI/NETCONF | Strong prototype | Multi-stream edge cases, in-process TLS, long-term protocol maintenance |
 | Linux backend | Real backend verified | Broader topology and recovery acceptance |
 | VPP backend | Runtime/conformance/API ECMP and packet-forwarding verified | Traffic scale and recovery |
-| FRR integration | Live zebra reachability plus ZAPI/BGP/OSPF baseline | Daemonized ZAPI → DPA → backend lifecycle and BFD |
+| FRR integration | Live bridge entry point plus ZAPI/BGP/OSPF baseline | Privileged route lifecycle, daemon hardening and BFD |
 | Data model | Route/VRF/NH plus primary interface IPv4/IPv6 model | VLAN, multi-address, tunnel/EVPN models |
 | Observability/security | Initial implementation | Operational semantics, HA and upgrade evidence |
 | OVS/P4/platform | Intentionally not started | Defer until backend contract is frozen |
@@ -120,6 +120,28 @@ Execution status:
   The DPDK lane preflight is `danos-test/integration/run_vpp_dpdk_lane.sh`; it
   reports SKIP when no PCI/VFIO device is exposed and never treats a kernel or
   mock dataplane as DPDK evidence.
+
+## Next-stage implementation plan
+
+The project is now in integration closure rather than broad feature expansion.
+The recommended order is:
+
+1. Run `fib_live_bridge` in a fresh privileged Debian trixie topology with
+   FRR zebra, VPP and traffic endpoints. Verify route add, replace, ECMP add,
+   withdraw and packet reachability through `vppctl show ip fib`.
+2. Harden the bridge into a long-running `danos-fibd` service: ZAPI client
+   registration, reconnect, VPP reconnect, signal handling, counters,
+   malformed-message isolation and restart recovery.
+3. Close Route/NH/NHGroup dependency deletion, tombstone, retry and rollback
+   semantics, then repeat the lifecycle on Linux and VPP backends.
+4. Run the dedicated DPDK lane only on a host exposing PCI/VFIO, hugepages and
+   a loaded VPP DPDK plugin. The current software-forwarding result is a
+   baseline, not DPDK evidence.
+
+The v0.16 Definition of Done is a reproducible FRR BGP/OSPF route
+installation and withdrawal trace from ZAPI through DPA to the real VPP FIB,
+including traffic, restart and deletion evidence. OVS/P4, broad model growth
+and additional protocol work remain deferred until this loop is stable.
 
 ### v0.17 Backend semantic consistency
 

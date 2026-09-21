@@ -32,6 +32,13 @@
 - [x] WAL/DPA 重启恢复与 1000-object 事务规模验收
 - [x] 特权容器软件转发基线记录（0.4363 Mpps；VPP+DPDK 性能仍需专用 dataplane lane）
 - [ ] VPP+DPDK 专用 lane（已固化 preflight；当前 runtime 未加载 DPDK 且无 PCI dataplane device）
+
+### 下一阶段执行顺序
+- [ ] 在全新 Debian trixie 特权 FRR+VPP 拓扑运行 `fib_live_bridge`，验收 route add/replace/ECMP/withdraw/traffic
+- [ ] 增加 ZAPI client registration、重连、VPP 重连、信号处理、计数器和 restart recovery
+- [ ] 完成 Route/NH/NHGroup 依赖删除、tombstone、retry、rollback 的 Linux/VPP 双 backend 验收
+- [ ] 在具备 PCI/VFIO、hugepages 和 DPDK plugin 的专用 runner 执行 VPP+DPDK 64B 单核/多核性能验收
+- [ ] v0.16 收敛前冻结 OVS/P4、BFD 及大范围模型扩展，避免主链路分散
 - [ ] gNMI Subscribe STREAM 多订阅状态机(单连接多流;
       threading.md 已列为候选)
 - [ ] bfdd 翻译层(ADR-0006):DPA BFD 对象 ↔ frr bfdd 配置

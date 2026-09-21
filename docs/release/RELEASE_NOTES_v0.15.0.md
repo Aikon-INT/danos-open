@@ -46,9 +46,10 @@ an unqualified local pass.
   WAL/DPA restart recovery, and 1000-object transaction scale. Recorded a
   privileged software forwarding baseline of 0.4363 Mpps; VPP+DPDK performance
   remains a separate dataplane lane.
-- Verified live FRR zebra ZAPI socket reachability. The release does not claim
-  full live ZAPI-to-DPA-to-VPP route lifecycle until a daemonized FIB adapter
-  wiring entry point is added.
+- Verified live FRR zebra ZAPI socket reachability and added the runnable
+  `fib_live_bridge` FRR→DPA→VPP transaction entry point. The release still
+  does not claim full live route lifecycle until this entry point is exercised
+  in a fresh privileged FRR+VPP topology.
 - Local workspace-filesystem baseline: 1000-object WAL write 3195.0 ms and
   recovery 17.4 ms; CI remains the authoritative `/var/tmp` real-filesystem
   measurement.
