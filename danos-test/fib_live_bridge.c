@@ -18,6 +18,7 @@
 #include <time.h>
 
 static volatile sig_atomic_t g_running = 1;
+#define DANOS_ZAPI_PROTOCOL 3 /* FRR ZEBRA_ROUTE_STATIC client identity */
 
 static void stop_handler(int sig)
 {
@@ -56,7 +57,7 @@ int main(int argc, char **argv)
         fprintf(stderr, "cannot connect zebra socket %s: %s\n", zebra, strerror(errno)); return 1;
     }
     if (danos_zebra_session_get_state() == 2 &&
-        danos_zebra_session_register(0, 0) != 0) {
+        danos_zebra_session_register(DANOS_ZAPI_PROTOCOL, 0) != 0) {
         fprintf(stderr, "zebra client registration failed\n"); return 1;
     }
 
@@ -72,7 +73,7 @@ int main(int argc, char **argv)
                 nanosleep(&pause, NULL);
                 continue;
             }
-            if (danos_zebra_session_register(0, 0) != 0) {
+            if (danos_zebra_session_register(DANOS_ZAPI_PROTOCOL, 0) != 0) {
                 fprintf(stderr, "zebra client re-registration failed\n");
                 failed++;
                 break;
