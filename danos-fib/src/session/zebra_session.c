@@ -194,6 +194,27 @@ int danos_zebra_session_recv(uint8_t *buf, size_t buf_size, zapi_message_t *out)
     return (int)total;
 }
 
+int danos_zebra_session_recv_frr(uint8_t *buf, size_t buf_size, zapi_message_t *out)
+{
+    if (g_session.state != ZEBRA_SESSION_CONNECTED) return -1;
+    if (buf_size < 10) return -2;
+    ssize_t n = recv(g_session.fd, buf, 10, MSG_WAITALL);
+    if (n <= 0) { danos_zebra_session_disconnect(); return 0; }
+    if (n != 10) return -3;
+    uint16_t total;
+    memcpy(&total, buf, 2);
+    total = ntohs(total);
+    if (total < 10 || total > buf_size) return -4;
+    if (total > 10) {
+        n = recv(g_session.fd, buf + 10, total - 10, MSG_WAITALL);
+        if (n <= 0) { danos_zebra_session_disconnect(); return 0; }
+        if ((size_t)n != (size_t)(total - 10)) return -5;
+    }
+    if (zapi_parse_frr(buf, total, out) != 0) return -6;
+    g_session.messages_received++;
+    return total;
+}
+
 int danos_zebra_session_get_state(void)
 {
     return g_session.state;

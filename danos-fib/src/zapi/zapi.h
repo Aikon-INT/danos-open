@@ -156,6 +156,7 @@ int danos_zebra_session_reconnect(void);
 void danos_zebra_session_disconnect(void);
 int danos_zebra_session_get_state(void);
 int danos_zebra_session_recv(uint8_t *buf, size_t buf_size, zapi_message_t *out);
+int danos_zebra_session_recv_frr(uint8_t *buf, size_t buf_size, zapi_message_t *out);
 
 /* Individual mappers (exposed for unit testing) */
 danos_status_t zapi_map_interface_set_mtu(const zapi_message_t *msg,

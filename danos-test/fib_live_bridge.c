@@ -80,7 +80,7 @@ int main(int argc, char **argv)
             fprintf(stderr, "zebra session reconnected\n");
         }
         zapi_message_t msg;
-        int n = danos_zebra_session_recv(buf, sizeof(buf), &msg);
+        int n = danos_zebra_session_recv_frr(buf, sizeof(buf), &msg);
         if (n == 0) {
             if (!reconnect) break;
             fprintf(stderr, "zebra session disconnected; reconnecting\n");
@@ -89,7 +89,7 @@ int main(int argc, char **argv)
         if (n < 0) { fprintf(stderr, "zebra receive failed: %d\n", n); failed++; break; }
         danos_tx_t tx = {0};
         danos_status_t st = danos_tx_begin(&tx, "frr-zebra", NULL);
-        if (st == DANOS_OK) st = zapi_dispatch(&msg, &tx);
+        if (st == DANOS_OK) st = zapi_dispatch_frr(&msg, &tx);
         if (st == DANOS_OK) st = danos_tx_commit_atomic(&tx);
         if (st != DANOS_OK) {
             fprintf(stderr, "ZAPI command %u transaction failed: %s\n",
