@@ -19,6 +19,9 @@ PCI=$(run "for d in /sys/bus/pci/devices/*; do test -e \"\$d/class\" || continue
 test -n "$PCI" || { echo "[SKIP] no PCI Ethernet device exposed"; exit 2; }
 echo "[INFO] PCI Ethernet: $PCI"
 if [ -n "$TARGET_BDF" ]; then
+    printf '%s\n' "$PCI" | grep -qx "$TARGET_BDF" || {
+        echo "[SKIP] requested PCI BDF not exposed: $TARGET_BDF"; exit 2;
+    }
     DRIVER=$(run "readlink -f /sys/bus/pci/devices/$TARGET_BDF/driver 2>/dev/null | xargs -r basename || true")
     test "$DRIVER" = vfio-pci || {
         echo "[SKIP] $TARGET_BDF bound to ${DRIVER:-unbound}, expected vfio-pci"; exit 2;
