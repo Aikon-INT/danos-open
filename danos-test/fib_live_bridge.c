@@ -96,6 +96,11 @@ int main(int argc, char **argv)
     while (g_running) {
         if (danos_zebra_session_get_state() != 2) {
             if (!reconnect) { failed++; break; }
+            /* A VPP restart can leave a stale-but-connected API fd.  The
+             * zebra reconnect loop is a safe lifecycle boundary at which to
+             * force a fresh VPP handshake and replay the desired ledger. */
+            danos_vpp_api_disconnect();
+            (void)recover_vpp_backend(true);
             (void)danos_zebra_session_reconnect();
             if (danos_zebra_session_get_state() != 2) {
                 struct timespec pause = { .tv_sec = 0, .tv_nsec = 100000000L };
