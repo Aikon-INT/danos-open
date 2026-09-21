@@ -50,6 +50,9 @@ docker cp danos-iso-build:/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 "$WORK/
 E1000=$(docker exec danos-iso-build sh -c \
     'find /lib/modules -name "e1000.ko*" | head -1')
 docker cp "danos-iso-build:$E1000" "$WORK/e1000.ko.raw"
+VIRTIO_NET=$(docker exec danos-iso-build sh -c \
+    'find /lib/modules -name "virtio_net.ko*" | head -1')
+docker cp "danos-iso-build:$VIRTIO_NET" "$WORK/virtio_net.ko.raw"
 cp "$GNMIC_SRC" "$WORK/gnmic"
 
 # --- 3. initramfs tree ---------------------------------------------------
@@ -71,13 +74,9 @@ case "$E1000" in
   *.xz) xz -q -d -c "$WORK/e1000.ko.raw" > "$WORK/initramfs/modules/e1000.ko" ;;
   *)    cp "$WORK/e1000.ko.raw" "$WORK/initramfs/modules/e1000.ko" ;;
 esac
-# e1000 module (pre-decompressed on host)
-E1000=$(docker exec danos-iso-build sh -c \
-    'find /lib/modules -name "e1000.ko*" | head -1')
-docker cp "danos-iso-build:$E1000" "$WORK/e1000.ko.raw"
-case "$E1000" in
-  *.xz) xz -q -d -c "$WORK/e1000.ko.raw" > "$WORK/initramfs/modules/e1000.ko" ;;
-  *)    cp "$WORK/e1000.ko.raw" "$WORK/initramfs/modules/e1000.ko" ;;
+case "$VIRTIO_NET" in
+  *.xz) xz -q -d -c "$WORK/virtio_net.ko.raw" > "$WORK/initramfs/modules/virtio_net.ko" ;;
+  *)    cp "$WORK/virtio_net.ko.raw" "$WORK/initramfs/modules/virtio_net.ko" ;;
 esac
 
 # --- 4. pack initramfs ----------------------------------------------------

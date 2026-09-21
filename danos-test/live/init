@@ -9,8 +9,9 @@ echo "==============================================="
 echo "  DANOS-Open live system (kernel 6.12, mgrd)"
 echo "==============================================="
 
-# network drivers (QEMU e1000)
+# network drivers (QEMU e1000 and virtio-net)
 insmod /modules/e1000.ko 2>/dev/null || echo "e1000 insmod failed"
+insmod /modules/virtio_net.ko 2>/dev/null || echo "virtio-net insmod failed"
 
 ip link set lo up
 # QEMU user-mode networking: static address on eth0
