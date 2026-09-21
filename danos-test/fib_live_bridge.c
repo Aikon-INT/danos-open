@@ -39,6 +39,8 @@ static void stop_handler(int sig)
 static int recover_vpp_backend(bool enabled)
 {
     if (!enabled || danos_vpp_api_is_connected()) return 0;
+    const bool debug = getenv("DANOS_VPP_DEBUG") != NULL;
+    if (debug) fprintf(stderr, "VPP backend recovery: reconnecting\n");
     for (int i = 0; i < 30 && g_running; i++) {
         if (danos_vpp_api_reconnect() == 0) {
             uint64_t sweep_failed = 0;
@@ -46,6 +48,10 @@ static int recover_vpp_backend(bool enabled)
             if (sweep_failed != 0) return -1;
             uint64_t attempted = 0, failed = 0;
             (void)danos_programming_run(&attempted, &failed);
+            if (debug)
+                fprintf(stderr, "VPP backend recovery: replay attempted=%llu failed=%llu\n",
+                        (unsigned long long)attempted,
+                        (unsigned long long)failed);
             return failed == 0 ? 1 : -1;
         }
         struct timespec pause = { .tv_sec = 0, .tv_nsec = 100000000L };
@@ -99,6 +105,8 @@ int main(int argc, char **argv)
             /* A VPP restart can leave a stale-but-connected API fd.  The
              * zebra reconnect loop is a safe lifecycle boundary at which to
              * force a fresh VPP handshake and replay the desired ledger. */
+            if (getenv("DANOS_VPP_DEBUG"))
+                fprintf(stderr, "zebra reconnect boundary: refreshing VPP\n");
             danos_vpp_api_disconnect();
             (void)recover_vpp_backend(true);
             (void)danos_zebra_session_reconnect();
@@ -118,6 +126,18 @@ int main(int argc, char **argv)
         int n = danos_zebra_session_recv_frr(buf, sizeof(buf), &msg);
         if (n == 0) {
             if (!reconnect) break;
+            /* recv_frr returns 0 for an idle poll as well as EOF.  Probe the
+             * VPP lifecycle periodically so a restart with no new ZAPI
+             * route event still replays the desired FIB. */
+            static time_t last_vpp_probe;
+            time_t now = time(NULL);
+            if (now - last_vpp_probe >= 5) {
+                last_vpp_probe = now;
+                if (getenv("DANOS_VPP_DEBUG"))
+                    fprintf(stderr, "idle health probe: refreshing VPP\n");
+                danos_vpp_api_disconnect();
+                (void)recover_vpp_backend(true);
+            }
             fprintf(stderr, "zebra session disconnected; reconnecting\n");
             continue;
         }
