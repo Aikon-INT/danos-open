@@ -58,6 +58,27 @@ static void trace_registration(uint16_t command, uint8_t afi, uint8_t type,
                 command, afi, type, instance, length);
 }
 
+static size_t registration_route_types(uint8_t *types, size_t capacity)
+{
+    const uint8_t defaults[] = { 2, 4, 7, 10 };
+    const char *value = getenv("DANOS_ZAPI_ROUTE_TYPES");
+    if (!value || !value[0]) {
+        memcpy(types, defaults, sizeof(defaults));
+        return sizeof(defaults);
+    }
+    size_t count = 0;
+    while (*value && count < capacity) {
+        char *end = NULL;
+        unsigned long parsed = strtoul(value, &end, 10);
+        if (end == value || parsed > UINT8_MAX) break;
+        types[count++] = (uint8_t)parsed;
+        value = end;
+        if (*value == ',') value++;
+        else if (*value) break;
+    }
+    return count;
+}
+
 static uint64_t now_ns(void)
 {
     struct timespec ts;
@@ -158,9 +179,9 @@ int danos_zebra_session_register(uint8_t protocol, uint16_t instance)
         cmd = htons(FRR_ZEBRA_INTERFACE_ADD); memcpy(req + 8, &cmd, 2);
         if (send(g_session.fd, req, 10, MSG_NOSIGNAL) != 10) return -1;
         trace_registration(FRR_ZEBRA_INTERFACE_ADD, (uint8_t)family, 0, 0, 10);
-        /* FRR route_types registry: request the protocols used by DANOS. */
-        const uint8_t route_types[] = { 2, 4, 7, 10 }; /* connected, static, OSPF, BGP */
-        for (size_t route_i = 0; route_i < sizeof(route_types); route_i++) {
+        uint8_t route_types[16];
+        size_t route_type_count = registration_route_types(route_types, sizeof(route_types));
+        for (size_t route_i = 0; route_i < route_type_count; route_i++) {
             uint8_t route_type = route_types[route_i];
             req_len = htons(14); memcpy(req, &req_len, 2);
             cmd = htons(FRR_ZEBRA_REDISTRIBUTE_ADD); memcpy(req + 8, &cmd, 2);
