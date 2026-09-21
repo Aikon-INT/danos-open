@@ -35,10 +35,10 @@ static danos_route_proto_t map_frr_protocol(uint8_t type)
     switch (type) {
     case 1:  return DANOS_ROUTE_PROTO_KERNEL;
     case 2:  return DANOS_ROUTE_PROTO_CONNECTED;
-    case 3:  return DANOS_ROUTE_PROTO_STATIC;
-    case 5:  return DANOS_ROUTE_PROTO_OSPF;
-    case 6:  return DANOS_ROUTE_PROTO_ISIS;
-    case 9:  return DANOS_ROUTE_PROTO_BGP;
+    case 4:  return DANOS_ROUTE_PROTO_STATIC;
+    case 7:  return DANOS_ROUTE_PROTO_OSPF;
+    case 9:  return DANOS_ROUTE_PROTO_ISIS;
+    case 10: return DANOS_ROUTE_PROTO_BGP;
     case 11: return DANOS_ROUTE_PROTO_OSPF;
     default: return DANOS_ROUTE_PROTO_UNSPEC;
     }
