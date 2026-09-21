@@ -18,7 +18,7 @@
 #include <time.h>
 
 static volatile sig_atomic_t g_running = 1;
-#define DANOS_ZAPI_PROTOCOL 0 /* FRR ZEBRA_ROUTE_SYSTEM; not a subscribed type */
+#define DANOS_ZAPI_PROTOCOL 1 /* FRR ZEBRA_ROUTE_KERNEL; not a subscribed type */
 
 static void stop_handler(int sig)
 {
