@@ -122,6 +122,13 @@ int main(int argc, char **argv)
         } else {
             uint64_t attempted = 0, programming_failed = 0;
             (void)danos_programming_run(&attempted, &programming_failed);
+            uint64_t withdrawn = 0, withdraw_failed = 0;
+            withdrawn = danos_programming_sweep(&withdraw_failed);
+            if (debug && (withdrawn != 0 || withdraw_failed != 0))
+                fprintf(stderr, "programming sweep: withdrawn=%llu failed=%llu\n",
+                        (unsigned long long)withdrawn,
+                        (unsigned long long)withdraw_failed);
+            programming_failed += withdraw_failed;
             if (programming_failed != 0) {
                 fprintf(stderr, "ZAPI command %u programming failed: attempted=%llu failed=%llu\n",
                         msg.header.command,
