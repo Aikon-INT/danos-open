@@ -47,8 +47,8 @@
       （双 static next-hop 已实测进入 VPP 两个 resolved bucket；`--reconnect`
        场景下 add/delete 已实测完成，真实流量统计仍待）
 - [ ] 固化 FRR+VPP 共享 socket 拓扑（readiness、健康检查、失败保留日志、bridge 生命周期）
-      （bridge 已实现 VPP reconnect + desired replay；容器重启后的 api.sock
-       权限/ready hook 仍需固化）
+      （bridge 已实现 VPP reconnect + desired replay；验收脚本已固化
+       api.sock readiness 与 `0666` 权限 hook）
 - [ ] 对照 FRR 官方 zclient registration 核对 HELLO/REDISTRIBUTE_ADD、client identity、bitmap 和错误响应
 - [ ] 完成 Route/NH/NHGroup 依赖删除、tombstone、retry、rollback 的 Linux/VPP 双 backend 验收（Linux mock 已覆盖 NH/NHGroup 撤回；VPP 现场仍待）
 - [ ] 在具备 PCI/VFIO、hugepages 和 DPDK plugin 的专用 runner 执行 VPP+DPDK 64B 单核/多核性能验收
