@@ -184,6 +184,9 @@ runtime has no loaded DPDK plugin and the NIC is still bound to `r8169`.
 The checked-in software validation image intentionally contains
 `plugins { plugin dpdk_plugin.so { disable } }`; enabling it is reserved for
 the dedicated PCI/VFIO runner and is not mixed into the software baseline.
+The dedicated startup template is
+`danos-test/integration/vpp-dpdk-startup.conf`; its BDF must match the
+runner-selected VFIO-bound device before launch.
 
 The repeatable socket-level driver is
 `danos-test/integration/run_frr_zapi_vpp.sh`. It classifies missing FRR/VPP
