@@ -122,7 +122,13 @@ int main(int argc, char **argv)
         } else {
             uint64_t attempted = 0, programming_failed = 0;
             (void)danos_programming_run(&attempted, &programming_failed);
-            if (programming_failed != 0) failed++;
+            if (programming_failed != 0) {
+                fprintf(stderr, "ZAPI command %u programming failed: attempted=%llu failed=%llu\n",
+                        msg.header.command,
+                        (unsigned long long)attempted,
+                        (unsigned long long)programming_failed);
+                failed++;
+            }
             processed++;
         }
         if (limit > 0 && processed >= limit) break;
