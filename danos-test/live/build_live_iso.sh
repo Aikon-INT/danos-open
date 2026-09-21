@@ -13,6 +13,10 @@
 set -eu
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUT_ISO="${1:-$PROJECT_ROOT/build/danos-open-live.iso}"
+case "$OUT_ISO" in
+  /*) ;;
+  *) OUT_ISO="$PROJECT_ROOT/$OUT_ISO" ;;
+esac
 GNMIC_SRC="${GNMIC:-/tmp/gnmic-bin}"
 WORK=/tmp/danos-iso-work
 APT_MIRROR="${APT_MIRROR:-https://repo.huaweicloud.com/debian}"
@@ -60,7 +64,17 @@ docker cp "danos-iso-build:$E1000" "$WORK/e1000.ko.raw"
 VIRTIO_NET=$(docker exec danos-iso-build sh -c \
     'find /lib/modules -name "virtio_net.ko*" | head -1')
 docker cp "danos-iso-build:$VIRTIO_NET" "$WORK/virtio_net.ko.raw"
-cp "$GNMIC_SRC" "$WORK/gnmic"
+NET_FAILOVER=$(docker exec danos-iso-build sh -c \
+    'find /lib/modules -name "net_failover.ko*" | head -1')
+docker cp "danos-iso-build:$NET_FAILOVER" "$WORK/net_failover.ko.raw"
+VIRTIO_PCI=$(docker exec danos-iso-build sh -c \
+    'find /lib/modules -name "virtio_pci.ko*" | head -1')
+docker cp "danos-iso-build:$VIRTIO_PCI" "$WORK/virtio_pci.ko.raw"
+if test -x "$GNMIC_SRC"; then
+    cp "$GNMIC_SRC" "$WORK/gnmic"
+else
+    echo "INFO: gnmic not provided; ISO will skip the optional gNMI demo"
+fi
 
 # --- 3. initramfs tree ---------------------------------------------------
 rm -rf "$WORK/initramfs"
@@ -72,10 +86,15 @@ cp "$WORK/ld-linux.so.2" "$WORK/initramfs/lib64/ld-linux-x86-64.so.2"
 cp "$WORK/libc.so.6" "$WORK/initramfs/lib64/libc.so.6"
 # mgrd built in step 1 lives in the container; fetch fresh copy
 docker cp danos-iso-build:/tmp/b/danos-mgrd/danos-mgrd "$WORK/initramfs/bin/mgrd"
-cp "$WORK/gnmic" "$WORK/initramfs/bin/gnmic"
-chmod +x "$WORK/initramfs/bin/mgrd" "$WORK/initramfs/bin/gnmic"
+chmod +x "$WORK/initramfs/bin/mgrd"
 cp "$PROJECT_ROOT/danos-test/live/init" "$WORK/initramfs/init"
 chmod +x "$WORK/initramfs/init"
+if test -x "$WORK/gnmic"; then
+    cp "$WORK/gnmic" "$WORK/initramfs/bin/gnmic"
+    chmod +x "$WORK/initramfs/bin/mgrd" "$WORK/initramfs/bin/gnmic"
+else
+    chmod +x "$WORK/initramfs/bin/mgrd"
+fi
 # e1000 module: pre-decompress (busybox insmod can't read .xz)
 case "$E1000" in
   *.xz) xz -q -d -c "$WORK/e1000.ko.raw" > "$WORK/initramfs/modules/e1000.ko" ;;
@@ -85,6 +104,13 @@ case "$VIRTIO_NET" in
   *.xz) xz -q -d -c "$WORK/virtio_net.ko.raw" > "$WORK/initramfs/modules/virtio_net.ko" ;;
   *)    cp "$WORK/virtio_net.ko.raw" "$WORK/initramfs/modules/virtio_net.ko" ;;
 esac
+for module in net_failover virtio_pci; do
+  eval "source=\$${module^^}"
+  case "$source" in
+    *.xz) xz -q -d -c "$WORK/${module}.ko.raw" > "$WORK/initramfs/modules/${module}.ko" ;;
+    *)    cp "$WORK/${module}.ko.raw" "$WORK/initramfs/modules/${module}.ko" ;;
+  esac
+done
 
 # --- 4. pack initramfs ----------------------------------------------------
 cd "$WORK/initramfs"
