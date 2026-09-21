@@ -45,7 +45,7 @@
       （adapter 已支持 `DANOS_VPP_IFINDEX_MAP=2:1`，单一路由 add 已实测成功）
       （bridge 已接入 programmed-ledger sweep，删除事件可调用 VPP route_del）
       （双 static next-hop 已实测进入 VPP 两个 resolved bucket；`--reconnect`
-       场景下 add/delete 已实测完成，真实流量统计仍待）
+       场景下 add/delete 已实测完成；VPP ping 已 5/5、0% 丢包）
 - [ ] 固化 FRR+VPP 共享 socket 拓扑（readiness、健康检查、失败保留日志、bridge 生命周期）
       （bridge 已实现 VPP reconnect + desired replay；验收脚本已固化
        api.sock readiness 与 `0666` 权限 hook）

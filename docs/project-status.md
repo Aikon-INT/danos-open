@@ -156,6 +156,9 @@ The recommended order is:
    routes are withdrawn from VPP using the programmed ledger copy. With
    `--reconnect`, a live add/delete run processed two route transactions and
    the VPP FIB returned to its default drop entry after the sweep.
+   A two-next-hop traffic topology using the trixie containers at `.3` and
+   `.4` then produced two resolved FIB buckets and VPP ping to
+   `203.0.113.10` completed 5/5 packets with zero loss.
    VPP restart replay logic is implemented. The acceptance harness now waits
    for `/run/vpp/api.sock`, reapplies the shared `0666` socket mode after a
    container restart, and fails explicitly if the socket remains unusable.
