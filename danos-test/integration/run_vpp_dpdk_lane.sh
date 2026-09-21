@@ -1,5 +1,5 @@
 #!/bin/bash
-# VPP+DPDK dedicated lane preflight. Missing PCI/VFIO is an explicit SKIP.
+# VPP+DPDK dedicated lane preflight. Missing PCI/user-space driver is an explicit SKIP.
 set -euo pipefail
 VPP_BIN="${VPP_BIN:-}"
 VPPCTL="${VPPCTL:-}"
@@ -14,6 +14,7 @@ fi
 PLUGIN="${VPP_DPDK_PLUGIN:-/usr/lib/x86_64-linux-gnu/vpp_plugins/dpdk_plugin.so}"
 test -r "$PLUGIN" || PLUGIN=/opt/vpp/build-root/install-vpp-native/vpp/lib/x86_64-linux-gnu/vpp_plugins/dpdk_plugin.so
 TARGET_BDF="${DPDK_PCI_BDF:-}"
+PCI_DRIVER="${DPDK_PCI_DRIVER:-vfio-pci}"
 test -x "$VPP_BIN" || { echo "[SKIP] vpp binary unavailable"; exit 2; }
 test -r "$PLUGIN" || { echo "[SKIP] DPDK plugin unavailable: $PLUGIN"; exit 2; }
 PCI_COUNT=0
@@ -33,25 +34,22 @@ for d in /sys/bus/pci/devices/*; do
     fi
 done
 test "$PCI_COUNT" -gt 0 || { echo "[SKIP] no PCI Ethernet device exposed; VMXNET3 requires a VMware-presented PCI NIC"; exit 2; }
-test -e /dev/vfio/vfio || { echo "[SKIP] /dev/vfio/vfio unavailable"; exit 2; }
-if test ! -d /sys/bus/pci/drivers/vfio-pci; then
-    if command -v modinfo >/dev/null 2>&1 && modinfo vfio_pci >/dev/null 2>&1; then
-        echo "[SKIP] vfio-pci module is installed but not loaded/registered (privileged modprobe required)"
-    else
-        echo "[SKIP] vfio-pci kernel module unavailable"
-    fi
-    exit 2
+if test "$PCI_DRIVER" = vfio-pci; then
+    test -e /dev/vfio/vfio || { echo "[SKIP] /dev/vfio/vfio unavailable"; exit 2; }
 fi
+test -d "/sys/bus/pci/drivers/$PCI_DRIVER" || {
+    echo "[SKIP] requested PCI driver unavailable: $PCI_DRIVER"; exit 2;
+}
 if test -n "$TARGET_BDF"; then
     test -d "${TARGET_PATH:-}" || { echo "[SKIP] requested PCI BDF not found: $TARGET_BDF"; exit 2; }
     DRIVER=$(basename "$(readlink "$TARGET_PATH/driver" 2>/dev/null || echo unbound)")
-    test "$DRIVER" = "vfio-pci" || { echo "[SKIP] $TARGET_BDF bound to $DRIVER, expected vfio-pci"; exit 2; }
-    echo "[INFO] target $TARGET_BDF bound to vfio-pci"
+    test "$DRIVER" = "$PCI_DRIVER" || { echo "[SKIP] $TARGET_BDF bound to $DRIVER, expected $PCI_DRIVER"; exit 2; }
+    echo "[INFO] target $TARGET_BDF bound to $PCI_DRIVER"
 fi
 grep -Eq 'HugePages_Total:[[:space:]]+[1-9]' /proc/meminfo || { echo "[SKIP] hugepages not configured"; exit 2; }
 test -S /run/vpp/api.sock || { echo "[FAIL] VPP API socket unavailable"; exit 1; }
 test -x "$VPPCTL" || { echo "[FAIL] vppctl unavailable: $VPPCTL"; exit 1; }
 "$VPPCTL" show plugins | grep -qi dpdk || { echo "[FAIL] VPP running without DPDK plugin"; exit 1; }
-echo "[PASS] DPDK plugin, PCI/VFIO and hugepage preflight passed"
+echo "[PASS] DPDK plugin, PCI/$PCI_DRIVER and hugepage preflight passed"
 test "$VMXNET3_COUNT" -gt 0 && echo "[INFO] VMXNET3 PCI device detected (15ad:07b0)"
 echo "[INFO] traffic generator must now verify the configured 64-byte single-core target"
