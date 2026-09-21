@@ -138,6 +138,13 @@ The recommended order is:
    a loaded VPP DPDK plugin. The current software-forwarding result is a
    baseline, not DPDK evidence.
 
+VMXNET3 is a valid option for this lane only when the test runner itself is a
+VMware guest with a VMXNET3 PCI NIC (vendor/device `15ad:07b0`). It cannot be
+created by mounting a driver or socket into a container. The lane preflight now
+requires a real PCI Ethernet function and reports the VMXNET3 device when
+present; the guest NIC must then be made available through the selected DPDK
+binding/VFIO setup.
+
 The repeatable socket-level driver is
 `danos-test/integration/run_frr_zapi_vpp.sh`. It classifies missing FRR/VPP
 sockets as `BLOCKED`, invokes the same `fib_live_bridge` binary used by the
