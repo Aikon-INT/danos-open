@@ -20,6 +20,15 @@
 static volatile sig_atomic_t g_running = 1;
 #define DANOS_ZAPI_PROTOCOL 1 /* FRR ZEBRA_ROUTE_KERNEL; not a subscribed type */
 
+static uint8_t zapi_protocol(void)
+{
+    const char *value = getenv("DANOS_ZAPI_PROTOCOL");
+    if (!value || !value[0]) return DANOS_ZAPI_PROTOCOL;
+    char *end = NULL;
+    unsigned long parsed = strtoul(value, &end, 10);
+    return (end && *end == '\0' && parsed <= UINT8_MAX) ? (uint8_t)parsed : DANOS_ZAPI_PROTOCOL;
+}
+
 static void stop_handler(int sig)
 {
     (void)sig;
@@ -58,7 +67,7 @@ int main(int argc, char **argv)
         fprintf(stderr, "cannot connect zebra socket %s: %s\n", zebra, strerror(errno)); return 1;
     }
     if (danos_zebra_session_get_state() == 2 &&
-        danos_zebra_session_register(DANOS_ZAPI_PROTOCOL, 0) != 0) {
+        danos_zebra_session_register(zapi_protocol(), 0) != 0) {
         fprintf(stderr, "zebra client registration failed\n"); return 1;
     }
 
@@ -74,7 +83,7 @@ int main(int argc, char **argv)
                 nanosleep(&pause, NULL);
                 continue;
             }
-            if (danos_zebra_session_register(DANOS_ZAPI_PROTOCOL, 0) != 0) {
+            if (danos_zebra_session_register(zapi_protocol(), 0) != 0) {
                 fprintf(stderr, "zebra client re-registration failed\n");
                 failed++;
                 break;
