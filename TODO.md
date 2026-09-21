@@ -44,7 +44,8 @@
 - [ ] 在带可用 VPP interface/path 的特权拓扑验收真实 route add/withdraw、ECMP、VPP FIB 和报文转发
       （adapter 已支持 `DANOS_VPP_IFINDEX_MAP=2:1`，单一路由 add 已实测成功）
       （bridge 已接入 programmed-ledger sweep，删除事件可调用 VPP route_del）
-      （双 static next-hop 已实测进入 VPP 两个 resolved bucket；真实流量统计仍待）
+      （双 static next-hop 已实测进入 VPP 两个 resolved bucket；`--reconnect`
+       场景下 add/delete 已实测完成，真实流量统计仍待）
 - [ ] 固化 FRR+VPP 共享 socket 拓扑（readiness、健康检查、失败保留日志、bridge 生命周期）
 - [ ] 对照 FRR 官方 zclient registration 核对 HELLO/REDISTRIBUTE_ADD、client identity、bitmap 和错误响应
 - [ ] 完成 Route/NH/NHGroup 依赖删除、tombstone、retry、rollback 的 Linux/VPP 双 backend 验收（Linux mock 已覆盖 NH/NHGroup 撤回；VPP 现场仍待）

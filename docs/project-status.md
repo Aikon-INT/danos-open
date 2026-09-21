@@ -153,7 +153,9 @@ The recommended order is:
    two-next-hop replay now produces a VPP FIB load-balance with two resolved
    buckets (`172.17.0.1` and `172.17.0.3`). The bridge now invokes
    the programming sweep after each committed ZAPI transaction so deleted
-   routes are withdrawn from VPP using the programmed ledger copy.
+   routes are withdrawn from VPP using the programmed ledger copy. With
+   `--reconnect`, a live add/delete run processed two route transactions and
+   the VPP FIB returned to its default drop entry after the sweep.
 4. Close Route/NH/NHGroup dependency deletion, tombstone, retry and rollback
    semantics, then repeat the lifecycle on Linux and VPP backends.
 5. Run the dedicated DPDK lane only on a host exposing PCI/VFIO, hugepages and
