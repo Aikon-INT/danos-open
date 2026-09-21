@@ -48,6 +48,15 @@ typedef struct {
 static zebra_session_t g_session;
 static bool g_initialized = false;
 
+static void trace_registration(uint16_t command, uint8_t afi, uint8_t type,
+                               uint16_t instance, size_t length)
+{
+    const char *debug = getenv("DANOS_ZAPI_DEBUG");
+    if (debug && debug[0] == '1')
+        fprintf(stderr, "zapi tx command=%u afi=%u type=%u instance=%u length=%zu\n",
+                command, afi, type, instance, length);
+}
+
 static uint64_t now_ns(void)
 {
     struct timespec ts;
@@ -130,6 +139,7 @@ int danos_zebra_session_register(uint8_t protocol, uint16_t instance)
         if (n <= 0) { danos_zebra_session_disconnect(); return -1; }
         sent += (size_t)n;
     }
+    trace_registration(FRR_ZEBRA_HELLO, 0, protocol, instance, sizeof(msg));
     /* Request router-id and interface replay, then route notifications for
      * the protocol families used by the v0.16 L3 acceptance. */
     uint8_t req[32];
@@ -142,9 +152,11 @@ int danos_zebra_session_register(uint8_t protocol, uint16_t instance)
         uint16_t cmd = htons(FRR_ZEBRA_ROUTER_ID_ADD);
         memcpy(req + 8, &cmd, 2); memcpy(req + 10, &afi, 2);
         if (send(g_session.fd, req, 12, MSG_NOSIGNAL) != 12) return -1;
+        trace_registration(FRR_ZEBRA_ROUTER_ID_ADD, (uint8_t)family, 0, 0, 12);
         req_len = htons(10); memcpy(req, &req_len, 2);
         cmd = htons(FRR_ZEBRA_INTERFACE_ADD); memcpy(req + 8, &cmd, 2);
         if (send(g_session.fd, req, 10, MSG_NOSIGNAL) != 10) return -1;
+        trace_registration(FRR_ZEBRA_INTERFACE_ADD, (uint8_t)family, 0, 0, 10);
         /* FRR route_types registry: request the protocols used by DANOS. */
         const uint8_t route_types[] = { 2, 4, 7, 10 }; /* connected, static, OSPF, BGP */
         for (size_t route_i = 0; route_i < sizeof(route_types); route_i++) {
@@ -154,6 +166,8 @@ int danos_zebra_session_register(uint8_t protocol, uint16_t instance)
             req[10] = (uint8_t)family; req[11] = route_type;
             uint16_t zero = 0; memcpy(req + 12, &zero, 2);
             if (send(g_session.fd, req, 14, MSG_NOSIGNAL) != 14) return -1;
+            trace_registration(FRR_ZEBRA_REDISTRIBUTE_ADD, (uint8_t)family,
+                               route_type, 0, 14);
         }
     }
     return 0;
