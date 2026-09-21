@@ -50,6 +50,13 @@ The current mainline is clean and synchronized with `origin/main` at `869dd9b`; 
   entry point. A real static route can be present in the FRR RIB, but the
   current temporary topology has not yet produced a valid redistribute event;
   live route install/withdraw therefore remains open.
+- The current privileged probe enables zebra packet logging. It proves that
+  FRR receives the static route and emits a redistribute route event to other
+  subscribed clients, while the DANOS registration socket is logged as
+  receiving `unknown command 11` in the active runtime. This contradicts the
+  FRR 10.3 source handler table, which contains `ZEBRA_REDISTRIBUTE_ADD=11`;
+  the next check is socket inode/process ownership and zebra startup/runtime
+  identity, not another unverified business-payload change.
 - The VPP image contains `dpdk_plugin.so`, but the active validation runtime
   does not load DPDK and exposes no PCI dataplane device. The VPP+DPDK lane is
   therefore environment-blocked, not a passed performance result.
