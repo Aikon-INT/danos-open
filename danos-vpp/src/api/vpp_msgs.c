@@ -9,10 +9,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* fib_path_nh is a union.  The address member is the largest member
- * (16 bytes); via_label, obj_id and classify_table_index overlay it at
- * offset zero and do not extend the wire layout. */
-#define FIB_PATH_NH_SIZE 16
+/* Debian trixie VPP's generated binary API expands fib_path_nh as the
+ * address union followed by its auxiliary u32 members on the wire. */
+#define FIB_PATH_NH_SIZE 28
 /* fib_mpls_label { u8 is_uniform; u32 label; u8 ttl; u8 exp; } packed = 7 */
 #define FIB_MPLS_LABEL_SIZE 7
 #define FIB_PATH_MAX_LABELS 16
@@ -72,6 +71,8 @@ static void encode_fib_path(vpp_buf_t *b, uint32_t sw_if_index, uint32_t table_i
     vpp_buf_put_u32(b, nh && nh->is_ipv6 ? FIB_PATH_NH_PROTO_API_IP6
                                          : FIB_PATH_NH_PROTO_API_IP4);
     vpp_buf_put_bytes(b, nhbuf, sizeof(nhbuf));
+    uint8_t nh_zero[12] = {0};       /* via_label, obj_id, classify index */
+    vpp_buf_put_bytes(b, nh_zero, sizeof(nh_zero));
     vpp_buf_put_u8(b, 0);              /* n_labels */
     vpp_buf_t pad = {0};
     (void)pad;
