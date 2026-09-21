@@ -34,6 +34,14 @@ for d in /sys/bus/pci/devices/*; do
 done
 test "$PCI_COUNT" -gt 0 || { echo "[SKIP] no PCI Ethernet device exposed; VMXNET3 requires a VMware-presented PCI NIC"; exit 2; }
 test -e /dev/vfio/vfio || { echo "[SKIP] /dev/vfio/vfio unavailable"; exit 2; }
+if test ! -d /sys/bus/pci/drivers/vfio-pci; then
+    if command -v modinfo >/dev/null 2>&1 && modinfo vfio_pci >/dev/null 2>&1; then
+        echo "[SKIP] vfio-pci module is installed but not loaded/registered (privileged modprobe required)"
+    else
+        echo "[SKIP] vfio-pci kernel module unavailable"
+    fi
+    exit 2
+fi
 if test -n "$TARGET_BDF"; then
     test -d "${TARGET_PATH:-}" || { echo "[SKIP] requested PCI BDF not found: $TARGET_BDF"; exit 2; }
     DRIVER=$(basename "$(readlink "$TARGET_PATH/driver" 2>/dev/null || echo unbound)")
