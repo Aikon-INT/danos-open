@@ -138,6 +138,13 @@ The recommended order is:
    a loaded VPP DPDK plugin. The current software-forwarding result is a
    baseline, not DPDK evidence.
 
+The repeatable socket-level driver is
+`danos-test/integration/run_frr_zapi_vpp.sh`. It classifies missing FRR/VPP
+sockets as `BLOCKED`, invokes the same `fib_live_bridge` binary used by the
+integration build, and reports success only after the bridge has processed the
+requested message count. The caller must supplement this with `vppctl` FIB
+inspection and packet traffic evidence.
+
 The v0.16 Definition of Done is a reproducible FRR BGP/OSPF route
 installation and withdrawal trace from ZAPI through DPA to the real VPP FIB,
 including traffic, restart and deletion evidence. OVS/P4, broad model growth
