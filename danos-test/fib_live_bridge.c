@@ -37,6 +37,7 @@ int main(int argc, char **argv)
     const char *vpp = getenv("DANOS_VPP_API_SOCK");
     long limit = 0;
     bool reconnect = false;
+    bool debug = getenv("DANOS_ZAPI_DEBUG") != NULL;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--zebra-sock") && i + 1 < argc) zebra = argv[++i];
         else if (!strcmp(argv[i], "--vpp-sock") && i + 1 < argc) vpp = argv[++i];
@@ -88,6 +89,13 @@ int main(int argc, char **argv)
             continue;
         }
         if (n < 0) { fprintf(stderr, "zebra receive failed: %d\n", n); failed++; break; }
+        if (debug) {
+            fprintf(stderr, "zapi command=%u vrf=%u payload=%zu bytes:",
+                    msg.header.command, msg.vrf_id, msg.payload_size);
+            size_t dump = msg.payload_size < 32 ? msg.payload_size : 32;
+            for (size_t i = 0; i < dump; i++) fprintf(stderr, " %02x", msg.payload[i]);
+            fputc('\n', stderr);
+        }
         /* Zebra sends interface, nexthop, router-id and other replay
          * notifications on the same stream. They are not FIB route work;
          * only the native route add/delete commands enter DPA. */
