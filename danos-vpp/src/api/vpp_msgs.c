@@ -23,6 +23,7 @@
 
 /* fib_path_type_t */
 #define FIB_PATH_TYPE_API_NORMAL 0
+#define FIB_PATH_TYPE_API_ATTACHED 1
 /* fib_path_nh_proto_t */
 #define FIB_PATH_NH_PROTO_API_IP4 0
 #define FIB_PATH_NH_PROTO_API_IP6 1
@@ -66,7 +67,13 @@ static void encode_fib_path(vpp_buf_t *b, uint32_t sw_if_index, uint32_t table_i
     vpp_buf_put_u32(b, 0);             /* rpf_id */
     vpp_buf_put_u8(b, 1);              /* weight */
     vpp_buf_put_u8(b, 0);              /* preference */
-    vpp_buf_put_u32(b, FIB_PATH_TYPE_API_NORMAL);  /* type enum */
+    bool attached = true;
+    if (nh) {
+        for (unsigned i = 0; i < (nh->is_ipv6 ? 16u : 4u); i++)
+            if (nh->addr[i] != 0) { attached = false; break; }
+    }
+    vpp_buf_put_u32(b, attached ? FIB_PATH_TYPE_API_ATTACHED
+                                : FIB_PATH_TYPE_API_NORMAL);  /* type enum */
     vpp_buf_put_u32(b, 0);              /* flags enum */
     vpp_buf_put_u32(b, nh && nh->is_ipv6 ? FIB_PATH_NH_PROTO_API_IP6
                                          : FIB_PATH_NH_PROTO_API_IP4);
