@@ -13,6 +13,8 @@ qemu-img check "$BASE" >/dev/null || { echo "[BLOCKED] base image failed qemu-im
 make_seed() {
     local node="$1" hostname="$2" address="$3" peer="$4" asn="$5" peer_asn="$6" prefix="$7"
     local dir="$OUT/seed-$node"
+    local bgp_addr=172.31.0.2 bgp_peer=172.31.0.3
+    [ "$node" = r2 ] && bgp_addr=172.31.0.3 && bgp_peer=172.31.0.2
     cat > "$dir/meta-data" <<EOF
 instance-id: danos-$node
 local-hostname: $hostname
@@ -25,6 +27,9 @@ ethernets:
   ens4:
     dhcp4: false
     addresses: [$address/24]
+  ens5:
+    dhcp4: false
+    addresses: [$bgp_addr/24]
 EOF
     cat > "$dir/user-data" <<EOF
 #cloud-config
@@ -33,7 +38,7 @@ packages: [frr, frr-pythontools, iproute2, iputils-ping]
 runcmd:
   - [sh, -c, "sed -i 's/^zebra=no/zebra=yes/; s/^bgpd=no/bgpd=yes/; s/^ospfd=no/ospfd=yes/' /etc/frr/daemons"]
   - [sh, -c, "cat > /etc/frr/frr.conf <<'CFG'"]
-  - [sh, -c, "printf 'frr version 10.3\\nfrr defaults traditional\\nhostname $hostname\\nrouter bgp $asn\\n bgp router-id $address\\n no bgp ebgp-requires-policy\\n neighbor $peer remote-as $peer_asn\\n address-family ipv4 unicast\\n  neighbor $peer activate\\n  network $prefix\\n exit-address-family\\n' >> /etc/frr/frr.conf"]
+  - [sh, -c, "printf 'frr version 10.3\\nfrr defaults traditional\\nhostname $hostname\\nrouter bgp $asn\\n bgp router-id $bgp_addr\\n no bgp ebgp-requires-policy\\n neighbor $bgp_peer remote-as $peer_asn\\n address-family ipv4 unicast\\n  neighbor $bgp_peer activate\\n  network $prefix\\n exit-address-family\\n' >> /etc/frr/frr.conf"]
   - [sh, -c, "chown frr:frr /etc/frr/frr.conf; /usr/lib/frr/frrinit.sh restart"]
 EOF
     xorriso -as mkisofs -quiet -V CIDATA -o "$OUT/$node-seed.iso" "$dir"
@@ -50,8 +55,9 @@ FRR-1: frr-1.qcow2 + r1-seed.iso, network 10.10.0.0/24
 FRR-2: frr-2.qcow2 + r2-seed.iso, network 10.20.0.0/24
 DANOS: $ROOT/build/danos-vpp-dpdk-e1000-2port-traffic.iso
 
-Each FRR VM needs one additional point-to-point NIC connected to the DANOS
-VM; use separate QEMU socket/netdev segments for 10.10.0.0/24 and
-10.20.0.0/24. Cloud-init installs FRR and starts bgpd/ospfd on first boot.
+Each FRR VM needs one DANOS-facing NIC and one FRR peer NIC. Use separate
+QEMU socket/netdev segments for 10.10.0.0/24, 10.20.0.0/24 and the shared
+FRR peer segment 172.31.0.0/24. Cloud-init installs FRR and starts
+bgpd/ospfd on first boot.
 EOF
 echo "[PASS] topology prepared: $OUT"
