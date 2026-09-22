@@ -309,3 +309,12 @@ standard static route add/replay is observed, but the current FRR container
 run did not emit a command-32 event after `no ip route`, so the VPP route
 withdraw cannot yet be claimed. This is now isolated to FRR registration/
 staticd notification behavior, not VPP framing or route-add programming.
+
+The delete gate was subsequently reproduced with the bridge `--reconnect`
+mode, which keeps the ZAPI session alive across FRR idle/EOF transitions.
+The trace contained a real `zapi command=32` for the static route,
+`programming sweep: withdrawn=1 failed=0`, and the final VPP FIB lookup had
+only the default drop path. This proves the FRR→DPA→VPP add/withdraw
+lifecycle for the tested route; reconnect mode is required for this
+containerized FRR runtime because zebra closes the client socket during its
+idle transition.
