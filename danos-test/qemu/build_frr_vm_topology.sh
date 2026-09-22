@@ -21,10 +21,9 @@ EOF
 version: 2
 ethernets:
   ens3:
-    addresses: [$address/24]
-    routes: [{to: 0.0.0.0/0, via: $peer}]
+    dhcp4: true
   ens4:
-    addresses: [$address/24]
+    dhcp4: false
 EOF
     cat > "$dir/user-data" <<EOF
 #cloud-config
