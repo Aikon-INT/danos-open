@@ -318,3 +318,10 @@ only the default drop path. This proves the FRR→DPA→VPP add/withdraw
 lifecycle for the tested route; reconnect mode is required for this
 containerized FRR runtime because zebra closes the client socket during its
 idle transition.
+
+ECMP was also exercised with two FRR static nexthops for
+`203.0.113.0/24`. VPP reported two attached paths (`172.17.0.1` and
+`172.17.0.2`, both on `tap0`) and a `dpo-load-balance` with two buckets; the
+subsequent command-32 withdrawal removed the programmed route. This is
+control-plane/FIB ECMP evidence; packet distribution still requires a
+two-port privileged lane and remains separate from this socket-level result.
