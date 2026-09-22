@@ -351,3 +351,10 @@ Both DPDK e1000 interfaces were up while the two-path ECMP FIB was present.
 This closes the basic two-port packet reachability gate; flow-offload error
 `-38` remains a QEMU emulation limitation and is explicitly downgraded by
 VPP without disabling the ports.
+
+The host DPDK preflight remains explicitly blocked: no host `vpp` binary is
+available, only 19 hugepages exist and all are consumed, and the idle
+Realtek PCI Ethernet function `04:00.0` (`10ec:8168`) is still owned by the
+kernel `r8169` driver. It has not been rebound automatically because doing so
+requires privileged host PCI state changes. The QEMU e1000 lane remains the
+reproducible software DPDK acceptance path.
