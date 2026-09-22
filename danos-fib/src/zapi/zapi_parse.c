@@ -106,7 +106,13 @@ int zapi_decode_frr_route(const zapi_message_t *msg, zapi_frr_route_t *out)
                 zapi_decode_u8(&d, &nh->type) != 0 ||
                 zapi_decode_u8(&d, &nh->flags) != 0) return -6;
             nh->family = out->family;
-            if (nh->type == 1 || nh->type == 3) {
+            /* FRR 10.3 uses type 1 for an ifindex-only nexthop.  The
+             * previous decoder treated it as an IPv4 gateway and consumed
+             * the ifindex as a gateway, producing values such as 0.0.0.2.
+             * Type 3 is the IPv4+ifindex form. */
+            if (nh->type == 1) {
+                if (zapi_decode_u32(&d, &nh->ifindex) != 0) return -8;
+            } else if (nh->type == 2 || nh->type == 3) {
                 size_t gw = out->family == AF_INET ? 4 : 16;
                 if (zapi_decode_bytes(&d, nh->gateway, gw) != 0) return -7;
                 nh->has_gateway = true;
