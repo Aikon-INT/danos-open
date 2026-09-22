@@ -46,7 +46,10 @@ if test -e /vpp-dpdk.enabled; then
     cat /var/log/vpp/vpp-console.log > /dev/console 2>&1
     test -S /run/vpp/api.sock && echo "VPP API socket: ready" > /dev/console || echo "VPP API socket: missing" > /dev/console
     test -S /run/vpp/stats.sock && echo "VPP stats socket: ready" > /dev/console || echo "VPP stats socket: missing" > /dev/console
+    /usr/bin/vppctl -s /run/vpp/cli.sock set interface state GigabitEthernet0/2/0 up > /dev/console 2>&1 || true
+    /usr/bin/vppctl -s /run/vpp/cli.sock set interface ip address GigabitEthernet0/2/0 10.10.0.1/24 > /dev/console 2>&1 || true
     /usr/bin/vppctl -s /run/vpp/cli.sock show interface > /dev/console 2>&1 || true
+    /usr/bin/vppctl -s /run/vpp/cli.sock show hardware-interfaces > /dev/console 2>&1 || true
 fi
 
 export MGRD_NETLINK_REAL=1   # VM root: program the real kernel
