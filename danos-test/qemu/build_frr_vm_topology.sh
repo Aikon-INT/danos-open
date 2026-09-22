@@ -40,6 +40,7 @@ runcmd:
   - [sh, -c, "cat > /etc/frr/frr.conf <<'CFG'"]
   - [sh, -c, "printf 'frr version 10.3\\nfrr defaults traditional\\nhostname $hostname\\nrouter bgp $asn\\n bgp router-id $bgp_addr\\n no bgp ebgp-requires-policy\\n neighbor $bgp_peer remote-as $peer_asn\\n address-family ipv4 unicast\\n  neighbor $bgp_peer activate\\n  network $prefix\\n exit-address-family\\n' >> /etc/frr/frr.conf"]
   - [sh, -c, "chown frr:frr /etc/frr/frr.conf; /usr/lib/frr/frrinit.sh restart"]
+  - [sh, -c, "socat TCP-LISTEN:2600,bind=0.0.0.0,reuseaddr,fork UNIX-CONNECT:/var/run/frr/zserv.api >/var/log/frr-zapi-proxy.log 2>&1 &"]
 EOF
     xorriso -as mkisofs -quiet -V CIDATA -o "$OUT/$node-seed.iso" "$dir"
 }

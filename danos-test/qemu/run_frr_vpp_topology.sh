@@ -18,12 +18,16 @@ qemu-system-x86_64 -enable-kvm -cpu host -m 2048 -smp 2 -cdrom "$ISO" \
   -device e1000,netdev=lan1,addr=0x2,mac=52:54:00:10:01:01 \
   -netdev socket,id=lan2,listen=127.0.0.1:$LAN2_PORT \
   -device e1000,netdev=lan2,addr=0x3,mac=52:54:00:10:02:01 \
+  -netdev user,id=mgmt \
+  -device e1000,netdev=mgmt,addr=0x5,mac=52:54:00:10:03:01 \
   -display none -serial file:"$T/danos.serial.log" -monitor none \
   -daemonize -pidfile "$T/danos.pid"
 
 qemu-system-x86_64 -enable-kvm -cpu host -m 1024 -smp 1 \
   -drive file="$T/frr-1.qcow2",if=virtio,format=qcow2,snapshot=on \
-  -cdrom "$T/r1-seed.iso" -nic user,model=e1000 \
+  -cdrom "$T/r1-seed.iso" \
+  -netdev user,id=mgmt,hostfwd=tcp:127.0.0.1:23001-:2600 \
+  -device e1000,netdev=mgmt,addr=0x6,mac=52:54:00:11:01:01 \
   -netdev socket,id=dp,connect=127.0.0.1:$LAN1_PORT \
   -device e1000,netdev=dp,mac=52:54:00:11:01:02 \
   -netdev socket,id=peer,listen=127.0.0.1:$PEER_PORT \
