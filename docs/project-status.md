@@ -332,3 +332,13 @@ recreated, and the bridge replayed the desired route ledger until
 `198.51.100.0/24` reappeared in the VPP FIB; the run completed with
 `processed=2 failed=0`. This closes the software socket-level restart gate;
 the persistent-interface variant still belongs to the QEMU/DPDK lane.
+
+The QEMU e1000 two-port ISO lane was rebuilt after correcting the VPP 26.10
+socket-server configuration to `socksvr { default }`; the unsupported
+`api-listen` directive had prevented `api.sock` creation. With
+`-enable-kvm -cpu host`, the guest reports both `/run/vpp/api.sock` and
+`stats.sock` ready, both `GigabitEthernet0/2/0` and `GigabitEthernet0/3/0`
+up, the `30.30.30.0/24` two-next-hop FIB, and mgrd connected to VPP. DPDK
+reports flow-offload error `-38` for QEMU e1000 and disables only flow
+offload; the ports and control-plane FIB remain operational. The rebuilt
+artifact is `build/danos-vpp-dpdk-e1000-2port-api2.iso`.

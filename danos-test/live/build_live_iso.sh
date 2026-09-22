@@ -157,6 +157,9 @@ ${VPP_PLUGIN_LINE}
 api-segment {
   prefix vpp
 }
+socksvr {
+  default
+}
 statseg {
   socket-name /run/vpp/stats.sock
 }
