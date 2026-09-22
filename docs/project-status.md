@@ -325,3 +325,10 @@ ECMP was also exercised with two FRR static nexthops for
 subsequent command-32 withdrawal removed the programmed route. This is
 control-plane/FIB ECMP evidence; packet distribution still requires a
 two-port privileged lane and remains separate from this socket-level result.
+
+The live recovery race is now handled by bounded replay retries after the
+VPP API reconnect. In the privileged test, VPP was restarted, `tap0` was
+recreated, and the bridge replayed the desired route ledger until
+`198.51.100.0/24` reappeared in the VPP FIB; the run completed with
+`processed=2 failed=0`. This closes the software socket-level restart gate;
+the persistent-interface variant still belongs to the QEMU/DPDK lane.
