@@ -140,6 +140,12 @@ unix {
 plugins {
 ${VPP_PLUGIN_LINE}
 }
+api-segment {
+  prefix vpp
+}
+statseg {
+  socket-name /run/vpp/stats.sock
+}
 ${VPP_DPDK_BLOCK}
 EOF
   touch "$WORK/initramfs/vpp-dpdk.enabled"
