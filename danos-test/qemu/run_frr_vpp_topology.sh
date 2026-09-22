@@ -13,7 +13,7 @@ for f in frr-1.qcow2 frr-2.qcow2 r1-seed.iso r2-seed.iso; do
 done
 
 qemu-system-x86_64 -enable-kvm -cpu host -m 2048 -smp 2 -cdrom "$ISO" \
-  -vga none \
+  -vga none -device VGA,addr=0x4 \
   -netdev socket,id=lan1,listen=127.0.0.1:$LAN1_PORT \
   -device e1000,netdev=lan1,addr=0x2,mac=52:54:00:10:01:01 \
   -netdev socket,id=lan2,listen=127.0.0.1:$LAN2_PORT \
