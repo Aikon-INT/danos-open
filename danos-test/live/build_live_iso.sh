@@ -137,16 +137,9 @@ unix {
   log /var/log/vpp/vpp.log
   cli-listen /run/vpp/cli.sock
 }
-api-segment {
-  prefix vpp
-}
-statseg {
-  socket-name /run/vpp/stats.sock
-}
 plugins {
 ${VPP_PLUGIN_LINE}
 }
-plugin_path /usr/lib/x86_64-linux-gnu/vpp_plugins
 ${VPP_DPDK_BLOCK}
 EOF
   touch "$WORK/initramfs/vpp-dpdk.enabled"

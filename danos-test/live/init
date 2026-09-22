@@ -35,6 +35,9 @@ if test -e /vpp-dpdk.enabled; then
     # contains the base live-image libc and must remain a fallback only.
     export LD_LIBRARY_PATH=/lib/x86_64-linux-gnu:/lib
     echo "--- starting optional VPP/DPDK guest profile"
+    echo "--- VPP binary probe ---"
+    /usr/bin/vpp --version > /var/log/vpp/vpp-probe.log 2>&1 || true
+    cat /var/log/vpp/vpp-probe.log > /dev/console 2>&1
     /usr/bin/vpp -c /etc/vpp/startup.conf >/var/log/vpp/vpp-console.log 2>&1 &
     sleep 2
     echo "--- VPP guest startup log ---"
