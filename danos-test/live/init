@@ -18,6 +18,8 @@ insmod /modules/failover.ko 2>/dev/null || true
 insmod /modules/net_failover.ko 2>/dev/null || true
 insmod /modules/virtio_pci.ko 2>/dev/null || true
 insmod /modules/virtio_net.ko 2>/dev/null || echo "virtio-net insmod failed"
+insmod /modules/uio.ko 2>/dev/null || true
+insmod /modules/uio_pci_generic.ko 2>/dev/null || true
 
 ip link set lo up
 # QEMU user-mode networking: static address on eth0

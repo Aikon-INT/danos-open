@@ -72,7 +72,11 @@ FAILOVER=$(docker exec danos-iso-build sh -c \
     'find /lib/modules -name "failover.ko*" | head -1')
 VIRTIO_PCI=$(docker exec danos-iso-build sh -c \
     'find /lib/modules -name "virtio_pci.ko*" | head -1')
-for module in failover net_failover virtio_pci; do
+UIO=$(docker exec danos-iso-build sh -c \
+    'find /lib/modules -name "uio.ko*" | head -1')
+UIO_PCI_GENERIC=$(docker exec danos-iso-build sh -c \
+    'find /lib/modules -name "uio_pci_generic.ko*" | head -1')
+for module in failover net_failover virtio_pci uio uio_pci_generic; do
   eval "source=\$${module^^}"
   if test -n "$source"; then
     docker cp "danos-iso-build:$source" "$WORK/${module}.ko.raw"
