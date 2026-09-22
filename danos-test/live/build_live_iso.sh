@@ -94,11 +94,10 @@ if test -n "$VPP_IMAGE"; then
   docker cp "$VPP_CID:/usr/bin/vppctl" "$WORK/initramfs/usr/bin/vppctl"
   docker cp "$VPP_CID:/usr/lib/x86_64-linux-gnu/vpp_plugins/dpdk_plugin.so" \
     "$WORK/initramfs/usr/lib/x86_64-linux-gnu/vpp_plugins/dpdk_plugin.so"
-  for lib in $(docker exec "$VPP_CID" ldd /usr/bin/vpp \
-      /usr/lib/x86_64-linux-gnu/vpp_plugins/dpdk_plugin.so 2>/dev/null |
-      awk '$3 ~ /^\// {print $3} $1 ~ /^\// {print $1}' | sort -u); do
-    test -f "$lib" || continue
-    docker cp "$VPP_CID:$lib" "$WORK/initramfs/lib/"
+  for lib in libvnet.so.26.10 libvlibmemory.so.26.10 libvlibapi.so.26.10 \
+      libsvm.so.26.10 libvlib.so.26.10 libvppinfra.so.26.10 \
+      libnuma.so.1 libcrypto.so.3 libz.so.1 libzstd.so.1; do
+    docker cp "$VPP_CID:/lib/x86_64-linux-gnu/$lib" "$WORK/initramfs/lib/" 2>/dev/null || true
   done
   cat > "$WORK/initramfs/etc/vpp/startup.conf" <<'EOF'
 unix { nodaemon log /var/log/vpp/vpp.log cli-listen /run/vpp/cli.sock }
