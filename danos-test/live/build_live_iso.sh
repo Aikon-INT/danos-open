@@ -22,6 +22,7 @@ WORK=/tmp/danos-iso-work
 APT_MIRROR="${APT_MIRROR:-http://repo.huaweicloud.com/debian}"
 VPP_IMAGE="${VPP_IMAGE:-}"
 VPP_DPDK_ENABLE="${VPP_DPDK_ENABLE:-1}"
+VPP_DPDK_DEVICE="${VPP_DPDK_DEVICE:-vmxnet3}"
 
 mkdir -p "$WORK" "$PROJECT_ROOT/build"
 
@@ -154,6 +155,7 @@ statseg {
 ${VPP_DPDK_BLOCK}
 EOF
   touch "$WORK/initramfs/vpp-dpdk.enabled"
+  test "$VPP_DPDK_DEVICE" = e1000 && touch "$WORK/initramfs/vpp-dpdk-e1000.enabled"
   chmod +x "$WORK/initramfs/usr/bin/vpp" "$WORK/initramfs/usr/bin/vppctl"
   docker rm -f "$VPP_CID" >/dev/null
 fi

@@ -13,7 +13,9 @@ echo "  DANOS-Open live system (kernel 6.12, mgrd)"
 echo "==============================================="
 
 # network drivers (QEMU e1000 and virtio-net)
-insmod /modules/e1000.ko 2>/dev/null || echo "e1000 insmod failed"
+if test ! -e /vpp-dpdk.enabled; then
+    insmod /modules/e1000.ko 2>/dev/null || echo "e1000 insmod failed"
+fi
 insmod /modules/failover.ko 2>/dev/null || true
 insmod /modules/net_failover.ko 2>/dev/null || true
 insmod /modules/virtio_pci.ko 2>/dev/null || true
@@ -46,6 +48,10 @@ if test -e /vpp-dpdk.enabled; then
     cat /var/log/vpp/vpp-console.log > /dev/console 2>&1
     test -S /run/vpp/api.sock && echo "VPP API socket: ready" > /dev/console || echo "VPP API socket: missing" > /dev/console
     test -S /run/vpp/stats.sock && echo "VPP stats socket: ready" > /dev/console || echo "VPP stats socket: missing" > /dev/console
+    if test -e /vpp-dpdk-e1000.enabled; then
+        /usr/bin/vppctl -s /run/vpp/cli.sock set interface state GigabitEthernet0/2/0 up > /dev/console 2>&1 || true
+        /usr/bin/vppctl -s /run/vpp/cli.sock set interface ip address GigabitEthernet0/2/0 10.10.0.1/24 > /dev/console 2>&1 || true
+    fi
     /usr/bin/vppctl -s /run/vpp/cli.sock show interface > /dev/console 2>&1 || true
     /usr/bin/vppctl -s /run/vpp/cli.sock show hardware-interfaces > /dev/console 2>&1 || true
 fi
