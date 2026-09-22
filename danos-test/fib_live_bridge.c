@@ -46,9 +46,19 @@ static int recover_vpp_backend(bool enabled)
             uint64_t sweep_failed = 0;
             (void)danos_programming_sweep(&sweep_failed);
             if (sweep_failed != 0) return -1;
-            (void)danos_programming_forget_programmed();
             uint64_t attempted = 0, failed = 0;
-            (void)danos_programming_run(&attempted, &failed);
+            /* A restarted VPP may recreate DPDK/tap interfaces just after
+             * api.sock becomes connectable.  Replay a bounded number of
+             * times so interface appearance is not mistaken for a complete
+             * dataplane recovery. */
+            for (int replay = 0; replay < 5; replay++) {
+                (void)danos_programming_forget_programmed();
+                attempted = failed = 0;
+                (void)danos_programming_run(&attempted, &failed);
+                if (failed == 0) break;
+                struct timespec pause = { .tv_sec = 0, .tv_nsec = 200000000L };
+                nanosleep(&pause, NULL);
+            }
             if (debug)
                 fprintf(stderr, "VPP backend recovery: replay attempted=%llu failed=%llu\n",
                         (unsigned long long)attempted,
