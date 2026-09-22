@@ -24,6 +24,7 @@ ethernets:
     dhcp4: true
   ens4:
     dhcp4: false
+    addresses: [$address/24]
 EOF
     cat > "$dir/user-data" <<EOF
 #cloud-config
