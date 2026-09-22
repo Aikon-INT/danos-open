@@ -116,6 +116,7 @@ statseg {
 plugins {
   plugin dpdk_plugin.so { enable }
 }
+plugin_path /usr/lib/x86_64-linux-gnu/vpp_plugins
 dpdk {
   dev 0000:00:02.0
 }
