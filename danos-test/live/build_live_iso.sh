@@ -25,6 +25,8 @@ VPP_DPDK_ENABLE="${VPP_DPDK_ENABLE:-1}"
 VPP_DPDK_DEVICE="${VPP_DPDK_DEVICE:-vmxnet3}"
 VPP_DPDK_PORTS="${VPP_DPDK_PORTS:-0000:00:02.0}"
 VPP_DPDK_TRAFFIC_TEST="${VPP_DPDK_TRAFFIC_TEST:-0}"
+DANOS_FIB_BRIDGE_ENABLE="${DANOS_FIB_BRIDGE_ENABLE:-0}"
+DANOS_ZEBRA_ENDPOINT="${DANOS_ZEBRA_ENDPOINT:-}"
 
 mkdir -p "$WORK" "$PROJECT_ROOT/build"
 
@@ -201,6 +203,11 @@ elif test -x "$PROJECT_ROOT/build/danos-test/fib_live_bridge"; then
   chmod +x "$WORK/initramfs/bin/fib_live_bridge"
 else
   echo "INFO: fib_live_bridge not built; ISO will omit optional FRR bridge"
+fi
+test "$DANOS_FIB_BRIDGE_ENABLE" = 1 && touch "$WORK/initramfs/danos-fib-bridge.enabled"
+if test "$DANOS_FIB_BRIDGE_ENABLE" = 1 && test -n "$DANOS_ZEBRA_ENDPOINT"; then
+  mkdir -p "$WORK/initramfs/etc/danos"
+  printf 'DANOS_ZEBRA_ENDPOINT=%q\n' "$DANOS_ZEBRA_ENDPOINT" > "$WORK/initramfs/etc/danos/bridge.env"
 fi
 cp "$PROJECT_ROOT/danos-test/live/init" "$WORK/initramfs/init"
 chmod +x "$WORK/initramfs/init"

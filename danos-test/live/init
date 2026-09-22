@@ -82,6 +82,16 @@ if test -e /vpp-dpdk.enabled; then
     fi
     /usr/bin/vppctl -s /run/vpp/cli.sock show interface > /dev/console 2>&1 || true
     /usr/bin/vppctl -s /run/vpp/cli.sock show hardware-interfaces > /dev/console 2>&1 || true
+    if test -e /danos-fib-bridge.enabled && test -x /bin/fib_live_bridge \
+        && test -r /etc/danos/bridge.env; then
+        . /etc/danos/bridge.env
+        echo "--- starting optional FRR ZAPI bridge" > /dev/console
+        DANOS_ZAPI_DEBUG=1 /bin/fib_live_bridge \
+            --zebra-sock "$DANOS_ZEBRA_ENDPOINT" \
+            --vpp-sock /run/vpp/api.sock --messages 0 --reconnect \
+            >/var/log/fib_live_bridge.log 2>&1 &
+        echo "FRR bridge started: $DANOS_ZEBRA_ENDPOINT" > /dev/console
+    fi
 fi
 
 export MGRD_NETLINK_REAL=1   # VM root: program the real kernel
