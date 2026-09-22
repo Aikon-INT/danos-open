@@ -300,6 +300,16 @@ TESTS=("F1:test_f1" "F2:test_f2" "F3:test_f3" "F4:test_f4" "F5:test_f5" "F6:test
 
 main() {
     local run_test="${1:-all}"
+    # Accept the documented CLI form: --test F1|F2|...|all.
+    # Keep the positional form for backwards compatibility.
+    if [ "$run_test" = "--test" ]; then
+        run_test="${2:-all}"
+    fi
+    if [ "$run_test" = "--help" ] || [ "$run_test" = "-h" ]; then
+        echo "Usage: $0 [--test F1|F2|F3|F4|F5|F6|F7|F8|all]"
+        echo "       $0 F1|F2|F3|F4|F5|F6|F7|F8|all"
+        return 0
+    fi
     if [ "$run_test" = "--list" ]; then
         for t in "${TESTS[@]}"; do echo "  ${t%%:*}: $(case ${t%%:*} in
             F1) echo "BGP 3-node convergence + ECMP";; F2) echo "OSPF 3-node convergence";;
