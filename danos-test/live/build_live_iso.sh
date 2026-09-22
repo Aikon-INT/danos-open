@@ -100,7 +100,7 @@ if test -n "$VPP_IMAGE"; then
       libc.so.6; do
     docker cp "$VPP_CID:/lib/x86_64-linux-gnu/$lib" "$WORK/initramfs/lib/" 2>/dev/null || true
   done
-  docker cp "$VPP_CID:/lib64/ld-linux-x86-64.so.2" "$WORK/initramfs/lib/" 2>/dev/null || true
+  docker cp "$VPP_CID:/lib64/ld-linux-x86-64.so.2" "$WORK/initramfs/lib64/" 2>/dev/null || true
   cat > "$WORK/initramfs/etc/vpp/startup.conf" <<'EOF'
 unix { nodaemon log /var/log/vpp/vpp.log cli-listen /run/vpp/cli.sock }
 api-segment { prefix vpp }
