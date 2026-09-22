@@ -102,11 +102,23 @@ if test -n "$VPP_IMAGE"; then
   done
   docker cp "$VPP_CID:/lib64/ld-linux-x86-64.so.2" "$WORK/initramfs/lib64/" 2>/dev/null || true
   cat > "$WORK/initramfs/etc/vpp/startup.conf" <<'EOF'
-unix { nodaemon log /var/log/vpp/vpp.log cli-listen /run/vpp/cli.sock }
-api-segment { prefix vpp }
-statseg { socket-name /run/vpp/stats.sock }
-plugins { plugin dpdk_plugin.so { enable } }
-dpdk { dev 0000:00:02.0 }
+unix {
+  nodaemon
+  log /var/log/vpp/vpp.log
+  cli-listen /run/vpp/cli.sock
+}
+api-segment {
+  prefix vpp
+}
+statseg {
+  socket-name /run/vpp/stats.sock
+}
+plugins {
+  plugin dpdk_plugin.so { enable }
+}
+dpdk {
+  dev 0000:00:02.0
+}
 EOF
   touch "$WORK/initramfs/vpp-dpdk.enabled"
   chmod +x "$WORK/initramfs/usr/bin/vpp" "$WORK/initramfs/usr/bin/vppctl"
