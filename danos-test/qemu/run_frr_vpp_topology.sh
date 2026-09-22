@@ -7,6 +7,7 @@ ISO="${DANOS_ISO:-$ROOT/build/danos-vpp-dpdk-e1000-2port-traffic.iso}"
 LAN1_PORT="${DANOS_LAN1_PORT:-21001}"
 LAN2_PORT="${DANOS_LAN2_PORT:-21002}"
 PEER_PORT="${FRR_PEER_PORT:-22001}"
+ZAPI_PORT="${FRR_ZAPI_PORT:-23001}"
 test -f "$ISO" || { echo "[BLOCKED] DANOS ISO missing: $ISO"; exit 2; }
 for f in frr-1.qcow2 frr-2.qcow2 r1-seed.iso r2-seed.iso; do
     test -f "$T/$f" || { echo "[BLOCKED] topology artifact missing: $T/$f"; exit 2; }
@@ -26,7 +27,7 @@ qemu-system-x86_64 -enable-kvm -cpu host -m 2048 -smp 2 -cdrom "$ISO" \
 qemu-system-x86_64 -enable-kvm -cpu host -m 1024 -smp 1 \
   -drive file="$T/frr-1.qcow2",if=virtio,format=qcow2,snapshot=on \
   -cdrom "$T/r1-seed.iso" \
-  -netdev user,id=mgmt,hostfwd=tcp:127.0.0.1:23001-:2600 \
+  -netdev user,id=mgmt,hostfwd=tcp:127.0.0.1:$ZAPI_PORT-:2600 \
   -device e1000,netdev=mgmt,addr=0x6,mac=52:54:00:11:01:01 \
   -netdev socket,id=dp,connect=127.0.0.1:$LAN1_PORT \
   -device e1000,netdev=dp,mac=52:54:00:11:01:02 \
