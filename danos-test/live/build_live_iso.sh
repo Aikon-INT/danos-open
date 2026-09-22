@@ -142,6 +142,18 @@ cp "$WORK/libc.so.6" "$WORK/initramfs/lib/libc.so.6"
 cp "$WORK/ld-linux.so.2" "$WORK/initramfs/lib/ld-linux-x86-64.so.2"
 cp "$WORK/ld-linux.so.2" "$WORK/initramfs/lib64/ld-linux-x86-64.so.2"
 cp "$WORK/libc.so.6" "$WORK/initramfs/lib64/libc.so.6"
+if test -n "$VPP_IMAGE"; then
+    # The ELF interpreter is selected before LD_LIBRARY_PATH.  Use the same
+    # trixie glibc pair for the VPP executable and the base initramfs paths.
+    cp "$WORK/initramfs/lib/x86_64-linux-gnu/libc.so.6" \
+       "$WORK/initramfs/lib/libc.so.6"
+    cp "$WORK/initramfs/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2" \
+       "$WORK/initramfs/lib/ld-linux-x86-64.so.2"
+    cp "$WORK/initramfs/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2" \
+       "$WORK/initramfs/lib64/ld-linux-x86-64.so.2"
+    cp "$WORK/initramfs/lib/x86_64-linux-gnu/libc.so.6" \
+       "$WORK/initramfs/lib64/libc.so.6"
+fi
 # mgrd built in step 1 lives in the container; fetch fresh copy
 docker cp danos-iso-build:/tmp/b/danos-mgrd/danos-mgrd "$WORK/initramfs/bin/mgrd"
 chmod +x "$WORK/initramfs/bin/mgrd"
