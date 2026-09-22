@@ -96,9 +96,11 @@ if test -n "$VPP_IMAGE"; then
     "$WORK/initramfs/usr/lib/x86_64-linux-gnu/vpp_plugins/dpdk_plugin.so"
   for lib in libvnet.so.26.10 libvlibmemory.so.26.10 libvlibapi.so.26.10 \
       libsvm.so.26.10 libvlib.so.26.10 libvppinfra.so.26.10 \
-      libnuma.so.1 libcrypto.so.3 libz.so.1 libzstd.so.1; do
+      libnuma.so.1 libcrypto.so.3 libz.so.1 libzstd.so.1 libm.so.6 \
+      libc.so.6; do
     docker cp "$VPP_CID:/lib/x86_64-linux-gnu/$lib" "$WORK/initramfs/lib/" 2>/dev/null || true
   done
+  docker cp "$VPP_CID:/lib64/ld-linux-x86-64.so.2" "$WORK/initramfs/lib/" 2>/dev/null || true
   cat > "$WORK/initramfs/etc/vpp/startup.conf" <<'EOF'
 unix { nodaemon log /var/log/vpp/vpp.log cli-listen /run/vpp/cli.sock }
 api-segment { prefix vpp }
