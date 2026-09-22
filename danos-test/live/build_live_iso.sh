@@ -94,6 +94,11 @@ if test -n "$VPP_IMAGE"; then
   mkdir -p "$WORK/initramfs"/{usr/bin,usr/lib/x86_64-linux-gnu/vpp_plugins,lib/x86_64-linux-gnu,etc/vpp,run/vpp,var/log/vpp}
   docker cp "$VPP_CID:/usr/bin/vpp" "$WORK/initramfs/usr/bin/vpp"
   docker cp "$VPP_CID:/usr/bin/vppctl" "$WORK/initramfs/usr/bin/vppctl"
+  # Import the complete trixie runtime directory so transitive glibc,
+  # crypto, compression and loader objects cannot be mixed with the ISO
+  # builder image.  The guest profile is explicitly an integration image.
+  docker cp "$VPP_CID:/lib/x86_64-linux-gnu/." \
+    "$WORK/initramfs/lib/x86_64-linux-gnu/"
   docker cp "$VPP_CID:/usr/lib/x86_64-linux-gnu/vpp_plugins/dpdk_plugin.so" \
     "$WORK/initramfs/usr/lib/x86_64-linux-gnu/vpp_plugins/dpdk_plugin.so"
   # Keep glibc and math/loader objects from the same Debian trixie VPP
