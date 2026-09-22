@@ -274,3 +274,21 @@ Every stage must report four separate results:
 - External interoperability and real traffic tests.
 
 An environment restriction must be recorded as `blocked by environment`; it must not be silently counted as pass or fail. A release cannot claim a real dataplane feature until the corresponding privileged and traffic evidence exists.
+
+## 2026-09-22 progress update
+
+FRR 10.3 ifindex-only nexthops are now decoded without fabricating a gateway
+address. The VPP encoder correspondingly emits `FIB_PATH_TYPE_API_ATTACHED`
+for a zero gateway, preventing VPP from attempting an ARP/probe for
+`0.0.0.0`; non-zero gateways retain the normal recursive path. Regression
+coverage now includes both the FRR type-2 gateway payload and the attached
+VPP path wire encoding. The local build and all 34 CTest cases pass, and the
+changes are pushed as `a05df70` and `c119960`.
+
+The next privileged acceptance step is route add/withdraw against a VPP
+instance with a socket accessible to the host bridge process, followed by
+`vppctl` FIB inspection and packet traffic. The previous runtime attempt was
+blocked by the mounted socket permissions (`VPP adapter setup failed:
+Permission denied`), so this is an environment harness issue rather than a
+counted dataplane pass. Use the standard integration harness with explicit
+socket ownership/permissions, then test ECMP, restart recovery and deletion.
