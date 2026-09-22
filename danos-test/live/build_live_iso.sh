@@ -87,18 +87,31 @@ fi
 rm -rf "$WORK/initramfs"
 mkdir -p "$WORK/initramfs"/{bin,dev,proc,sys,tmp,lib,lib64,modules}
 if test -n "$VPP_IMAGE"; then
-  VPP_CID=$(docker create "$VPP_IMAGE")
+  # Keep the image container alive so readlink can resolve SONAME targets.
+  VPP_CID=$(docker create "$VPP_IMAGE" sleep infinity)
+  docker start "$VPP_CID" >/dev/null
   trap 'docker rm -f danos-iso-build "$VPP_CID" >/dev/null 2>&1 || true' EXIT
   mkdir -p "$WORK/initramfs"/{usr/bin,usr/lib/x86_64-linux-gnu/vpp_plugins,lib/x86_64-linux-gnu,etc/vpp,run/vpp,var/log/vpp}
   docker cp "$VPP_CID:/usr/bin/vpp" "$WORK/initramfs/usr/bin/vpp"
   docker cp "$VPP_CID:/usr/bin/vppctl" "$WORK/initramfs/usr/bin/vppctl"
   docker cp "$VPP_CID:/usr/lib/x86_64-linux-gnu/vpp_plugins/dpdk_plugin.so" \
     "$WORK/initramfs/usr/lib/x86_64-linux-gnu/vpp_plugins/dpdk_plugin.so"
+  # Keep glibc and math/loader objects from the same Debian trixie VPP
+  # runtime.  docker cp of a SONAME symlink can otherwise copy only the
+  # link, leaving a mixed host/build-container ABI in the initramfs.
+  copy_vpp_real() {
+    local name="$1" path
+    path=$(docker exec "$VPP_CID" readlink -f "/lib/x86_64-linux-gnu/$name") || return 0
+    test -n "$path" || return 0
+    docker cp "$VPP_CID:$path" "$WORK/initramfs/lib/x86_64-linux-gnu/$name"
+  }
+  copy_vpp_real libc.so.6
+  copy_vpp_real libm.so.6
+  copy_vpp_real ld-linux-x86-64.so.2
   for lib in libvnet.so.26.10 libvlibmemory.so.26.10 libvlibapi.so.26.10 \
       libsvm.so.26.10 libvlib.so.26.10 libvppinfra.so.26.10 \
       libnuma.so.1 libcrypto.so.3 libz.so.1 libzstd.so.1 libm.so.6; do
-    docker cp "$VPP_CID:/lib/x86_64-linux-gnu/$lib" \
-      "$WORK/initramfs/lib/x86_64-linux-gnu/" 2>/dev/null || true
+    copy_vpp_real "$lib"
   done
   cat > "$WORK/initramfs/etc/vpp/startup.conf" <<'EOF'
 unix {
