@@ -60,22 +60,23 @@ docker cp danos-iso-build:/usr/lib/ISOLINUX/isolinux.bin "$WORK/isolinux.bin"
 docker cp danos-iso-build:/usr/lib/syslinux/modules/bios/ldlinux.c32 "$WORK/ldlinux.c32"
 docker cp danos-iso-build:/usr/lib/x86_64-linux-gnu/libc.so.6 "$WORK/libc.so.6"
 docker cp danos-iso-build:/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 "$WORK/ld-linux.so.2"
+MODULE_ROOTS='/lib/modules /usr/lib/modules'
 E1000=$(docker exec danos-iso-build sh -c \
-    'find /lib/modules -name "e1000.ko*" | head -1')
+    'find /lib/modules /usr/lib/modules -name "e1000.ko*" 2>/dev/null | head -1')
 docker cp "danos-iso-build:$E1000" "$WORK/e1000.ko.raw"
 VIRTIO_NET=$(docker exec danos-iso-build sh -c \
-    'find /lib/modules -name "virtio_net.ko*" | head -1')
+    'find /lib/modules /usr/lib/modules -name "virtio_net.ko*" 2>/dev/null | head -1')
 docker cp "danos-iso-build:$VIRTIO_NET" "$WORK/virtio_net.ko.raw"
 NET_FAILOVER=$(docker exec danos-iso-build sh -c \
-    'find /lib/modules -name "net_failover.ko*" | head -1')
+    'find /lib/modules /usr/lib/modules -name "net_failover.ko*" 2>/dev/null | head -1')
 FAILOVER=$(docker exec danos-iso-build sh -c \
-    'find /lib/modules -name "failover.ko*" | head -1')
+    'find /lib/modules /usr/lib/modules -name "failover.ko*" 2>/dev/null | head -1')
 VIRTIO_PCI=$(docker exec danos-iso-build sh -c \
-    'find /lib/modules -name "virtio_pci.ko*" | head -1')
+    'find /lib/modules /usr/lib/modules -name "virtio_pci.ko*" 2>/dev/null | head -1')
 UIO=$(docker exec danos-iso-build sh -c \
-    'find /lib/modules -name "uio.ko*" | head -1')
+    'find /lib/modules /usr/lib/modules -name "uio.ko*" 2>/dev/null | head -1')
 UIO_PCI_GENERIC=$(docker exec danos-iso-build sh -c \
-    'find /lib/modules -name "uio_pci_generic.ko*" | head -1')
+    'find /lib/modules /usr/lib/modules -name "uio_pci_generic.ko*" 2>/dev/null | head -1')
 for module in failover net_failover virtio_pci uio uio_pci_generic; do
   eval "source=\$${module^^}"
   if test -n "$source"; then
