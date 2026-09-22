@@ -292,3 +292,20 @@ blocked by the mounted socket permissions (`VPP adapter setup failed:
 Permission denied`), so this is an environment harness issue rather than a
 counted dataplane pass. Use the standard integration harness with explicit
 socket ownership/permissions, then test ECMP, restart recovery and deletion.
+
+The VPP API gate has since been corrected against the Debian trixie VPP
+26.10 generated `fib_types.api`: the path contains `rpf_id`, u32 type/flags/
+proto fields and a 28-byte nexthop union. Zero-gateway FRR ifindex-only paths
+use `FIB_API_PATH_FLAG_RESOLVE_VIA_ATTACHED`; the former malformed layout was
+causing VPP message truncation or SIGSEGV. With a VPP tap interface (`tap0`,
+sw_if_index 1) and `DANOS_VPP_IFINDEX_MAP=2:1`, a real FRR 10.3
+`ZEBRA_FRR_REDISTRIBUTE_ROUTE_ADD` reached VPP successfully:
+`processed=1 failed=0`, and `vppctl show ip fib` showed the attached route.
+The corrected encoder and regression test are pushed as `4596e90`; all 34
+local tests pass.
+
+The remaining live gap is a distinct FRR route-delete notification: the
+standard static route add/replay is observed, but the current FRR container
+run did not emit a command-32 event after `no ip route`, so the VPP route
+withdraw cannot yet be claimed. This is now isolated to FRR registration/
+staticd notification behavior, not VPP framing or route-add programming.
