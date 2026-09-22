@@ -376,3 +376,27 @@ Realtek PCI Ethernet function `04:00.0` (`10ec:8168`) is still owned by the
 kernel `r8169` driver. It has not been rebound automatically because doing so
 requires privileged host PCI state changes. The QEMU e1000 lane remains the
 reproducible software DPDK acceptance path.
+
+## 2026-09-22 execution update
+
+The authoritative v0.16 matrix is maintained in
+`docs/v0.16-acceptance-matrix.md`. Since the previous update:
+
+- F1/F2 runner argument handling was corrected; real three-node FRR BGP and
+  OSPF runs now report one executed test and one pass each.
+- `docs/backend-contract-v0.16.md` freezes backend lifecycle, idempotency,
+  error/retry, tombstone deletion, restart replay and observability semantics.
+- `danos-test/integration/run_backend_contract.sh` passes DPA conformance,
+  programming pipeline and composite route/NH/NHGroup lifecycle gates.
+- `danos-test/integration/run_frr_dynamic_vpp.sh` provides the explicit BGP
+  and OSPF ZAPI-to-VPP gate. It requires externally provisioned FRR and VPP
+  sockets and returns BLOCKED when `zserv.api` or `api.sock` is absent; it
+  never treats an empty event stream as a pass.
+- QEMU traffic mode now records interface counters before and after peer
+  probes. Distribution remains PARTIAL until a remote multi-flow generator
+  can drive the two ECMP next hops.
+
+Latest pushed commits: `88e1f5c` (backend contract gate) and `656713b`
+(dynamic FRR/VPP gate). Current environment blockers are the missing FRR
+`/var/run/frr/zserv.api`, missing host VPP runtime for the real PCI DPDK lane,
+and the absence of a privileged remote multi-flow QEMU topology.
