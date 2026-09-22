@@ -51,6 +51,19 @@ The current mainline is clean and synchronized with `origin/main`; the complete 
 - The VPP image contains `dpdk_plugin.so`, but the active validation runtime
   does not load DPDK and exposes no PCI dataplane device. The VPP+DPDK lane is
   therefore environment-blocked, not a passed performance result.
+- 2026-09-22 QEMU/Debian-trixie guest validation closed the software DPDK
+  lane: Debian kernel `uio.ko` and `uio_pci_generic.ko` are bundled, two QEMU
+  e1000 devices are bound by VPP DPDK, API/stats sockets are ready, both
+  interfaces are up, and a two-path `30.30.30.0/24` load-balance FIB is
+  installed and reproduced after two guest restarts. QEMU VMXNET3 (`15ad:07b0`)
+  is enumerated and UIO-bound, but its interface-control path still triggers
+  QEMU VMXNET3 `cafe000f`/VPP instability; it is not counted as passed traffic.
+- FRR 10.3 standard `frrinit.sh` startup (`watchfrr + zebra + mgmtd +
+  staticd`) was reproduced in a privileged container. The live bridge now
+  subscribes to `ZEBRA_ROUTE_STATIC=3` by default and accepts native route
+  notifications (9/10) as well as FRR redistribute notifications (31/32).
+  A static route replay reached the bridge (`processed=1`); VPP programming
+  still requires a matching live-interface ifindex map in the same topology.
 
 ## Capability maturity
 
