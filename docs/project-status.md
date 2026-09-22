@@ -342,3 +342,12 @@ up, the `30.30.30.0/24` two-next-hop FIB, and mgrd connected to VPP. DPDK
 reports flow-offload error `-38` for QEMU e1000 and disables only flow
 offload; the ports and control-plane FIB remain operational. The rebuilt
 artifact is `build/danos-vpp-dpdk-e1000-2port-api2.iso`.
+
+The ISO now has an opt-in traffic gate (`VPP_DPDK_TRAFFIC_TEST=1`). The
+resulting `build/danos-vpp-dpdk-e1000-2port-traffic.iso` was booted with
+QEMU user peers on `10.10.0.0/24` and `10.20.0.0/24`; VPP reported
+`VPP-DPDK-PING-0 PASS` and `VPP-DPDK-PING-1 PASS` for three probes each.
+Both DPDK e1000 interfaces were up while the two-path ECMP FIB was present.
+This closes the basic two-port packet reachability gate; flow-offload error
+`-38` remains a QEMU emulation limitation and is explicitly downgraded by
+VPP without disabling the ports.

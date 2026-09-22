@@ -24,6 +24,7 @@ VPP_IMAGE="${VPP_IMAGE:-}"
 VPP_DPDK_ENABLE="${VPP_DPDK_ENABLE:-1}"
 VPP_DPDK_DEVICE="${VPP_DPDK_DEVICE:-vmxnet3}"
 VPP_DPDK_PORTS="${VPP_DPDK_PORTS:-0000:00:02.0}"
+VPP_DPDK_TRAFFIC_TEST="${VPP_DPDK_TRAFFIC_TEST:-0}"
 
 mkdir -p "$WORK" "$PROJECT_ROOT/build"
 
@@ -168,6 +169,7 @@ EOF
   touch "$WORK/initramfs/vpp-dpdk.enabled"
   test "$VPP_DPDK_DEVICE" = e1000 && touch "$WORK/initramfs/vpp-dpdk-e1000.enabled"
   test "$VPP_DPDK_PORTS" = "0000:00:02.0 0000:00:03.0" && touch "$WORK/initramfs/vpp-dpdk-e1000-2port.enabled"
+  test "$VPP_DPDK_TRAFFIC_TEST" = 1 && touch "$WORK/initramfs/vpp-dpdk-traffic-test.enabled"
   chmod +x "$WORK/initramfs/usr/bin/vpp" "$WORK/initramfs/usr/bin/vppctl"
   docker rm -f "$VPP_CID" >/dev/null
 fi
