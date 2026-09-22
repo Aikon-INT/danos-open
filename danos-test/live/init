@@ -28,6 +28,7 @@ fi
 if test -e /vpp-dpdk.enabled; then
     mkdir -p /dev/hugepages /run/vpp /var/log/vpp
     mount -t hugetlbfs none /dev/hugepages 2>/dev/null || true
+    export LD_LIBRARY_PATH=/lib:/lib/x86_64-linux-gnu
     echo "--- starting optional VPP/DPDK guest profile"
     /usr/bin/vpp -c /etc/vpp/startup.conf >/var/log/vpp/vpp-console.log 2>&1 &
     sleep 2
