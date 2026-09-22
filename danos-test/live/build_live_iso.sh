@@ -21,6 +21,7 @@ GNMIC_SRC="${GNMIC:-/tmp/gnmic-bin}"
 WORK=/tmp/danos-iso-work
 APT_MIRROR="${APT_MIRROR:-https://repo.huaweicloud.com/debian}"
 VPP_IMAGE="${VPP_IMAGE:-}"
+VPP_DPDK_ENABLE="${VPP_DPDK_ENABLE:-1}"
 
 mkdir -p "$WORK" "$PROJECT_ROOT/build"
 
@@ -94,6 +95,9 @@ if test -n "$VPP_IMAGE"; then
   mkdir -p "$WORK/initramfs"/{usr/bin,usr/lib/x86_64-linux-gnu/vpp_plugins,lib/x86_64-linux-gnu,etc/vpp,run/vpp,var/log/vpp}
   docker cp "$VPP_CID:/usr/bin/vpp" "$WORK/initramfs/usr/bin/vpp"
   docker cp "$VPP_CID:/usr/bin/vppctl" "$WORK/initramfs/usr/bin/vppctl"
+  for etc_file in passwd group nsswitch.conf hosts; do
+    docker cp "$VPP_CID:/etc/$etc_file" "$WORK/initramfs/etc/$etc_file" 2>/dev/null || true
+  done
   # Import the complete trixie runtime directory so transitive glibc,
   # crypto, compression and loader objects cannot be mixed with the ISO
   # builder image.  The guest profile is explicitly an integration image.
@@ -118,7 +122,16 @@ if test -n "$VPP_IMAGE"; then
       libnuma.so.1 libcrypto.so.3 libz.so.1 libzstd.so.1 libm.so.6; do
     copy_vpp_real "$lib"
   done
-  cat > "$WORK/initramfs/etc/vpp/startup.conf" <<'EOF'
+  if test "$VPP_DPDK_ENABLE" = 1; then
+    VPP_PLUGIN_LINE='  plugin dpdk_plugin.so { enable }'
+    VPP_DPDK_BLOCK='dpdk {
+  dev 0000:00:02.0
+}'
+  else
+    VPP_PLUGIN_LINE='  plugin dpdk_plugin.so { disable }'
+    VPP_DPDK_BLOCK=''
+  fi
+  cat > "$WORK/initramfs/etc/vpp/startup.conf" <<EOF
 unix {
   nodaemon
   log /var/log/vpp/vpp.log
@@ -131,12 +144,10 @@ statseg {
   socket-name /run/vpp/stats.sock
 }
 plugins {
-  plugin dpdk_plugin.so { enable }
+${VPP_PLUGIN_LINE}
 }
 plugin_path /usr/lib/x86_64-linux-gnu/vpp_plugins
-dpdk {
-  dev 0000:00:02.0
-}
+${VPP_DPDK_BLOCK}
 EOF
   touch "$WORK/initramfs/vpp-dpdk.enabled"
   chmod +x "$WORK/initramfs/usr/bin/vpp" "$WORK/initramfs/usr/bin/vppctl"
