@@ -23,6 +23,7 @@ APT_MIRROR="${APT_MIRROR:-http://repo.huaweicloud.com/debian}"
 VPP_IMAGE="${VPP_IMAGE:-}"
 VPP_DPDK_ENABLE="${VPP_DPDK_ENABLE:-1}"
 VPP_DPDK_DEVICE="${VPP_DPDK_DEVICE:-vmxnet3}"
+VPP_DPDK_PORTS="${VPP_DPDK_PORTS:-0000:00:02.0}"
 
 mkdir -p "$WORK" "$PROJECT_ROOT/build"
 
@@ -130,9 +131,16 @@ if test -n "$VPP_IMAGE"; then
   done
   if test "$VPP_DPDK_ENABLE" = 1; then
     VPP_PLUGIN_LINE='  plugin dpdk_plugin.so { enable }'
-    VPP_DPDK_BLOCK='dpdk {
+    if test "$VPP_DPDK_PORTS" = "0000:00:02.0 0000:00:03.0"; then
+      VPP_DPDK_BLOCK='dpdk {
+  dev 0000:00:02.0
+  dev 0000:00:03.0
+}'
+    else
+      VPP_DPDK_BLOCK='dpdk {
   dev 0000:00:02.0
 }'
+    fi
   else
     VPP_PLUGIN_LINE='  plugin dpdk_plugin.so { disable }'
     VPP_DPDK_BLOCK=''
@@ -156,6 +164,7 @@ ${VPP_DPDK_BLOCK}
 EOF
   touch "$WORK/initramfs/vpp-dpdk.enabled"
   test "$VPP_DPDK_DEVICE" = e1000 && touch "$WORK/initramfs/vpp-dpdk-e1000.enabled"
+  test "$VPP_DPDK_PORTS" = "0000:00:02.0 0000:00:03.0" && touch "$WORK/initramfs/vpp-dpdk-e1000-2port.enabled"
   chmod +x "$WORK/initramfs/usr/bin/vpp" "$WORK/initramfs/usr/bin/vppctl"
   docker rm -f "$VPP_CID" >/dev/null
 fi

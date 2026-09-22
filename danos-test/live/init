@@ -51,6 +51,10 @@ if test -e /vpp-dpdk.enabled; then
     if test -e /vpp-dpdk-e1000.enabled; then
         /usr/bin/vppctl -s /run/vpp/cli.sock set interface state GigabitEthernet0/2/0 up > /dev/console 2>&1 || true
         /usr/bin/vppctl -s /run/vpp/cli.sock set interface ip address GigabitEthernet0/2/0 10.10.0.1/24 > /dev/console 2>&1 || true
+        if test -e /vpp-dpdk-e1000-2port.enabled; then
+            /usr/bin/vppctl -s /run/vpp/cli.sock set interface state GigabitEthernet0/3/0 up > /dev/console 2>&1 || true
+            /usr/bin/vppctl -s /run/vpp/cli.sock set interface ip address GigabitEthernet0/3/0 10.20.0.1/24 > /dev/console 2>&1 || true
+        fi
     fi
     /usr/bin/vppctl -s /run/vpp/cli.sock show interface > /dev/console 2>&1 || true
     /usr/bin/vppctl -s /run/vpp/cli.sock show hardware-interfaces > /dev/console 2>&1 || true
