@@ -9,21 +9,19 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Debian trixie VPP's generated binary API expands fib_path_nh as the
- * address union followed by its auxiliary u32 members on the wire. */
-#define FIB_PATH_NH_SIZE 28
 /* fib_mpls_label { u8 is_uniform; u32 label; u8 ttl; u8 exp; } packed = 7 */
 #define FIB_MPLS_LABEL_SIZE 7
 #define FIB_PATH_MAX_LABELS 16
 
-/* fib_path fixed size (see vpp_msgs.h for layout) */
+/* VPP 26.10 fib_path wire layout from fib_types.api. */
+#define FIB_PATH_NH_SIZE 28
 #define FIB_PATH_SIZE (4 + 4 + 4 + 1 + 1 + 4 + 4 + 4 + \
                        FIB_PATH_NH_SIZE + 1 + \
                        FIB_PATH_MAX_LABELS * FIB_MPLS_LABEL_SIZE)
 
-/* fib_path_type_t */
+/* fib_path_type_t / fib_path_flags_t */
 #define FIB_PATH_TYPE_API_NORMAL 0
-#define FIB_PATH_TYPE_API_ATTACHED 1
+#define FIB_PATH_FLAG_API_RESOLVE_VIA_ATTACHED 1
 /* fib_path_nh_proto_t */
 #define FIB_PATH_NH_PROTO_API_IP4 0
 #define FIB_PATH_NH_PROTO_API_IP6 1
@@ -64,7 +62,7 @@ static void encode_fib_path(vpp_buf_t *b, uint32_t sw_if_index, uint32_t table_i
     }
     vpp_buf_put_u32(b, sw_if_index);   /* sw_if_index */
     vpp_buf_put_u32(b, table_id);      /* table_id */
-    vpp_buf_put_u32(b, 0);             /* rpf_id */
+    vpp_buf_put_u32(b, 0);              /* rpf_id */
     vpp_buf_put_u8(b, 1);              /* weight */
     vpp_buf_put_u8(b, 0);              /* preference */
     bool attached = true;
@@ -72,13 +70,12 @@ static void encode_fib_path(vpp_buf_t *b, uint32_t sw_if_index, uint32_t table_i
         for (unsigned i = 0; i < (nh->is_ipv6 ? 16u : 4u); i++)
             if (nh->addr[i] != 0) { attached = false; break; }
     }
-    vpp_buf_put_u32(b, attached ? FIB_PATH_TYPE_API_ATTACHED
-                                : FIB_PATH_TYPE_API_NORMAL);  /* type enum */
-    vpp_buf_put_u32(b, 0);              /* flags enum */
+    vpp_buf_put_u32(b, FIB_PATH_TYPE_API_NORMAL);  /* type enum */
+    vpp_buf_put_u32(b, attached ? FIB_PATH_FLAG_API_RESOLVE_VIA_ATTACHED : 0);
     vpp_buf_put_u32(b, nh && nh->is_ipv6 ? FIB_PATH_NH_PROTO_API_IP6
                                          : FIB_PATH_NH_PROTO_API_IP4);
     vpp_buf_put_bytes(b, nhbuf, sizeof(nhbuf));
-    uint8_t nh_zero[12] = {0};       /* via_label, obj_id, classify index */
+    uint8_t nh_zero[12] = {0};       /* via-label, obj-id, classify index */
     vpp_buf_put_bytes(b, nh_zero, sizeof(nh_zero));
     vpp_buf_put_u8(b, 0);              /* n_labels */
     vpp_buf_t pad = {0};

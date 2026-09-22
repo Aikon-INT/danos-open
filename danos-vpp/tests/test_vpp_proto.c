@@ -99,8 +99,8 @@ static int test_wire_layouts(void)
     assert(b[10] == 0);                  /* prefix af = IP4 */
     assert(b[27] == 24);                 /* prefix len */
     assert(b[28] == 1);                  /* n_paths */
-    /* path: sw_if_index(4) table_id(4) rpf_id(4) w(1) pref(1) type(1)
-     * flags(1) proto(1) nh(16) n_labels(1) labels(112) */
+    /* path: sw_if_index/table_id/rpf_id, weight/preference, type/flags/proto,
+     * next-hop union, labels */
     int off = 29;
     assert(b[off + 3] == 1);             /* sw_if_index = 1 */
     assert(b[off + 12] == 1);            /* weight = 1 */
@@ -113,8 +113,8 @@ static int test_wire_layouts(void)
     n = vpp_encode_ip_route_add_del(1, 0, &p, 1, &attached_nh, &nhif,
                                     b, sizeof(b));
     assert(n > 0);
-    assert(b[off + 14] == 0 && b[off + 15] == 0 &&
-           b[off + 16] == 0 && b[off + 17] == 1); /* attached type */
+    assert(b[off + 18] == 0 && b[off + 19] == 0 &&
+           b[off + 20] == 0 && b[off + 21] == 1); /* resolve-attached */
 
     /* sw_interface_add_del_address: index + is_add + del_all + address + prefix len */
     vpp_prefix_t ap = { .addr = { .is_ipv6 = false, .addr = {192,0,2,1} },
