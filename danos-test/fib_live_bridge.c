@@ -153,7 +153,9 @@ int main(int argc, char **argv)
         /* Zebra sends interface, nexthop, router-id and other replay
          * notifications on the same stream. They are not FIB route work;
          * only the native route add/delete commands enter DPA. */
-        if (msg.header.command != ZEBRA_FRR_REDISTRIBUTE_ROUTE_ADD &&
+        if (msg.header.command != ZEBRA_FRR_ROUTE_ADD &&
+            msg.header.command != ZEBRA_FRR_ROUTE_DELETE &&
+            msg.header.command != ZEBRA_FRR_REDISTRIBUTE_ROUTE_ADD &&
             msg.header.command != ZEBRA_FRR_REDISTRIBUTE_ROUTE_DELETE)
             continue;
         danos_tx_t tx = {0};
