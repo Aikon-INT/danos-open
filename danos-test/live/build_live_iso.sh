@@ -19,7 +19,7 @@ case "$OUT_ISO" in
 esac
 GNMIC_SRC="${GNMIC:-/tmp/gnmic-bin}"
 WORK=/tmp/danos-iso-work
-APT_MIRROR="${APT_MIRROR:-https://repo.huaweicloud.com/debian}"
+APT_MIRROR="${APT_MIRROR:-http://repo.huaweicloud.com/debian}"
 VPP_IMAGE="${VPP_IMAGE:-}"
 VPP_DPDK_ENABLE="${VPP_DPDK_ENABLE:-1}"
 
@@ -194,7 +194,7 @@ case "$VIRTIO_NET" in
   *.xz) xz -q -d -c "$WORK/virtio_net.ko.raw" > "$WORK/initramfs/modules/virtio_net.ko" ;;
   *)    cp "$WORK/virtio_net.ko.raw" "$WORK/initramfs/modules/virtio_net.ko" ;;
 esac
-for module in failover net_failover virtio_pci; do
+for module in failover net_failover virtio_pci uio uio_pci_generic; do
   eval "source=\$${module^^}"
   test -f "$WORK/${module}.ko.raw" || continue
   case "$source" in
