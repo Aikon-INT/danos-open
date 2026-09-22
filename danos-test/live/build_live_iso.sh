@@ -20,6 +20,7 @@ esac
 GNMIC_SRC="${GNMIC:-/tmp/gnmic-bin}"
 WORK=/tmp/danos-iso-work
 APT_MIRROR="${APT_MIRROR:-https://repo.huaweicloud.com/debian}"
+VPP_IMAGE="${VPP_IMAGE:-}"
 
 mkdir -p "$WORK" "$PROJECT_ROOT/build"
 
@@ -85,6 +86,26 @@ fi
 # --- 3. initramfs tree ---------------------------------------------------
 rm -rf "$WORK/initramfs"
 mkdir -p "$WORK/initramfs"/{bin,dev,proc,sys,tmp,lib,lib64,modules}
+if test -n "$VPP_IMAGE"; then
+  VPP_CID=$(docker create "$VPP_IMAGE")
+  trap 'docker rm -f danos-iso-build "$VPP_CID" >/dev/null 2>&1 || true' EXIT
+  mkdir -p "$WORK/initramfs"/{usr/bin,usr/lib/x86_64-linux-gnu/vpp_plugins,etc/vpp,run/vpp,var/log/vpp}
+  docker cp "$VPP_CID:/usr/bin/vpp" "$WORK/initramfs/usr/bin/vpp"
+  docker cp "$VPP_CID:/usr/bin/vppctl" "$WORK/initramfs/usr/bin/vppctl"
+  docker cp "$VPP_CID:/usr/lib/x86_64-linux-gnu/vpp_plugins/dpdk_plugin.so" \
+    "$WORK/initramfs/usr/lib/x86_64-linux-gnu/vpp_plugins/dpdk_plugin.so"
+  docker cp "$VPP_CID:/lib/x86_64-linux-gnu/." "$WORK/initramfs/lib/"
+  cat > "$WORK/initramfs/etc/vpp/startup.conf" <<'EOF'
+unix { nodaemon log /var/log/vpp/vpp.log cli-listen /run/vpp/cli.sock }
+api-segment { prefix vpp }
+statseg { socket-name /run/vpp/stats.sock }
+plugins { plugin dpdk_plugin.so { enable } }
+dpdk { dev 0000:00:02.0 }
+EOF
+  touch "$WORK/initramfs/vpp-dpdk.enabled"
+  chmod +x "$WORK/initramfs/usr/bin/vpp" "$WORK/initramfs/usr/bin/vppctl"
+  docker rm -f "$VPP_CID" >/dev/null
+fi
 cp "$WORK/busybox" "$WORK/initramfs/bin/busybox"
 cp "$WORK/libc.so.6" "$WORK/initramfs/lib/libc.so.6"
 cp "$WORK/ld-linux.so.2" "$WORK/initramfs/lib/ld-linux-x86-64.so.2"

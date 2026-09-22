@@ -25,6 +25,14 @@ if ip link show eth0 >/dev/null 2>&1; then
     echo "eth0: 10.0.2.15/24 up"
 fi
 
+if test -e /vpp-dpdk.enabled; then
+    mkdir -p /dev/hugepages /run/vpp /var/log/vpp
+    mount -t hugetlbfs none /dev/hugepages 2>/dev/null || true
+    echo "--- starting optional VPP/DPDK guest profile"
+    /usr/bin/vpp -c /etc/vpp/startup.conf >/var/log/vpp/vpp-console.log 2>&1 &
+    sleep 2
+fi
+
 export MGRD_NETLINK_REAL=1   # VM root: program the real kernel
 echo "--- starting mgrd (gNMI :59200, metrics :59201, netlink real)"
 mgrd --port 59200 --metrics-port 59201 --wal /tmp/mgrd.wal --seed &
