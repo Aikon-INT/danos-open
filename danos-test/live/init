@@ -60,6 +60,9 @@ if test -e /vpp-dpdk.enabled; then
         fi
         if test -e /vpp-dpdk-traffic-test.enabled; then
             echo "--- VPP DPDK traffic test ---" > /dev/console
+            echo "VPP-ECMP-COUNTERS-BEFORE" > /dev/console
+            /usr/bin/vppctl -s /run/vpp/cli.sock show interface > /tmp/vpp-if-before.log 2>&1 || true
+            cat /tmp/vpp-if-before.log > /dev/console 2>&1 || true
             if /usr/bin/vppctl -s /run/vpp/cli.sock ping 10.10.0.2 repeat 3 > /tmp/vpp-ping0.log 2>&1; then
                 echo "VPP-DPDK-PING-0 PASS" > /dev/console
             else
@@ -71,6 +74,10 @@ if test -e /vpp-dpdk.enabled; then
                 echo "VPP-DPDK-PING-1 FAIL" > /dev/console
             fi
             cat /tmp/vpp-ping0.log /tmp/vpp-ping1.log > /dev/console 2>&1 || true
+            echo "VPP-ECMP-COUNTERS-AFTER" > /dev/console
+            /usr/bin/vppctl -s /run/vpp/cli.sock show interface > /tmp/vpp-if-after.log 2>&1 || true
+            cat /tmp/vpp-if-after.log > /dev/console 2>&1 || true
+            echo "VPP-ECMP-DISTRIBUTION PARTIAL (peer reachability/counters captured; remote multi-flow generator required)" > /dev/console
         fi
     fi
     /usr/bin/vppctl -s /run/vpp/cli.sock show interface > /dev/console 2>&1 || true
