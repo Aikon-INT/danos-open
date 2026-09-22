@@ -17,6 +17,7 @@
 #include <time.h>
 #include <arpa/inet.h>
 #include <poll.h>
+#include <netdb.h>
 
 #define ZAPI_SOCK_PATH "/var/run/frr/zserv.api"
 #define RECONNECT_INITIAL_MS 1000
@@ -107,21 +108,45 @@ int danos_zebra_session_set_socket(const char *path)
     return 0;
 }
 
+static int connect_zebra_endpoint(const char *endpoint)
+{
+    if (strncmp(endpoint, "tcp://", 6) == 0) {
+        const char *host = endpoint + 6;
+        const char *colon = strrchr(host, ':');
+        if (!colon || colon == host || !colon[1]) return -1;
+        char name[128], service[16];
+        size_t n = (size_t)(colon - host);
+        if (n >= sizeof(name) || strlen(colon + 1) >= sizeof(service)) return -1;
+        memcpy(name, host, n); name[n] = 0;
+        snprintf(service, sizeof(service), "%s", colon + 1);
+        struct addrinfo hints = { .ai_socktype = SOCK_STREAM }, *res = NULL;
+        if (getaddrinfo(name, service, &hints, &res) != 0) return -1;
+        int fd = -1;
+        for (struct addrinfo *it = res; it; it = it->ai_next) {
+            fd = socket(it->ai_family, it->ai_socktype, it->ai_protocol);
+            if (fd >= 0 && connect(fd, it->ai_addr, it->ai_addrlen) == 0) break;
+            if (fd >= 0) { close(fd); fd = -1; }
+        }
+        freeaddrinfo(res);
+        return fd;
+    }
+    int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (fd < 0) return -1;
+    struct sockaddr_un addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+    if (strlen(endpoint) >= sizeof(addr.sun_path)) { close(fd); return -1; }
+    memcpy(addr.sun_path, endpoint, strlen(endpoint) + 1);
+    if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) { close(fd); return -1; }
+    return fd;
+}
+
 int danos_zebra_session_connect(void)
 {
     if (!g_initialized) danos_zebra_session_init();
 
-    g_session.fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (g_session.fd < 0) return -1;
-
-    struct sockaddr_un addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    if (strlen(g_session.sock_path) >= sizeof(addr.sun_path)) return -1;
-    memcpy(addr.sun_path, g_session.sock_path, strlen(g_session.sock_path) + 1);
-
-    if (connect(g_session.fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-        close(g_session.fd);
+    g_session.fd = connect_zebra_endpoint(g_session.sock_path);
+    if (g_session.fd < 0) {
         g_session.fd = -1;
         g_session.state = ZEBRA_SESSION_DISCONNECTED;
         return -1;

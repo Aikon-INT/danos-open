@@ -29,6 +29,7 @@
 #include <time.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <netdb.h>
 #include <errno.h>
 
 #define VPP_API_SOCK_PATH "/run/vpp/api.sock"
@@ -135,6 +136,26 @@ void danos_vpp_api_enable_mock(void)
 
 static int connect_unix_stream(const char *path)
 {
+    if (strncmp(path, "tcp://", 6) == 0) {
+        const char *host = path + 6, *colon = strrchr(host, ':');
+        if (!colon || colon == host || !colon[1]) return -1;
+        char name[128], service[16];
+        size_t n = (size_t)(colon - host);
+        if (n >= sizeof(name) || strlen(colon + 1) >= sizeof(service)) return -1;
+        memcpy(name, host, n); name[n] = 0;
+        snprintf(service, sizeof(service), "%s", colon + 1);
+        struct addrinfo hints = { .ai_socktype = SOCK_STREAM }, *res = NULL;
+        if (getaddrinfo(name, service, &hints, &res) != 0) return -1;
+        int fd = -1;
+        for (struct addrinfo *it = res; it; it = it->ai_next) {
+            fd = socket(it->ai_family, it->ai_socktype, it->ai_protocol);
+            if (fd >= 0 && connect(fd, it->ai_addr, it->ai_addrlen) == 0) break;
+            if (fd >= 0) { close(fd); fd = -1; }
+        }
+        freeaddrinfo(res);
+        if (fd >= 0) fd_set_timeout(fd, VPP_RECV_TIMEOUT_MS);
+        return fd;
+    }
     int fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd < 0) return -1;
 
