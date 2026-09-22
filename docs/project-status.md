@@ -2,9 +2,20 @@
 
 ## Current assessment
 
-As of 2026-09-21, DANOS-Open has moved beyond proof of concept. The project has a runnable management-plane and state-reconciliation core, and is entering the engineering-convergence stage: turning the existing control-plane loop into a repeatable, privileged-environment-verified, deployable NOS baseline.
+As of 2026-09-22, DANOS-Open v0.16 is in integration closure. The
+management-plane, DPA transaction/reconciliation core, FRR 10.3 ZAPI path,
+VPP 26.10 API/FIB path, route lifecycle, ECMP and software/QEMU DPDK lanes
+are implemented and covered by repeatable evidence. The remaining work is
+split between dynamic BGP/OSPF-to-VPP evidence, stronger QEMU multi-flow
+statistics, backend contract freeze, and a host-dependent real PCI DPDK
+performance lane.
 
-The strongest capabilities are the DPA object/store/transaction foundation, WAL persistence, desired-to-programmed reconciliation, model-driven gNMI/CLI/NETCONF integration, the Linux and VPP backend adapters, observability, and automated protocol/quality tests. The FRR→DPA→VPP route loop is now verified for add, withdraw, weighted ECMP, traffic and desired-state replay; the remaining external dependency is a real VFIO-bound DPDK runner.
+The strongest capabilities are the DPA object/store/transaction foundation,
+WAL persistence, desired-to-programmed reconciliation, model-driven
+gNMI/CLI/NETCONF integration, Linux and VPP adapters, FRR ZAPI integration,
+observability and automated protocol/quality tests. The primary external
+dependency is a real VFIO/uio-bound DPDK runner; it is tracked as an
+environment gate and is not conflated with software dataplane acceptance.
 
 The current mainline is clean and synchronized with `origin/main`; the complete deterministic suite passes 34/34. Privileged evidence is recorded separately from the DPDK hardware gate.
 
@@ -140,6 +151,13 @@ Execution status:
   reports SKIP when no PCI/user-space driver is exposed and never treats a
   kernel or mock dataplane as DPDK evidence. It accepts `DPDK_PCI_DRIVER` as
   `vfio-pci`, `uio_pci_generic` or `igb_uio` for compatibility testing.
+
+## Current v0.16 acceptance matrix
+
+The authoritative current status is maintained in
+`docs/v0.16-acceptance-matrix.md`. The older roadmap and historical notes
+below are retained for traceability only; they are not a second source of
+current completion status.
 
 ## Next-stage implementation plan
 
