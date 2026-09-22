@@ -102,7 +102,7 @@ int test_frr_route_decode(void)
     /* type=2, instance=0, flags=0, message=NEXTHOP, SAFI=1,
      * AF_INET=2, 10.0.0.0/24, one IPv4 nexthop 192.0.2.1. */
     uint8_t payload[] = {2, 0, 0, 0,0,0,0, 0,0,0,1, 1, 2,24,
-                         10,0,0, 0,1, 0,0,0,0, 1,0, 192,0,2,1, 0,0,0,2};
+                         10,0,0, 0,1, 0,0,0,0, 2,0, 192,0,2,1, 0,0,0,2};
     zapi_message_t msg = { .header = {0, 0xFE, 6, 7},
                            .payload = payload, .payload_size = sizeof(payload) };
     zapi_frr_route_t route;

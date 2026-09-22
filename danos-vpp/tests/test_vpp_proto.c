@@ -107,6 +107,15 @@ static int test_wire_layouts(void)
     assert(b[off + 22] == 0);            /* nh proto ip4 */
     assert(b[off + 26] == 192);          /* nh addr first byte */
 
+    /* An ifindex-only FRR nexthop has no gateway address and must be
+     * encoded as an attached path, otherwise VPP probes 0.0.0.0. */
+    vpp_ip_t attached_nh = { .is_ipv6 = false };
+    n = vpp_encode_ip_route_add_del(1, 0, &p, 1, &attached_nh, &nhif,
+                                    b, sizeof(b));
+    assert(n > 0);
+    assert(b[off + 14] == 0 && b[off + 15] == 0 &&
+           b[off + 16] == 0 && b[off + 17] == 1); /* attached type */
+
     /* sw_interface_add_del_address: index + is_add + del_all + address + prefix len */
     vpp_prefix_t ap = { .addr = { .is_ipv6 = false, .addr = {192,0,2,1} },
                         .len = 24 };
