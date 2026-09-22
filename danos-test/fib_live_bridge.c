@@ -160,7 +160,17 @@ int main(int argc, char **argv)
             continue;
         danos_tx_t tx = {0};
         danos_status_t st = danos_tx_begin(&tx, "frr-zebra", NULL);
-        if (st == DANOS_OK) st = zapi_dispatch_frr(&msg, &tx);
+        /* FRR 10.3 normally emits redistribute commands 31/32 for a
+         * registered protocol.  Some zebra/staticd paths still emit the
+         * native route commands 9/10; those use the legacy route payload
+         * and must go through the corresponding native dispatcher. */
+        if (st == DANOS_OK) {
+            if (msg.header.command == ZEBRA_FRR_ROUTE_ADD ||
+                msg.header.command == ZEBRA_FRR_ROUTE_DELETE)
+                st = zapi_dispatch(&msg, &tx);
+            else
+                st = zapi_dispatch_frr(&msg, &tx);
+        }
         if (st == DANOS_OK) st = danos_tx_commit_atomic(&tx);
         if (st != DANOS_OK) {
             fprintf(stderr, "ZAPI command %u transaction failed: %s\n",
