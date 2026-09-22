@@ -34,7 +34,7 @@ EOF
     cat > "$dir/user-data" <<EOF
 #cloud-config
 package_update: true
-packages: [frr, frr-pythontools, iproute2, iputils-ping]
+packages: [frr, frr-pythontools, iproute2, iputils-ping, socat]
 runcmd:
   - [sh, -c, "sed -i 's/^zebra=no/zebra=yes/; s/^bgpd=no/bgpd=yes/; s/^ospfd=no/ospfd=yes/' /etc/frr/daemons"]
   - [sh, -c, "cat > /etc/frr/frr.conf <<'CFG'"]

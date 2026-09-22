@@ -193,6 +193,15 @@ fi
 # mgrd built in step 1 lives in the container; fetch fresh copy
 docker cp danos-iso-build:/tmp/b/danos-mgrd/danos-mgrd "$WORK/initramfs/bin/mgrd"
 chmod +x "$WORK/initramfs/bin/mgrd"
+if test -x "$WORK/../build/danos-test/fib_live_bridge"; then
+  cp "$WORK/../build/danos-test/fib_live_bridge" "$WORK/initramfs/bin/fib_live_bridge"
+  chmod +x "$WORK/initramfs/bin/fib_live_bridge"
+elif test -x "$PROJECT_ROOT/build/danos-test/fib_live_bridge"; then
+  cp "$PROJECT_ROOT/build/danos-test/fib_live_bridge" "$WORK/initramfs/bin/fib_live_bridge"
+  chmod +x "$WORK/initramfs/bin/fib_live_bridge"
+else
+  echo "INFO: fib_live_bridge not built; ISO will omit optional FRR bridge"
+fi
 cp "$PROJECT_ROOT/danos-test/live/init" "$WORK/initramfs/init"
 chmod +x "$WORK/initramfs/init"
 if test -x "$WORK/gnmic"; then
