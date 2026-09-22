@@ -46,6 +46,10 @@ if test -e /vpp-dpdk.enabled; then
     sleep 2
     echo "--- VPP guest startup log ---"
     cat /var/log/vpp/vpp-console.log > /dev/console 2>&1
+    for vpp_wait in $(seq 1 30); do
+        test -S /run/vpp/api.sock && break
+        sleep 1
+    done
     test -S /run/vpp/api.sock && echo "VPP API socket: ready" > /dev/console || echo "VPP API socket: missing" > /dev/console
     test -S /run/vpp/stats.sock && echo "VPP stats socket: ready" > /dev/console || echo "VPP stats socket: missing" > /dev/console
     if test -e /vpp-dpdk-e1000.enabled; then
