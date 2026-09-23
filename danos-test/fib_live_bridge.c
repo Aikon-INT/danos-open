@@ -99,8 +99,13 @@ int main(int argc, char **argv)
     if (danos_vpp_adapter_install(true, vpp) != 0) {
         fprintf(stderr, "VPP adapter setup failed: %s\n", strerror(errno)); return 1;
     }
-    if (danos_zebra_session_connect() != 0 && !reconnect) {
-        fprintf(stderr, "cannot connect zebra socket %s: %s\n", zebra, strerror(errno)); return 1;
+    int initial_connect = danos_zebra_session_connect();
+    if (initial_connect != 0) {
+        fprintf(stderr, "zebra initial connect failed: endpoint=%s errno=%d (%s)\n",
+                zebra, errno, strerror(errno));
+        if (!reconnect) return 1;
+    } else if (debug) {
+        fprintf(stderr, "zebra TCP connection established: endpoint=%s\n", zebra);
     }
     if (danos_zebra_session_get_state() == 2 &&
         danos_zebra_session_register(zapi_protocol(), 0) != 0) {
@@ -116,6 +121,7 @@ int main(int argc, char **argv)
     while (g_running) {
         if (danos_zebra_session_get_state() != 2) {
             if (!reconnect) { failed++; break; }
+            if (debug) fprintf(stderr, "zebra reconnect attempt: endpoint=%s\n", zebra);
             /* A VPP restart can leave a stale-but-connected API fd.  The
              * zebra reconnect loop is a safe lifecycle boundary at which to
              * force a fresh VPP handshake and replay the desired ledger. */
