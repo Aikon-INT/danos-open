@@ -61,15 +61,11 @@ static void trace_registration(uint16_t command, uint8_t afi, uint8_t type,
 
 static size_t registration_route_types(uint8_t *types, size_t capacity)
 {
-    /* Keep the live FRR registration conservative.  Connected replay is
-     * sufficient for the QEMU acceptance lane; requesting unrelated route
-     * types can make older zebra builds close the zserv session. */
-    const uint8_t defaults[] = { 2 };
+    /* Match FRR zclient_init(): no redistribution is requested until the
+     * client explicitly enables a route type.  This keeps the initial wire
+     * sequence identical to the official zclient registration path. */
     const char *value = getenv("DANOS_ZAPI_ROUTE_TYPES");
-    if (!value || !value[0]) {
-        memcpy(types, defaults, sizeof(defaults));
-        return sizeof(defaults);
-    }
+    if (!value || !value[0]) return 0;
     size_t count = 0;
     while (*value && count < capacity) {
         char *end = NULL;
