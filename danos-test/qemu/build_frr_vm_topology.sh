@@ -46,7 +46,7 @@ runcmd:
   - [sh, -c, "cat > /usr/local/sbin/danos-frr-zapi-proxy <<'SCRIPT'"]
   - [sh, -c, "printf '#!/bin/sh\nset -eu\nfor i in $(seq 1 60); do test -S /var/run/frr/zserv.api && break; sleep 1; done\ntest -S /var/run/frr/zserv.api\nexec socat -d -d TCP-LISTEN:2600,bind=0.0.0.0,reuseaddr,fork,keepalive UNIX-CONNECT:/var/run/frr/zserv.api,keepalive\n' >> /usr/local/sbin/danos-frr-zapi-proxy; chmod +x /usr/local/sbin/danos-frr-zapi-proxy"]
   - [sh, -c, "cat > /etc/systemd/system/danos-frr-zapi.service <<'UNIT'"]
-  - [sh, -c, "printf '[Unit]\nAfter=network-online.target frr.service\nWants=network-online.target\n[Service]\nType=simple\nExecStart=/usr/local/sbin/danos-frr-zapi-proxy\nRestart=always\nStandardOutput=append:/var/log/danos-frr-zapi.log\nStandardError=append:/var/log/danos-frr-zapi.log\n[Install]\nWantedBy=multi-user.target\n' >> /etc/systemd/system/danos-frr-zapi.service"]
+  - [sh, -c, "printf '[Unit]\nRequires=frr.service\nAfter=network-online.target frr.service\nWants=network-online.target\nPartOf=frr.service\n[Service]\nType=simple\nExecStart=/usr/local/sbin/danos-frr-zapi-proxy\nRestart=always\nRestartSec=2\nStandardOutput=append:/var/log/danos-frr-zapi.log\nStandardError=append:/var/log/danos-frr-zapi.log\n[Install]\nWantedBy=multi-user.target\n' >> /etc/systemd/system/danos-frr-zapi.service"]
   - [sh, -c, "systemctl daemon-reload; systemctl enable --now danos-frr-zapi.service"]
   - [sh, -c, "if [ '$node' = r1 ]; then ip link set ens6 up; ip addr replace 10.0.3.2/24 dev ens6; fi"]
   - [sh, -c, "if [ '$node' = r1 ]; then systemctl --no-pager status frr.service danos-frr-zapi.service || true; ls -l /var/run/frr/zserv.api || true; ss -ltnp | grep ':2600' || true; fi"]
