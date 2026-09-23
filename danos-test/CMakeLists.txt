@@ -49,6 +49,9 @@ add_executable(fib_live_bridge fib_live_bridge.c)
 target_link_libraries(fib_live_bridge PRIVATE danos-fib danos-vpp danos-core danos-dpa pthread)
 target_compile_options(fib_live_bridge PRIVATE -UNDEBUG)
 
+add_executable(frr_zclient_probe frr_zclient_probe.c)
+target_compile_options(frr_zclient_probe PRIVATE -Wall -Wextra -Werror)
+
 # v0.5 performance baseline: transaction scale + WAL recovery
 add_executable(txn_scale_test perf/txn_scale_test.c)
 target_link_libraries(txn_scale_test PRIVATE danos-core danos-dpa pthread)
