@@ -49,6 +49,7 @@ runcmd:
   - [sh, -c, "printf '[Unit]\nAfter=network-online.target frr.service\nWants=network-online.target\n[Service]\nType=simple\nExecStart=/usr/local/sbin/danos-frr-zapi-proxy\nRestart=always\nStandardOutput=append:/var/log/danos-frr-zapi.log\nStandardError=append:/var/log/danos-frr-zapi.log\n[Install]\nWantedBy=multi-user.target\n' >> /etc/systemd/system/danos-frr-zapi.service"]
   - [sh, -c, "systemctl daemon-reload; systemctl enable --now danos-frr-zapi.service"]
   - [sh, -c, "if [ '$node' = r1 ]; then ip link set ens6 up; ip addr replace 10.0.3.2/24 dev ens6; fi"]
+  - [sh, -c, "if [ '$node' = r1 ]; then systemctl --no-pager status frr.service danos-frr-zapi.service || true; ls -l /var/run/frr/zserv.api || true; ss -ltnp | grep ':2600' || true; fi"]
 EOF
     xorriso -as mkisofs -quiet -V CIDATA -o "$OUT/$node-seed.iso" "$dir"
 }
