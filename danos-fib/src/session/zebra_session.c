@@ -194,13 +194,14 @@ int danos_zebra_session_register(uint8_t protocol, uint16_t instance)
     /* Request router-id and interface replay, then route notifications for
      * the protocol families used by the v0.16 L3 acceptance. */
     uint8_t req[32];
-    uint16_t req_len = htons(10);
+    uint16_t req_len = htons(12);
     memcpy(req, &req_len, 2); req[2] = FRR_ZAPI_MARKER; req[3] = FRR_ZAPI_VERSION;
     memcpy(req + 4, &vrf, 4);
     uint16_t cmd = htons(FRR_ZEBRA_ROUTER_ID_ADD);
-    memcpy(req + 8, &cmd, 2);
-    if (send(g_session.fd, req, 10, MSG_NOSIGNAL) != 10) return -1;
-    trace_registration(FRR_ZEBRA_ROUTER_ID_ADD, 0, 0, 0, 10);
+    uint16_t afi = htons(1);
+    memcpy(req + 8, &cmd, 2); memcpy(req + 10, &afi, 2);
+    if (send(g_session.fd, req, 12, MSG_NOSIGNAL) != 12) return -1;
+    trace_registration(FRR_ZEBRA_ROUTER_ID_ADD, 1, 0, 0, 12);
     cmd = htons(FRR_ZEBRA_INTERFACE_ADD); memcpy(req + 8, &cmd, 2);
     if (send(g_session.fd, req, 10, MSG_NOSIGNAL) != 10) return -1;
     trace_registration(FRR_ZEBRA_INTERFACE_ADD, 0, 0, 0, 10);
@@ -208,13 +209,12 @@ int danos_zebra_session_register(uint8_t protocol, uint16_t instance)
     size_t route_type_count = registration_route_types(route_types, sizeof(route_types));
     for (size_t route_i = 0; route_i < route_type_count; route_i++) {
             uint8_t route_type = route_types[route_i];
-            /* FRR zclient's REDISTRIBUTE_ADD payload is only route_type;
-             * AFI/instance fields here desynchronise zebra's stream. */
-            req_len = htons(11); memcpy(req, &req_len, 2);
+            req_len = htons(14); memcpy(req, &req_len, 2);
             cmd = htons(FRR_ZEBRA_REDISTRIBUTE_ADD); memcpy(req + 8, &cmd, 2);
-            req[10] = route_type;
-            if (send(g_session.fd, req, 11, MSG_NOSIGNAL) != 11) return -1;
-            trace_registration(FRR_ZEBRA_REDISTRIBUTE_ADD, 0, route_type, 0, 11);
+            req[10] = 1; req[11] = route_type;
+            uint16_t instance = 0; memcpy(req + 12, &instance, 2);
+            if (send(g_session.fd, req, 14, MSG_NOSIGNAL) != 14) return -1;
+            trace_registration(FRR_ZEBRA_REDISTRIBUTE_ADD, 1, route_type, 0, 14);
     }
     return 0;
 }
