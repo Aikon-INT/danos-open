@@ -94,7 +94,8 @@ if test -e /vpp-dpdk.enabled; then
         && test -r /etc/danos/bridge.env; then
         . /etc/danos/bridge.env
         echo "--- starting optional FRR ZAPI bridge" > /dev/console
-        DANOS_ZAPI_DEBUG=1 DANOS_VPP_DEBUG=1 DANOS_VPP_IFINDEX_MAP='2:1,3:2,4:1,5:2' /bin/fib_live_bridge \
+        DANOS_ZAPI_DEBUG=1 DANOS_VPP_DEBUG=1 DANOS_ZAPI_ROUTE_TYPES="${DANOS_ZAPI_ROUTE_TYPES:-10}" \
+            DANOS_VPP_IFINDEX_MAP='2:1,3:2,4:1,5:2' /bin/fib_live_bridge \
             --zebra-sock "$DANOS_ZEBRA_ENDPOINT" \
             --vpp-sock /run/vpp/api.sock --messages 0 --reconnect \
             2>&1 | tee /var/log/fib_live_bridge.log > /dev/console &
