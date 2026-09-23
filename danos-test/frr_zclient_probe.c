@@ -21,6 +21,7 @@ static int send_msg(int fd, uint16_t cmd, const void *payload, size_t n)
 
 int main(int argc, char **argv)
 {
+    setvbuf(stdout, NULL, _IOLBF, 0);
     const char *ep = argc > 1 ? argv[1] : "tcp://127.0.0.1:2600";
     int fd = -1;
     if (!strncmp(ep, "tcp://", 6)) {
@@ -48,12 +49,26 @@ int main(int argc, char **argv)
     for (;;) {
         struct pollfd p = {.fd = fd, .events = POLLIN};
         int r = poll(&p, 1, 5000); if (r == 0) { puts("probe alive"); continue; }
-        if (r < 0 || (p.revents & (POLLHUP | POLLERR))) break;
+        if (r < 0) {
+            fprintf(stderr, "probe poll error errno=%d (%s)\n", errno, strerror(errno));
+            break;
+        }
+        if (p.revents & (POLLHUP | POLLERR | POLLNVAL)) {
+            fprintf(stderr, "probe poll events=0x%x\n", p.revents);
+            break;
+        }
         ssize_t n = recv(fd, h, sizeof(h), MSG_WAITALL);
-        if (n != 10) break;
+        if (n == 0) {
+            fprintf(stderr, "probe EOF from peer\n");
+            break;
+        }
+        if (n != 10) {
+            fprintf(stderr, "probe short header=%zd errno=%d (%s)\n", n, errno, strerror(errno));
+            break;
+        }
         uint16_t len; memcpy(&len, h, 2); len = ntohs(len);
-        if (len < 10) break;
-        uint8_t *body = malloc(len - 10); if (len > 10 && recv(fd, body, len - 10, MSG_WAITALL) != (ssize_t)(len - 10)) { free(body); break; }
+        if (len < 10) { fprintf(stderr, "probe invalid length=%u\n", len); break; }
+        uint8_t *body = malloc(len - 10); if (len > 10 && recv(fd, body, len - 10, MSG_WAITALL) != (ssize_t)(len - 10)) { fprintf(stderr, "probe short body command=%u\n", ntohs(*(uint16_t *)(h + 8))); free(body); break; }
         printf("probe rx command=%u length=%u\n", ntohs(*(uint16_t *)(h + 8)), len); free(body);
     }
     fprintf(stderr, "probe EOF/connection error errno=%d (%s)\n", errno, strerror(errno)); close(fd); return 1;
