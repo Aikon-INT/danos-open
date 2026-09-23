@@ -317,7 +317,13 @@ int danos_zebra_session_recv_frr(uint8_t *buf, size_t buf_size, zapi_message_t *
         if (n <= 0) { danos_zebra_session_disconnect(); return 0; }
         if ((size_t)n != (size_t)(total - 10)) return -5;
     }
-    if (zapi_parse_frr(buf, total, out) != 0) return -6;
+    int parse_rc = zapi_parse_frr(buf, total, out);
+    if (parse_rc != 0) {
+        if (getenv("DANOS_ZAPI_DEBUG"))
+            fprintf(stderr, "zapi FRR parse failed rc=%d length=%u marker=%u version=%u\n",
+                    parse_rc, total, buf[2], buf[3]);
+        return -6;
+    }
     g_session.messages_received++;
     return total;
 }
