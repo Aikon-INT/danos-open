@@ -21,7 +21,7 @@ qemu-system-x86_64 -enable-kvm -cpu host -m 2048 -smp 2 -cdrom "$ISO" \
   -netdev socket,id=lan2,listen=127.0.0.1:$LAN2_PORT \
   -device e1000,netdev=lan2,addr=0x3,mac=52:54:00:10:02:01 \
   -netdev socket,id=mgmt,listen=127.0.0.1:$MGMT_PORT \
-  -device e1000,netdev=mgmt,addr=0x5,mac=52:54:00:10:03:01 \
+  -device virtio-net-pci,netdev=mgmt,addr=0x5,mac=52:54:00:10:03:01 \
   -display none -serial file:"$T/danos.serial.log" -monitor none \
   -daemonize -pidfile "$T/danos.pid"
 
