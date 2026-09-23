@@ -43,8 +43,10 @@ runcmd:
   - [sh, -c, "cat > /etc/frr/frr.conf <<'CFG'"]
   - [sh, -c, "printf 'frr version 10.3\\nfrr defaults traditional\\nhostname $hostname\\nrouter bgp $asn\\n bgp router-id $bgp_addr\\n no bgp ebgp-requires-policy\\n neighbor $bgp_peer remote-as $peer_asn\\n address-family ipv4 unicast\\n  neighbor $bgp_peer activate\\n  network $prefix\\n exit-address-family\\n' >> /etc/frr/frr.conf"]
   - [sh, -c, "chown frr:frr /etc/frr/frr.conf; /usr/lib/frr/frrinit.sh restart"]
+  - [sh, -c, "cat > /usr/local/sbin/danos-frr-zapi-proxy <<'SCRIPT'"]
+  - [sh, -c, "printf '#!/bin/sh\nset -eu\nfor i in $(seq 1 60); do test -S /var/run/frr/zserv.api && break; sleep 1; done\ntest -S /var/run/frr/zserv.api\nexec socat -d -d TCP-LISTEN:2600,bind=0.0.0.0,reuseaddr,fork,keepalive UNIX-CONNECT:/var/run/frr/zserv.api,keepalive\n' >> /usr/local/sbin/danos-frr-zapi-proxy; chmod +x /usr/local/sbin/danos-frr-zapi-proxy"]
   - [sh, -c, "cat > /etc/systemd/system/danos-frr-zapi.service <<'UNIT'"]
-  - [sh, -c, "printf '[Unit]\nAfter=network-online.target frr.service\nWants=network-online.target\n[Service]\nType=simple\nExecStart=/usr/bin/socat TCP-LISTEN:2600,bind=0.0.0.0,reuseaddr,fork,keepalive UNIX-CONNECT:/var/run/frr/zserv.api,keepalive\nRestart=always\n[Install]\nWantedBy=multi-user.target\n' >> /etc/systemd/system/danos-frr-zapi.service"]
+  - [sh, -c, "printf '[Unit]\nAfter=network-online.target frr.service\nWants=network-online.target\n[Service]\nType=simple\nExecStart=/usr/local/sbin/danos-frr-zapi-proxy\nRestart=always\nStandardOutput=append:/var/log/danos-frr-zapi.log\nStandardError=append:/var/log/danos-frr-zapi.log\n[Install]\nWantedBy=multi-user.target\n' >> /etc/systemd/system/danos-frr-zapi.service"]
   - [sh, -c, "systemctl daemon-reload; systemctl enable --now danos-frr-zapi.service"]
   - [sh, -c, "if [ '$node' = r1 ]; then ip link set ens6 up; ip addr replace 10.0.3.2/24 dev ens6; fi"]
 EOF
