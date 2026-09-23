@@ -289,11 +289,20 @@ int danos_zebra_session_recv_frr(uint8_t *buf, size_t buf_size, zapi_message_t *
     if (ready == 0) return 0;
     if (ready < 0) return errno == EINTR ? 0 : -3;
     if (pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) {
+        if (getenv("DANOS_ZAPI_DEBUG"))
+            fprintf(stderr, "zapi poll events=0x%x errno=%d (%s)\n",
+                    pfd.revents, errno, strerror(errno));
         danos_zebra_session_disconnect();
         return 0;
     }
     ssize_t n = recv(g_session.fd, buf, 10, MSG_WAITALL);
-    if (n <= 0) { danos_zebra_session_disconnect(); return 0; }
+    if (n <= 0) {
+        if (getenv("DANOS_ZAPI_DEBUG"))
+            fprintf(stderr, "zapi header recv=%zd errno=%d (%s)\n",
+                    n, errno, strerror(errno));
+        danos_zebra_session_disconnect();
+        return 0;
+    }
     if (n != 10) return -3;
     uint16_t total;
     memcpy(&total, buf, 2);
