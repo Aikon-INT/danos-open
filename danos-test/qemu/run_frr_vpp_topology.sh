@@ -28,6 +28,8 @@ qemu-system-x86_64 -enable-kvm -cpu host -m 2048 -smp 2 -cdrom "$ISO" \
 qemu-system-x86_64 -enable-kvm -cpu host -m 1024 -smp 1 \
   -drive file="$T/frr-1.qcow2",if=virtio,format=qcow2,snapshot=on \
   -cdrom "$T/r1-seed.iso" \
+  -netdev user,id=internet \
+  -device e1000,netdev=internet,addr=0x5,mac=52:54:00:11:01:00 \
   -netdev socket,id=mgmt,connect=127.0.0.1:$MGMT_PORT \
   -device e1000,netdev=mgmt,addr=0x6,mac=52:54:00:11:01:01 \
   -netdev socket,id=dp,connect=127.0.0.1:$LAN1_PORT \
