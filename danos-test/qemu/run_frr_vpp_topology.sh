@@ -43,11 +43,13 @@ qemu-system-x86_64 -enable-kvm -cpu host -m 1024 -smp 1 \
 qemu-system-x86_64 -enable-kvm -cpu host -m 1024 -smp 1 \
   -boot order=c \
   -drive file="$T/frr-2.qcow2",if=virtio,format=qcow2,snapshot=on \
-  -cdrom "$T/r2-seed.iso" -nic user,model=e1000 \
+  -cdrom "$T/r2-seed.iso" \
+  -netdev user,id=internet2 \
+  -device e1000,netdev=internet2,addr=0x5,mac=52:54:00:12:01:00 \
   -netdev socket,id=dp,connect=127.0.0.1:$LAN2_PORT \
-  -device e1000,netdev=dp,mac=52:54:00:12:01:02 \
+  -device e1000,netdev=dp,addr=0x3,mac=52:54:00:12:01:02 \
   -netdev socket,id=peer,connect=127.0.0.1:$PEER_PORT \
-  -device e1000,netdev=peer,mac=52:54:00:12:01:03 \
+  -device e1000,netdev=peer,addr=0x4,mac=52:54:00:12:01:03 \
   -display none -serial file:"$T/frr-2.serial.log" -monitor none \
   -daemonize -pidfile "$T/frr-2.pid"
 
