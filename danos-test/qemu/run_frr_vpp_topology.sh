@@ -26,16 +26,17 @@ qemu-system-x86_64 -enable-kvm -cpu host -m 2048 -smp 2 -cdrom "$ISO" \
   -daemonize -pidfile "$T/danos.pid"
 
 qemu-system-x86_64 -enable-kvm -cpu host -m 1024 -smp 1 \
+  -vga none \
   -drive file="$T/frr-1.qcow2",if=virtio,format=qcow2,snapshot=on \
   -cdrom "$T/r1-seed.iso" \
   -netdev user,id=internet \
-  -device e1000,netdev=internet,addr=0x1,mac=52:54:00:11:01:00 \
+  -device e1000,netdev=internet,addr=0x2,mac=52:54:00:11:01:00 \
   -netdev socket,id=mgmt,connect=127.0.0.1:$MGMT_PORT \
   -device e1000,netdev=mgmt,addr=0x6,mac=52:54:00:11:01:01 \
   -netdev socket,id=dp,connect=127.0.0.1:$LAN1_PORT \
-  -device e1000,netdev=dp,mac=52:54:00:11:01:02 \
+  -device e1000,netdev=dp,addr=0x3,mac=52:54:00:11:01:02 \
   -netdev socket,id=peer,listen=127.0.0.1:$PEER_PORT \
-  -device e1000,netdev=peer,mac=52:54:00:11:01:03 \
+  -device e1000,netdev=peer,addr=0x5,mac=52:54:00:11:01:03 \
   -display none -serial file:"$T/frr-1.serial.log" -monitor none \
   -daemonize -pidfile "$T/frr-1.pid"
 
