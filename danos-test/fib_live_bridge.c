@@ -167,7 +167,15 @@ int main(int argc, char **argv)
             fprintf(stderr, "zebra session disconnected; reconnecting\n");
             continue;
         }
-        if (n < 0) { fprintf(stderr, "zebra receive failed: %d\n", n); failed++; break; }
+        if (n < 0) {
+            fprintf(stderr, "zebra receive failed: %d\n", n);
+            failed++;
+            /* The complete frame has already been consumed.  Keep the
+             * zserv session alive for unsupported/replay messages so one
+             * decoder mismatch cannot make FRR observe a client EOF. */
+            if (n == -6 && reconnect) continue;
+            break;
+        }
         if (debug) {
             fprintf(stderr, "zapi command=%u vrf=%u payload=%zu bytes:",
                     msg.header.command, msg.vrf_id, msg.payload_size);
