@@ -137,6 +137,10 @@ danos_status_t zapi_dispatch_frr(const zapi_message_t *msg, danos_tx_t *tx)
         return DANOS_ERR_NOT_SUPPORTED;
     zapi_frr_route_t in;
     if (zapi_decode_frr_route(msg, &in) != 0) return DANOS_ERR_INVALID_ARG;
+    /* The live VPP lane is currently IPv4-only.  Reject IPv6 before
+     * creating DPA objects so the bridge can safely skip the event without
+     * leaving an unprogrammable desired-state entry behind. */
+    if (in.family != 2) return DANOS_ERR_NOT_SUPPORTED;
     danos_route_t route;
     memset(&route, 0, sizeof(route));
     route.vrf_id = msg->vrf_id;
