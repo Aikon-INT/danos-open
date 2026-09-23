@@ -27,6 +27,7 @@ qemu-system-x86_64 -enable-kvm -cpu host -m 2048 -smp 2 -cdrom "$ISO" \
 
 qemu-system-x86_64 -enable-kvm -cpu host -m 1024 -smp 1 \
   -vga none \
+  -boot order=c \
   -drive file="$T/frr-1.qcow2",if=virtio,format=qcow2,snapshot=on \
   -cdrom "$T/r1-seed.iso" \
   -netdev user,id=internet \
@@ -41,6 +42,7 @@ qemu-system-x86_64 -enable-kvm -cpu host -m 1024 -smp 1 \
   -daemonize -pidfile "$T/frr-1.pid"
 
 qemu-system-x86_64 -enable-kvm -cpu host -m 1024 -smp 1 \
+  -boot order=c \
   -drive file="$T/frr-2.qcow2",if=virtio,format=qcow2,snapshot=on \
   -cdrom "$T/r2-seed.iso" -nic user,model=e1000 \
   -netdev socket,id=dp,connect=127.0.0.1:$LAN2_PORT \
