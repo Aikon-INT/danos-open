@@ -25,7 +25,7 @@
 #include <arpa/inet.h>
 #include <assert.h>
 
-#define PORT 59420
+#define PORT 59429
 #define NCLIENTS 32
 #define RPCS_PER_CLIENT 4
 
