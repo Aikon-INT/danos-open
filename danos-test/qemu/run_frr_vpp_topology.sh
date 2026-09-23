@@ -9,6 +9,9 @@ LAN2_PORT="${DANOS_LAN2_PORT:-21002}"
 PEER_PORT="${FRR_PEER_PORT:-22001}"
 ZAPI_PORT="${FRR_ZAPI_PORT:-23001}"
 MGMT_PORT="${FRR_MGMT_PORT:-24001}"
+FRR_SNAPSHOT="${FRR_QEMU_SNAPSHOT:-on}"
+FRR_DRIVE_EXTRA=""
+if test "$FRR_SNAPSHOT" = on; then FRR_DRIVE_EXTRA=',snapshot=on'; fi
 test -f "$ISO" || { echo "[BLOCKED] DANOS ISO missing: $ISO"; exit 2; }
 for f in frr-1.qcow2 frr-2.qcow2 r1-seed.iso r2-seed.iso; do
     test -f "$T/$f" || { echo "[BLOCKED] topology artifact missing: $T/$f"; exit 2; }
@@ -27,7 +30,7 @@ qemu-system-x86_64 -enable-kvm -cpu host -m 2048 -smp 2 -cdrom "$ISO" \
 
 qemu-system-x86_64 -enable-kvm -cpu host -m 1024 -smp 1 \
   -boot order=c \
-  -drive file="$T/frr-1.qcow2",if=virtio,format=qcow2,snapshot=on \
+  -drive file="$T/frr-1.qcow2",if=virtio,format=qcow2${FRR_DRIVE_EXTRA} \
   -cdrom "$T/r1-seed.iso" \
   -netdev user,id=internet,hostfwd=tcp:127.0.0.1:$ZAPI_PORT-:2600 \
   -device e1000,netdev=internet,addr=0x5,mac=52:54:00:11:01:00 \
@@ -42,7 +45,7 @@ qemu-system-x86_64 -enable-kvm -cpu host -m 1024 -smp 1 \
 
 qemu-system-x86_64 -enable-kvm -cpu host -m 1024 -smp 1 \
   -boot order=c \
-  -drive file="$T/frr-2.qcow2",if=virtio,format=qcow2,snapshot=on \
+  -drive file="$T/frr-2.qcow2",if=virtio,format=qcow2${FRR_DRIVE_EXTRA} \
   -cdrom "$T/r2-seed.iso" \
   -netdev user,id=internet2 \
   -device e1000,netdev=internet2,addr=0x5,mac=52:54:00:12:01:00 \
