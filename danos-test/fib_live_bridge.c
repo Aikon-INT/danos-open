@@ -191,6 +191,12 @@ int main(int argc, char **argv)
                 st = zapi_dispatch_frr(&msg, &tx);
         }
         if (st == DANOS_OK) st = danos_tx_commit_atomic(&tx);
+        if (st == DANOS_ERR_NOT_SUPPORTED) {
+            (void)danos_tx_abort(&tx);
+            fprintf(stderr, "ZAPI command %u skipped: backend address family not supported\n",
+                    msg.header.command);
+            continue;
+        }
         if (st != DANOS_OK) {
             fprintf(stderr, "ZAPI command %u transaction failed: %s\n",
                     msg.header.command, danos_status_str(st));
