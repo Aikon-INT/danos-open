@@ -297,9 +297,13 @@ int danos_zebra_session_recv_frr(uint8_t *buf, size_t buf_size, zapi_message_t *
     }
     ssize_t n = recv(g_session.fd, buf, 10, MSG_WAITALL);
     if (n <= 0) {
-        if (getenv("DANOS_ZAPI_DEBUG"))
-            fprintf(stderr, "zapi header recv=%zd errno=%d (%s)\n",
-                    n, errno, strerror(errno));
+        if (getenv("DANOS_ZAPI_DEBUG")) {
+            if (n == 0)
+                fprintf(stderr, "zapi peer EOF while reading header\n");
+            else
+                fprintf(stderr, "zapi header recv=%zd errno=%d (%s)\n",
+                        n, errno, strerror(errno));
+        }
         danos_zebra_session_disconnect();
         return 0;
     }
