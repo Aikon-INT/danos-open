@@ -122,13 +122,6 @@ int main(int argc, char **argv)
         if (danos_zebra_session_get_state() != 2) {
             if (!reconnect) { failed++; break; }
             if (debug) fprintf(stderr, "zebra reconnect attempt: endpoint=%s\n", zebra);
-            /* A VPP restart can leave a stale-but-connected API fd.  The
-             * zebra reconnect loop is a safe lifecycle boundary at which to
-             * force a fresh VPP handshake and replay the desired ledger. */
-            if (getenv("DANOS_VPP_DEBUG"))
-                fprintf(stderr, "zebra reconnect boundary: refreshing VPP\n");
-            danos_vpp_api_disconnect();
-            (void)recover_vpp_backend(true);
             (void)danos_zebra_session_reconnect();
             if (danos_zebra_session_get_state() != 2) {
                 struct timespec pause = { .tv_sec = 0, .tv_nsec = 100000000L };
@@ -141,6 +134,12 @@ int main(int argc, char **argv)
                 break;
             }
             fprintf(stderr, "zebra session reconnected\n");
+            /* Refresh VPP only after the control-plane session is usable;
+             * this keeps an initial zserv outage from blocking retries. */
+            if (getenv("DANOS_VPP_DEBUG"))
+                fprintf(stderr, "zebra reconnect boundary: refreshing VPP\n");
+            danos_vpp_api_disconnect();
+            (void)recover_vpp_backend(true);
         }
         zapi_message_t msg;
         int n = danos_zebra_session_recv_frr(buf, sizeof(buf), &msg);
