@@ -106,6 +106,9 @@ int main(int argc, char **argv)
         danos_zebra_session_register(zapi_protocol(), 0) != 0) {
         fprintf(stderr, "zebra client registration failed\n"); return 1;
     }
+    if (danos_zebra_session_get_state() == 2)
+        fprintf(stderr, "zebra client registered: protocol=%u endpoint=%s\n",
+                zapi_protocol(), zebra);
 
     uint8_t buf[128 * 1024];
     long processed = 0;
