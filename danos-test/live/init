@@ -26,10 +26,14 @@ if test -f /modules/uio_pci_generic.ko; then insmod /modules/uio_pci_generic.ko 
 ip link set lo up
 # QEMU user-mode networking: static address on eth0
 if ip link show eth0 >/dev/null 2>&1; then
-    ip addr add 10.0.2.15/24 dev eth0
+    # The QEMU topology uses a direct socket link to FRR-1 for ZAPI.
+    # Keep the user-mode address as a compatibility fallback, and add the
+    # deterministic point-to-point management address used by the bridge.
+    ip addr add 10.0.2.15/24 dev eth0 2>/dev/null || true
+    ip addr add 10.0.3.1/24 dev eth0 2>/dev/null || true
     ip link set eth0 up
     ip route add default via 10.0.2.2 2>/dev/null
-    echo "eth0: 10.0.2.15/24 up"
+    echo "eth0: 10.0.2.15/24 and 10.0.3.1/24 up"
 fi
 
 if test -e /vpp-dpdk.enabled; then

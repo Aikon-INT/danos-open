@@ -30,6 +30,9 @@ ethernets:
   ens5:
     dhcp4: false
     addresses: [$bgp_addr/24]
+  ens6:
+    dhcp4: false
+    addresses: [10.0.3.2/24]
 EOF
     cat > "$dir/user-data" <<EOF
 #cloud-config
