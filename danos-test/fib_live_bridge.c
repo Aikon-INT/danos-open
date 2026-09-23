@@ -145,6 +145,12 @@ int main(int argc, char **argv)
         zapi_message_t msg;
         int n = danos_zebra_session_recv_frr(buf, sizeof(buf), &msg);
         if (n == 0) {
+            if (danos_zebra_session_get_state() == 2) {
+                /* recv_frr uses zero for a bounded poll timeout as well as
+                 * EOF.  A connected session is simply idle; do not tear it
+                 * down and re-register on every 500 ms quiet period. */
+                continue;
+            }
             if (!reconnect) break;
             /* recv_frr returns 0 for an idle poll as well as EOF.  Probe the
              * VPP lifecycle periodically so a restart with no new ZAPI
