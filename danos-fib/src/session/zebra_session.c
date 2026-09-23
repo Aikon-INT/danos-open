@@ -211,13 +211,14 @@ int danos_zebra_session_register(uint8_t protocol, uint16_t instance)
         size_t route_type_count = registration_route_types(route_types, sizeof(route_types));
         for (size_t route_i = 0; route_i < route_type_count; route_i++) {
             uint8_t route_type = route_types[route_i];
-            req_len = htons(14); memcpy(req, &req_len, 2);
+            /* FRR zclient's REDISTRIBUTE_ADD payload is only route_type;
+             * AFI/instance fields here desynchronise zebra's stream. */
+            req_len = htons(11); memcpy(req, &req_len, 2);
             cmd = htons(FRR_ZEBRA_REDISTRIBUTE_ADD); memcpy(req + 8, &cmd, 2);
-            req[10] = (uint8_t)family; req[11] = route_type;
-            uint16_t zero = 0; memcpy(req + 12, &zero, 2);
-            if (send(g_session.fd, req, 14, MSG_NOSIGNAL) != 14) return -1;
+            req[10] = route_type;
+            if (send(g_session.fd, req, 11, MSG_NOSIGNAL) != 11) return -1;
             trace_registration(FRR_ZEBRA_REDISTRIBUTE_ADD, (uint8_t)family,
-                               route_type, 0, 14);
+                               route_type, 0, 11);
         }
     }
     return 0;
