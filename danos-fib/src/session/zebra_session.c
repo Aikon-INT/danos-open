@@ -190,6 +190,7 @@ int danos_zebra_session_register(uint8_t protocol, uint16_t instance)
         sent += (size_t)n;
     }
     trace_registration(FRR_ZEBRA_HELLO, 0, protocol, instance, sizeof(msg));
+    if (getenv("DANOS_ZAPI_HELLO_ONLY")) return 0;
     /* Request router-id and interface replay, then route notifications for
      * the protocol families used by the v0.16 L3 acceptance. */
     uint8_t req[32];
