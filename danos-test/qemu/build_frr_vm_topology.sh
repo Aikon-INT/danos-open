@@ -23,13 +23,13 @@ EOF
 version: 2
 ethernets:
   ens3:
-    dhcp4: true
-  ens4:
     dhcp4: false
     addresses: [$address/24]
-  ens5:
+  ens4:
     dhcp4: false
     addresses: [$bgp_addr/24]
+  ens5:
+    dhcp4: true
   ens6:
     dhcp4: false
     addresses: [10.0.3.2/24]
