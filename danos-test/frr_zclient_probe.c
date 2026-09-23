@@ -44,6 +44,12 @@ int main(int argc, char **argv)
     uint8_t hello[8] = {3, 0, 0, 0, 0, 0, 0, 0};
     if (send_msg(fd, 19, hello, sizeof(hello)) || send_msg(fd, 16, "\0\1", 2) ||
         send_msg(fd, 0, NULL, 0)) return 1;
+    const char *route_type = getenv("DANOS_PROBE_ROUTE_TYPE");
+    if (route_type && route_type[0]) {
+        uint8_t redist[4] = {1, (uint8_t)strtoul(route_type, NULL, 10), 0, 0};
+        if (send_msg(fd, 12, redist, sizeof(redist))) return 1;
+        fprintf(stderr, "probe redistribution sent: type=%u\n", redist[1]);
+    }
     fprintf(stderr, "probe registration sent: %s\n", ep);
     uint8_t h[10];
     for (;;) {
