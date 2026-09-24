@@ -215,7 +215,11 @@ int danos_zebra_session_register(uint8_t protocol, uint16_t instance)
             cmd = htons(FRR_ZEBRA_REDISTRIBUTE_ADD); memcpy(req + 8, &cmd, 2);
             req[10] = 1; req[11] = route_type;
             uint16_t instance = 0; memcpy(req + 12, &instance, 2);
-            if (send(g_session.fd, req, 14, MSG_NOSIGNAL) != 14) return -1;
+            ssize_t redist_sent = send(g_session.fd, req, 14, MSG_NOSIGNAL);
+            if (getenv("DANOS_ZAPI_DEBUG"))
+                fprintf(stderr, "zapi tx command=12 fd=%d sent=%zd errno=%d\n",
+                        g_session.fd, redist_sent, errno);
+            if (redist_sent != 14) return -1;
             trace_registration(FRR_ZEBRA_REDISTRIBUTE_ADD, 1, route_type, 0, 14);
             if (getenv("DANOS_ZAPI_DEBUG")) {
                 fprintf(stderr, "zapi tx frame:");
@@ -230,6 +234,8 @@ int danos_zebra_session_register(uint8_t protocol, uint16_t instance)
 void danos_zebra_session_disconnect(void)
 {
     if (g_session.fd >= 0) {
+        if (getenv("DANOS_ZAPI_DEBUG"))
+            fprintf(stderr, "zapi disconnect fd=%d\n", g_session.fd);
         close(g_session.fd);
         g_session.fd = -1;
     }
