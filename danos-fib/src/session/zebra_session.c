@@ -186,7 +186,9 @@ int danos_zebra_session_register(uint8_t protocol, uint16_t instance)
         sent += (size_t)n;
     }
     trace_registration(FRR_ZEBRA_HELLO, 0, protocol, instance, sizeof(msg));
-    if (getenv("DANOS_ZAPI_HELLO_ONLY")) return 0;
+    const char *stage_env = getenv("DANOS_ZAPI_REG_STAGE");
+    unsigned long stage = stage_env && stage_env[0] ? strtoul(stage_env, NULL, 10) : 0;
+    if (getenv("DANOS_ZAPI_HELLO_ONLY") || stage == 1) return 0;
     /* Request router-id and interface replay, then route notifications for
      * the protocol families used by the v0.16 L3 acceptance. */
     uint8_t req[32];
@@ -198,9 +200,11 @@ int danos_zebra_session_register(uint8_t protocol, uint16_t instance)
     memcpy(req + 8, &cmd, 2); memcpy(req + 10, &afi, 2);
     if (send(g_session.fd, req, 12, MSG_NOSIGNAL) != 12) return -1;
     trace_registration(FRR_ZEBRA_ROUTER_ID_ADD, 1, 0, 0, 12);
+    if (stage == 2) return 0;
     cmd = htons(FRR_ZEBRA_INTERFACE_ADD); memcpy(req + 8, &cmd, 2);
     if (send(g_session.fd, req, 10, MSG_NOSIGNAL) != 10) return -1;
     trace_registration(FRR_ZEBRA_INTERFACE_ADD, 0, 0, 0, 10);
+    if (stage == 3) return 0;
     uint8_t route_types[16];
     size_t route_type_count = registration_route_types(route_types, sizeof(route_types));
     for (size_t route_i = 0; route_i < route_type_count; route_i++) {

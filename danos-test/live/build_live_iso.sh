@@ -27,6 +27,8 @@ VPP_DPDK_PORTS="${VPP_DPDK_PORTS:-0000:00:02.0}"
 VPP_DPDK_TRAFFIC_TEST="${VPP_DPDK_TRAFFIC_TEST:-0}"
 DANOS_FIB_BRIDGE_ENABLE="${DANOS_FIB_BRIDGE_ENABLE:-0}"
 DANOS_ZEBRA_ENDPOINT="${DANOS_ZEBRA_ENDPOINT:-}"
+DANOS_ZAPI_HELLO_ONLY="${DANOS_ZAPI_HELLO_ONLY:-0}"
+DANOS_ZAPI_REG_STAGE="${DANOS_ZAPI_REG_STAGE:-0}"
 
 mkdir -p "$WORK" "$PROJECT_ROOT/build"
 
@@ -209,6 +211,8 @@ if test "$DANOS_FIB_BRIDGE_ENABLE" = 1 && test -n "$DANOS_ZEBRA_ENDPOINT"; then
   mkdir -p "$WORK/initramfs/etc/danos"
   printf 'DANOS_ZEBRA_ENDPOINT=%q\n' "$DANOS_ZEBRA_ENDPOINT" > "$WORK/initramfs/etc/danos/bridge.env"
   printf 'DANOS_ZAPI_ROUTE_TYPES=%q\n' "${DANOS_ZAPI_ROUTE_TYPES:-9}" >> "$WORK/initramfs/etc/danos/bridge.env"
+  printf 'DANOS_ZAPI_HELLO_ONLY=%q\n' "$DANOS_ZAPI_HELLO_ONLY" >> "$WORK/initramfs/etc/danos/bridge.env"
+  printf 'DANOS_ZAPI_REG_STAGE=%q\n' "$DANOS_ZAPI_REG_STAGE" >> "$WORK/initramfs/etc/danos/bridge.env"
 fi
 cp "$PROJECT_ROOT/danos-test/live/init" "$WORK/initramfs/init"
 chmod +x "$WORK/initramfs/init"
