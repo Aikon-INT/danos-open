@@ -59,6 +59,15 @@ static void trace_registration(uint16_t command, uint8_t afi, uint8_t type,
                 command, afi, type, instance, length);
 }
 
+static void registration_pace(void)
+{
+    const char *value = getenv("DANOS_ZAPI_PACE_US");
+    if (!value || !value[0]) return;
+    unsigned long usec = strtoul(value, NULL, 10);
+    if (usec > 1000000UL) usec = 1000000UL;
+    if (usec) usleep((useconds_t)usec);
+}
+
 static size_t registration_route_types(uint8_t *types, size_t capacity)
 {
     /* Match FRR zclient_init(): no redistribution is requested until the
@@ -186,6 +195,7 @@ int danos_zebra_session_register(uint8_t protocol, uint16_t instance)
         sent += (size_t)n;
     }
     trace_registration(FRR_ZEBRA_HELLO, 0, protocol, instance, sizeof(msg));
+    registration_pace();
     const char *stage_env = getenv("DANOS_ZAPI_REG_STAGE");
     unsigned long stage = stage_env && stage_env[0] ? strtoul(stage_env, NULL, 10) : 0;
     const char *hello_only = getenv("DANOS_ZAPI_HELLO_ONLY");
@@ -202,10 +212,12 @@ int danos_zebra_session_register(uint8_t protocol, uint16_t instance)
     memcpy(req + 8, &cmd, 2); memcpy(req + 10, &afi, 2);
     if (send(g_session.fd, req, 12, MSG_NOSIGNAL) != 12) return -1;
     trace_registration(FRR_ZEBRA_ROUTER_ID_ADD, 1, 0, 0, 12);
+    registration_pace();
     if (stage == 2) return 0;
     cmd = htons(FRR_ZEBRA_INTERFACE_ADD); memcpy(req + 8, &cmd, 2);
     if (send(g_session.fd, req, 10, MSG_NOSIGNAL) != 10) return -1;
     trace_registration(FRR_ZEBRA_INTERFACE_ADD, 0, 0, 0, 10);
+    registration_pace();
     if (stage == 3) return 0;
     uint8_t route_types[16];
     size_t route_type_count = registration_route_types(route_types, sizeof(route_types));
