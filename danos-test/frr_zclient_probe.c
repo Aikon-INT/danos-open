@@ -49,6 +49,8 @@ int main(int argc, char **argv)
         uint8_t redist[4] = {1, (uint8_t)strtoul(route_type, NULL, 10), 0, 0};
         if (send_msg(fd, 12, redist, sizeof(redist))) return 1;
         fprintf(stderr, "probe redistribution sent: type=%u\n", redist[1]);
+        fprintf(stderr, "probe tx frame: 00 0e fe 06 00 00 00 00 00 0c %02x %02x 00 00\n",
+                redist[0], redist[1]);
     }
     fprintf(stderr, "probe registration sent: %s\n", ep);
     uint8_t h[10];

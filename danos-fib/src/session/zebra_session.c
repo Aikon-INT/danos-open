@@ -217,6 +217,12 @@ int danos_zebra_session_register(uint8_t protocol, uint16_t instance)
             uint16_t instance = 0; memcpy(req + 12, &instance, 2);
             if (send(g_session.fd, req, 14, MSG_NOSIGNAL) != 14) return -1;
             trace_registration(FRR_ZEBRA_REDISTRIBUTE_ADD, 1, route_type, 0, 14);
+            if (getenv("DANOS_ZAPI_DEBUG")) {
+                fprintf(stderr, "zapi tx frame:");
+                for (size_t byte_i = 0; byte_i < 14; byte_i++)
+                    fprintf(stderr, " %02x", req[byte_i]);
+                fputc('\n', stderr);
+            }
     }
     return 0;
 }
