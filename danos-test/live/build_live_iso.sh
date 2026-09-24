@@ -254,7 +254,7 @@ LABEL danos
   # Keep serial diagnostics for QEMU, but make the VMware/PC VGA console
   # the primary console.  With only ttyS0, VMware's display remains black
   # after ISOLINUX has loaded the kernel and initramfs.
-  APPEND initrd=/initramfs.cpio.gz console=ttyS0,115200 console=tty0
+  APPEND initrd=/initramfs.cpio.gz console=tty0 console=ttyS0,115200
 EOF
 xorriso -as mkisofs -o "$OUT_ISO" -b isolinux/isolinux.bin \
     -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 \
