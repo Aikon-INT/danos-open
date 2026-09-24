@@ -188,7 +188,9 @@ int danos_zebra_session_register(uint8_t protocol, uint16_t instance)
     trace_registration(FRR_ZEBRA_HELLO, 0, protocol, instance, sizeof(msg));
     const char *stage_env = getenv("DANOS_ZAPI_REG_STAGE");
     unsigned long stage = stage_env && stage_env[0] ? strtoul(stage_env, NULL, 10) : 0;
-    if (getenv("DANOS_ZAPI_HELLO_ONLY") || stage == 1) return 0;
+    const char *hello_only = getenv("DANOS_ZAPI_HELLO_ONLY");
+    if ((hello_only && hello_only[0] && strcmp(hello_only, "0") != 0) ||
+        stage == 1) return 0;
     /* Request router-id and interface replay, then route notifications for
      * the protocol families used by the v0.16 L3 acceptance. */
     uint8_t req[32];
