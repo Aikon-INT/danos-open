@@ -342,6 +342,12 @@ int danos_zebra_session_recv_frr(uint8_t *buf, size_t buf_size, zapi_message_t *
     memcpy(&total, buf, 2);
     total = ntohs(total);
     if (total < 10 || total > buf_size) return -4;
+    if (getenv("DANOS_ZAPI_DEBUG")) {
+        uint16_t command;
+        memcpy(&command, buf + 8, 2);
+        fprintf(stderr, "zapi rx frame header length=%u command=%u\n",
+                total, ntohs(command));
+    }
     if (total > 10) {
         n = recv(g_session.fd, buf + 10, total - 10, MSG_WAITALL);
         if (n <= 0) { danos_zebra_session_disconnect(); return 0; }
