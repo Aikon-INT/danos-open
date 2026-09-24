@@ -214,6 +214,10 @@ int danos_zebra_session_register(uint8_t protocol, uint16_t instance)
     trace_registration(FRR_ZEBRA_ROUTER_ID_ADD, 1, 0, 0, 12);
     registration_pace();
     if (stage == 2) return 0;
+    /* INTERFACE_ADD has no payload.  Reset the header length after the
+     * ROUTER_ID_ADD frame (which carries the two-byte AFI payload). */
+    req_len = htons(10);
+    memcpy(req, &req_len, 2);
     cmd = htons(FRR_ZEBRA_INTERFACE_ADD); memcpy(req + 8, &cmd, 2);
     if (send(g_session.fd, req, 10, MSG_NOSIGNAL) != 10) return -1;
     trace_registration(FRR_ZEBRA_INTERFACE_ADD, 0, 0, 0, 10);
