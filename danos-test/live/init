@@ -7,6 +7,10 @@ mkdir -p /dev/shm /run /var/run
 mount -t tmpfs -o mode=1777 tmpfs /dev/shm 2>/dev/null || true
 mount -t tmpfs -o mode=0755 tmpfs /run 2>/dev/null || true
 
+if test -f /etc/danos/bridge.env; then
+    . /etc/danos/bridge.env
+fi
+
 echo ""
 echo "==============================================="
 echo "  DANOS-Open live system (kernel 6.12, mgrd)"
@@ -58,10 +62,10 @@ if test -e /vpp-dpdk.enabled; then
     test -S /run/vpp/stats.sock && echo "VPP stats socket: ready" > /dev/console || echo "VPP stats socket: missing" > /dev/console
     if test -e /vpp-dpdk-e1000.enabled; then
         /usr/bin/vppctl -s /run/vpp/cli.sock set interface state GigabitEthernet0/2/0 up > /dev/console 2>&1 || true
-        /usr/bin/vppctl -s /run/vpp/cli.sock set interface ip address GigabitEthernet0/2/0 10.10.0.1/24 > /dev/console 2>&1 || true
+        /usr/bin/vppctl -s /run/vpp/cli.sock set interface ip address GigabitEthernet0/2/0 "${VPP_IF1_ADDR:-10.10.0.1/24}" > /dev/console 2>&1 || true
         if test -e /vpp-dpdk-e1000-2port.enabled; then
             /usr/bin/vppctl -s /run/vpp/cli.sock set interface state GigabitEthernet0/3/0 up > /dev/console 2>&1 || true
-            /usr/bin/vppctl -s /run/vpp/cli.sock set interface ip address GigabitEthernet0/3/0 10.20.0.1/24 > /dev/console 2>&1 || true
+            /usr/bin/vppctl -s /run/vpp/cli.sock set interface ip address GigabitEthernet0/3/0 "${VPP_IF2_ADDR:-10.20.0.1/24}" > /dev/console 2>&1 || true
             /usr/bin/vppctl -s /run/vpp/cli.sock ip route add 30.30.30.0/24 via 10.10.0.2 GigabitEthernet0/2/0 via 10.20.0.2 GigabitEthernet0/3/0 > /dev/console 2>&1 || true
             echo "--- VPP ECMP FIB ---" > /dev/console
             /usr/bin/vppctl -s /run/vpp/cli.sock show ip fib 30.30.30.0/24 > /dev/console 2>&1 || true
