@@ -38,6 +38,8 @@ static void stop_handler(int sig)
 
 static int recover_vpp_backend(bool enabled)
 {
+    const char *skip = getenv("DANOS_SKIP_VPP_RECOVERY");
+    if (skip && skip[0] && strcmp(skip, "0") != 0) return 0;
     if (!enabled || danos_vpp_api_is_connected()) return 0;
     const bool debug = getenv("DANOS_VPP_DEBUG") != NULL;
     if (debug) fprintf(stderr, "VPP backend recovery: reconnecting\n");
@@ -138,8 +140,11 @@ int main(int argc, char **argv)
              * this keeps an initial zserv outage from blocking retries. */
             if (getenv("DANOS_VPP_DEBUG"))
                 fprintf(stderr, "zebra reconnect boundary: refreshing VPP\n");
-            danos_vpp_api_disconnect();
-            (void)recover_vpp_backend(true);
+            const char *skip_recovery = getenv("DANOS_SKIP_VPP_RECOVERY");
+            if (!skip_recovery || !skip_recovery[0] || !strcmp(skip_recovery, "0")) {
+                danos_vpp_api_disconnect();
+                (void)recover_vpp_backend(true);
+            }
         }
         zapi_message_t msg;
         int n = danos_zebra_session_recv_frr(buf, sizeof(buf), &msg);

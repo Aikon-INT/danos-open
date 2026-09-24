@@ -112,6 +112,7 @@ if test -e /vpp-dpdk.enabled; then
         DANOS_ZAPI_DEBUG=1 DANOS_VPP_DEBUG=1 DANOS_ZAPI_HELLO_ONLY="${DANOS_ZAPI_HELLO_ONLY:-0}" \
             DANOS_ZAPI_REG_STAGE="${DANOS_ZAPI_REG_STAGE:-0}" \
             DANOS_ZAPI_PACE_US="${DANOS_ZAPI_PACE_US:-0}" \
+            DANOS_SKIP_VPP_RECOVERY="${DANOS_SKIP_VPP_RECOVERY:-0}" \
             DANOS_ZAPI_ROUTE_TYPES="${DANOS_ZAPI_ROUTE_TYPES:-9}" \
             DANOS_VPP_IFINDEX_MAP='2:1,3:2,4:1,5:2' /bin/fib_live_bridge \
             --zebra-sock "$DANOS_ZEBRA_ENDPOINT" \
