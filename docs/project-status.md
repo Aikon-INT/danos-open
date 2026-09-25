@@ -2,13 +2,12 @@
 
 ## Current assessment
 
-As of 2026-09-22, DANOS-Open v0.16 is in integration closure. The
-management-plane, DPA transaction/reconciliation core, FRR 10.3 ZAPI path,
-VPP 26.10 API/FIB path, route lifecycle, ECMP and software/QEMU DPDK lanes
-are implemented and covered by repeatable evidence. The remaining work is
-split between dynamic BGP/OSPF-to-VPP evidence, stronger QEMU multi-flow
-statistics, backend contract freeze, and a host-dependent real PCI DPDK
-performance lane.
+As of 2026-09-26, DANOS-Open v0.16 is in integration closure. The
+management-plane, frozen Route/NH/NHGroup contract, FRR 10.3 ZAPI path,
+VPP 26.10 API/FIB path, route lifecycle, ECMP, QEMU e1000 and VMware
+VMXNET3 polling-only lanes are covered by repeatable evidence. The remaining
+item is a host-dependent real PCI/line-rate DPDK performance lane; protocol
+extensions remain deliberately deferred.
 
 The strongest capabilities are the DPA object/store/transaction foundation,
 WAL persistence, desired-to-programmed reconciliation, model-driven
@@ -17,11 +16,17 @@ observability and automated protocol/quality tests. The primary external
 dependency is a real VFIO/uio-bound DPDK runner; it is tracked as an
 environment gate and is not conflated with software dataplane acceptance.
 
-The current mainline is clean and synchronized with `origin/main`; the complete deterministic suite passes 34/34. Privileged evidence is recorded separately from the DPDK hardware gate.
+The current mainline is clean and synchronized with `origin/main` at
+`a0fbde9`; the latest tag remains `v0.14.0`, while main has moved ahead with
+v0.16 integration work. The complete deterministic suite passes 34/34.
+Privileged evidence is recorded separately from the DPDK hardware gate.
 
 ## Evidence snapshot
 
 - Latest tagged release: `v0.14.0`.
+- The authoritative v0.16 status is maintained in
+  `docs/v0.16-acceptance-matrix.md`; historical gaps below are retained only
+  for traceability and do not override that matrix.
 - Current mainline work includes v0.14 release automation, compatibility baselines, event-driven reconciliation and streaming telemetry.
 - The configured build registers 34 CTest cases. The restricted development environment initially blocked seven socket/network tests, but the same build passed all 34 cases when re-run with host network privileges. The restriction is therefore environmental, not a current test failure.
 - The programming pipeline and composite route tests pass in the current environment.
@@ -75,6 +80,19 @@ The current mainline is clean and synchronized with `origin/main`; the complete 
   notifications (9/10) as well as FRR redistribute notifications (31/32).
   A static route replay reached the bridge (`processed=1`); VPP programming
   still requires a matching live-interface ifindex map in the same topology.
+- Fresh Debian trixie topology-89 passes the complete QEMU verifier: VPP
+  restart/replay, BGP add/withdraw, OSPF adjacency, ZAPI add/withdraw, FRR
+  route add/withdraw/restore, and FRR daemon/zserv restart recovery.
+- VMware Workstation VMXNET3 polling-only packet baseline passes on two
+  independent subnets: 100 packets per path, approximately 99.01/98.04 pps,
+  zero loss, and real VPP RX/TX plus two ECMP buckets. This is a regression
+  packet baseline, not line-rate throughput.
+- QEMU VMXNET3 DPDK and native VMXNET3 interrupt-mode results remain explicit
+  FAIL boundaries: DPDK initialization SIGSEGV and native `No sufficient
+  interrupt lines (0)`. The only accepted VMXNET3 path is VMware polling-only.
+- Current host/container DPDK preflight is structured `SKIP`: no privileged
+  VPP/DPDK PCI runner is available. No QEMU or packet baseline result is
+  counted as real PCI line-rate performance.
 
 ## Capability maturity
 
@@ -128,8 +146,8 @@ Execution status:
 - VRF and IPv4 static route/NH/NHGroup pipeline: existing baseline covered by
   deterministic tests.
 - ECMP northbound representation: implemented for gNMI `gateways[]`, DPA
-  NHGroup creation/update/delete and mock Linux programming; real dataplane
-  multipath forwarding remains to be verified.
+  NHGroup creation/update/delete and verified in QEMU/VMware dataplane lanes;
+  line-rate PCI distribution remains open.
 - Real Linux namespace and traffic proof: blocked in this workspace because
   root/user namespaces are unavailable.
 - VPP runtime boot, API/stat sockets and DPA conformance: verified in Debian
@@ -141,9 +159,8 @@ Execution status:
   topology now proves API-driven route, ECMP and packet forwarding; only the
   separate DPDK hardware lane remains open.
 - FRR BGP/OSPF route installation and withdrawal through the full DPA/backend
-  path: remains the next integration milestone; the ZAPI mapper now normalizes
-  multipath route messages into multi-member DPA NHGroups and has a regression
-  test.
+  path: PASS in fresh topology-89; the ZAPI mapper normalizes multipath route
+  messages into multi-member DPA NHGroups and has regression coverage.
 - The runnable `build/danos-test/fib_live_bridge` now connects a real FRR zebra
   socket, dispatches each message through the FIB mapper and DPA transaction,
   and drives the VPP adapter. Use `--messages N` for deterministic acceptance.
@@ -203,10 +220,11 @@ present; the guest NIC must then be made available through the selected DPDK
 binding/VFIO setup.
 Containerized trixie runners can use
 `danos-test/integration/run_vpp_dpdk_container_lane.sh`; the current runner
-has PCI `0000:04:00.0`, VFIO and hugepages. That device is a Realtek
-`10ec:8168` RTL8111/8168; both a VFIO-bound and a historical
-`uio_pci_generic` probe reached DPDK but VPP rejected it as an unsupported PCI
-device, so changing the kernel binding does not make it a DPDK dataplane.
+emits a structured `SKIP` because the expected privileged container is absent.
+The host exposes only the Realtek `10ec:8168` RTL8111/8168 path, which is not
+a validated VPP DPDK PMD in this project. A future privileged runner must
+provide a supported PCI function, VPP binary/plugin, HugePages and traffic
+generator; changing a kernel binding alone is not sufficient.
 The checked-in software validation image intentionally contains
 `plugins { plugin dpdk_plugin.so { disable } }`; enabling it is reserved for
 the dedicated PCI/VFIO runner and is not mixed into the software baseline.
@@ -214,14 +232,11 @@ The dedicated startup template is
 `danos-test/integration/vpp-dpdk-startup.conf`; its BDF must match the
 runner-selected VFIO-bound device before launch.
 
-QEMU/KVM VMXNET3 smoke evidence is now available: launching
-`build/danos-open-live.iso` with QEMU's `-device vmxnet3` produced guest PCI
-`0000:00:02.0 [15ad:07b0]` in the DANOS kernel log. The live ISO currently
-starts `mgrd` without a VPP runtime (`VPP not reachable`), so this proves the
-VMXNET3 PCI exposure but is not yet DPDK forwarding evidence. The next QEMU
-step is to boot a trixie guest image containing VPP, DPDK plugin and the
-startup template, then bind this guest NIC and run the packet/performance
-lane inside the guest.
+QEMU/KVM VMXNET3 DPDK was tested with VPP 26.10 and remains a recorded FAIL:
+the device is exposed but VPP DPDK initialization SIGSEGVs across pc/q35 and
+single/dual-port variants. VMware Workstation provides the accepted
+polling-only alternative via `no-rx-interrupts`; its dual-subnet packet gate
+and repeatable pps verifier pass, but it is not line-rate evidence.
 
 The same ISO has now passed a QEMU `e1000` network smoke test using the
 project-bundled `e1000.ko`: guest `eth0` received `10.0.2.15/24`, the link
