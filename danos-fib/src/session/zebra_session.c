@@ -252,11 +252,12 @@ int danos_zebra_session_register(uint8_t protocol, uint16_t instance)
      * per-protocol subscriptions in configurations that receive dynamic
      * routes.  The command has no payload; keep it as a separate frame. */
     if (getenv("DANOS_ZAPI_REDISTRIBUTE_DEFAULT")) {
-        req_len = htons(10); memcpy(req, &req_len, 2);
+        req_len = htons(11); memcpy(req, &req_len, 2);
         cmd = htons(FRR_ZEBRA_REDISTRIBUTE_DEFAULT_ADD);
         memcpy(req + 8, &cmd, 2);
-        if (send(g_session.fd, req, 10, MSG_NOSIGNAL) != 10) return -1;
-        trace_registration(FRR_ZEBRA_REDISTRIBUTE_DEFAULT_ADD, 0, 0, 0, 10);
+        req[10] = 1; /* AFI_IP */
+        if (send(g_session.fd, req, 11, MSG_NOSIGNAL) != 11) return -1;
+        trace_registration(FRR_ZEBRA_REDISTRIBUTE_DEFAULT_ADD, 1, 0, 0, 11);
     }
     return 0;
 }
