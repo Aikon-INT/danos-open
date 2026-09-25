@@ -130,11 +130,15 @@ if test -e /vpp-dpdk.enabled; then
         ip route show > /dev/console 2>&1 || true
         /bin/busybox ping -c 1 -W 1 "$bridge_host" > /dev/console 2>&1 || true
         echo "--- starting optional FRR ZAPI bridge" > /dev/console
+        bridge_skip_vpp_recovery="${DANOS_SKIP_VPP_RECOVERY:-0}"
+        if test "${DANOS_VPP_RESTART_TEST:-0}" != 0; then
+            bridge_skip_vpp_recovery=0
+        fi
         (
             DANOS_ZAPI_DEBUG=1 DANOS_VPP_DEBUG=1 DANOS_ZAPI_HELLO_ONLY="${DANOS_ZAPI_HELLO_ONLY:-0}" \
                 DANOS_ZAPI_REG_STAGE="${DANOS_ZAPI_REG_STAGE:-0}" \
                 DANOS_ZAPI_PACE_US="${DANOS_ZAPI_PACE_US:-0}" \
-                DANOS_SKIP_VPP_RECOVERY="${DANOS_SKIP_VPP_RECOVERY:-0}" \
+                DANOS_SKIP_VPP_RECOVERY="$bridge_skip_vpp_recovery" \
                 DANOS_VPP_HEALTH_PROBE="${DANOS_VPP_HEALTH_PROBE:-0}" \
                 DANOS_VPP_RESTART_TEST="${DANOS_VPP_RESTART_TEST:-0}" \
                 DANOS_ZAPI_ROUTE_TYPES="${DANOS_ZAPI_ROUTE_TYPES:-4,10}" \
