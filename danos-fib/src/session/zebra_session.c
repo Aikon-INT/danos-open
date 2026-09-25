@@ -30,6 +30,7 @@
 #define FRR_ZEBRA_ROUTE_ADD 9
 #define FRR_ZEBRA_ROUTER_ID_ADD 16
 #define FRR_ZEBRA_REDISTRIBUTE_ADD 12
+#define FRR_ZEBRA_REDISTRIBUTE_DEFAULT_ADD 11
 
 typedef enum {
     ZEBRA_SESSION_DISCONNECTED = 0,
@@ -246,6 +247,16 @@ int danos_zebra_session_register(uint8_t protocol, uint16_t instance)
                     fprintf(stderr, " %02x", req[byte_i]);
                 fputc('\n', stderr);
             }
+    }
+    /* FRR's zclient enables the default redistribution stream before
+     * per-protocol subscriptions in configurations that receive dynamic
+     * routes.  The command has no payload; keep it as a separate frame. */
+    if (getenv("DANOS_ZAPI_REDISTRIBUTE_DEFAULT")) {
+        req_len = htons(10); memcpy(req, &req_len, 2);
+        cmd = htons(FRR_ZEBRA_REDISTRIBUTE_DEFAULT_ADD);
+        memcpy(req + 8, &cmd, 2);
+        if (send(g_session.fd, req, 10, MSG_NOSIGNAL) != 10) return -1;
+        trace_registration(FRR_ZEBRA_REDISTRIBUTE_DEFAULT_ADD, 0, 0, 0, 10);
     }
     return 0;
 }
