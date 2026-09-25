@@ -10,6 +10,9 @@ mount -t tmpfs -o mode=0755 tmpfs /run 2>/dev/null || true
 if test -f /etc/danos/bridge.env; then
     . /etc/danos/bridge.env
 fi
+if test -f /etc/danos/vpp-traffic.env; then
+    . /etc/danos/vpp-traffic.env
+fi
 echo "DANOS VPP health_probe=${DANOS_VPP_HEALTH_PROBE:-0} restart_test=${DANOS_VPP_RESTART_TEST:-0}" > /dev/console
 for pci_dev in /sys/bus/pci/devices/*; do
     test -r "$pci_dev/class" || continue
@@ -83,14 +86,6 @@ if test -e /vpp-dpdk.enabled; then
     vpp_if2=$(printf '%s\n' "$vpp_if_list" | sed -n '2p')
     test -n "$vpp_if1" || vpp_if1=GigabitEthernet0/2/0
     test -n "$vpp_if2" || vpp_if2=GigabitEthernet0/3/0
-    if /usr/bin/vppctl -s /run/vpp/cli.sock show interface 2>/dev/null \
-        | grep -Eq "^${vpp_if1}[[:space:]].*up" \
-        && /usr/bin/vppctl -s /run/vpp/cli.sock show interface 2>/dev/null \
-        | grep -Eq "^${vpp_if2}[[:space:]].*up"; then
-        echo "VPP-DPDK-INTERFACES PASS" > /dev/console
-    else
-        echo "VPP-DPDK-INTERFACES FAIL" > /dev/console
-    fi
     if test -e /vpp-dpdk-device; then
         vpp_dpdk_device=$(cat /vpp-dpdk-device)
     else
@@ -105,24 +100,32 @@ if test -e /vpp-dpdk.enabled; then
             # The QEMU e1000 lane has deterministic peer MACs.  Install
             # static neighbors so the two-path FIB resolves to two buckets
             # without depending on an external ARP generator.
-            /usr/bin/vppctl -s /run/vpp/cli.sock set ip neighbor "$vpp_if1" 10.10.0.2 52:54:00:11:01:02 > /dev/console 2>&1 || true
-            /usr/bin/vppctl -s /run/vpp/cli.sock set ip neighbor "$vpp_if2" 10.20.0.2 52:54:00:12:01:02 > /dev/console 2>&1 || true
-            /usr/bin/vppctl -s /run/vpp/cli.sock ip route add 30.30.30.0/24 via 10.10.0.2 "$vpp_if1" via 10.20.0.2 "$vpp_if2" > /dev/console 2>&1 || true
+            /usr/bin/vppctl -s /run/vpp/cli.sock set ip neighbor "$vpp_if1" "${VPP_PEER_IP1:-10.10.0.2}" "${VPP_PEER_MAC1:-52:54:00:11:01:02}" > /dev/console 2>&1 || true
+            /usr/bin/vppctl -s /run/vpp/cli.sock set ip neighbor "$vpp_if2" "${VPP_PEER_IP2:-10.20.0.2}" "${VPP_PEER_MAC2:-52:54:00:12:01:02}" > /dev/console 2>&1 || true
+            /usr/bin/vppctl -s /run/vpp/cli.sock ip route add 30.30.30.0/24 via "${VPP_PEER_IP1:-10.10.0.2}" "$vpp_if1" via "${VPP_PEER_IP2:-10.20.0.2}" "$vpp_if2" > /dev/console 2>&1 || true
             echo "--- VPP ECMP FIB ---" > /dev/console
             /usr/bin/vppctl -s /run/vpp/cli.sock show ip fib 30.30.30.0/24 > /dev/console 2>&1 || true
+        fi
+        if /usr/bin/vppctl -s /run/vpp/cli.sock show interface 2>/dev/null \
+            | grep -Eq "^${vpp_if1}[[:space:]].*up" \
+            && /usr/bin/vppctl -s /run/vpp/cli.sock show interface 2>/dev/null \
+            | grep -Eq "^${vpp_if2}[[:space:]].*up"; then
+            echo "VPP-DPDK-INTERFACES PASS" > /dev/console
+        else
+            echo "VPP-DPDK-INTERFACES FAIL" > /dev/console
         fi
         if test -e /vpp-dpdk-traffic-test.enabled; then
             echo "--- VPP DPDK traffic test ---" > /dev/console
             echo "VPP-ECMP-COUNTERS-BEFORE" > /dev/console
             /usr/bin/vppctl -s /run/vpp/cli.sock show interface > /tmp/vpp-if-before.log 2>&1 || true
             cat /tmp/vpp-if-before.log > /dev/console 2>&1 || true
-            if /usr/bin/vppctl -s /run/vpp/cli.sock ping 10.10.0.2 repeat 3 > /tmp/vpp-ping0.log 2>&1 \
+            if /usr/bin/vppctl -s /run/vpp/cli.sock ping "${VPP_PEER_IP1:-10.10.0.2}" repeat 3 > /tmp/vpp-ping0.log 2>&1 \
                 && ! grep -Eq 'unknown input|connect:|unknown interface|No such' /tmp/vpp-ping0.log; then
                 echo "VPP-DPDK-PING-0 PASS" > /dev/console
             else
                 echo "VPP-DPDK-PING-0 FAIL" > /dev/console
             fi
-            if /usr/bin/vppctl -s /run/vpp/cli.sock ping 10.20.0.2 repeat 3 > /tmp/vpp-ping1.log 2>&1 \
+            if /usr/bin/vppctl -s /run/vpp/cli.sock ping "${VPP_PEER_IP2:-10.20.0.2}" repeat 3 > /tmp/vpp-ping1.log 2>&1 \
                 && ! grep -Eq 'unknown input|connect:|unknown interface|No such' /tmp/vpp-ping1.log; then
                 echo "VPP-DPDK-PING-1 PASS" > /dev/console
             else

@@ -27,6 +27,11 @@ VPP_DPDK_PORTS="${VPP_DPDK_PORTS:-0000:00:02.0}"
 VPP_VMXNET3_NATIVE="${VPP_VMXNET3_NATIVE:-0}"
 VPP_DPDK_TRAFFIC_TEST="${VPP_DPDK_TRAFFIC_TEST:-0}"
 VPP_DPDK_NO_RX_INTERRUPTS="${VPP_DPDK_NO_RX_INTERRUPTS:-0}"
+VPP_PING_ENABLE="${VPP_PING_ENABLE:-0}"
+VPP_PEER_MAC1="${VPP_PEER_MAC1:-52:54:00:11:01:02}"
+VPP_PEER_MAC2="${VPP_PEER_MAC2:-52:54:00:12:01:02}"
+VPP_PEER_IP1="${VPP_PEER_IP1:-10.10.0.2}"
+VPP_PEER_IP2="${VPP_PEER_IP2:-10.20.0.2}"
 VPP_IF1_ADDR="${VPP_IF1_ADDR:-10.10.0.1/24}"
 VPP_IF2_ADDR="${VPP_IF2_ADDR:-10.20.0.1/24}"
 DANOS_FIB_BRIDGE_ENABLE="${DANOS_FIB_BRIDGE_ENABLE:-0}"
@@ -172,6 +177,11 @@ if test -n "$VPP_IMAGE"; then
     VPP_PLUGIN_LINE="$VPP_PLUGIN_LINE
   plugin vmxnet3_plugin.so { enable }"
   fi
+  if test "$VPP_PING_ENABLE" = 1; then
+    docker cp "$VPP_CID:/usr/lib/x86_64-linux-gnu/vpp_plugins/ping_plugin.so" \
+      "$WORK/initramfs/usr/lib/x86_64-linux-gnu/vpp_plugins/ping_plugin.so"
+    VPP_PLUGIN_LINE="${VPP_PLUGIN_LINE}$(printf '\n  plugin ping_plugin.so { enable }')"
+  fi
   cat > "$WORK/initramfs/etc/vpp/startup.conf" <<EOF
 unix {
   nodaemon
@@ -199,6 +209,10 @@ EOF
   printf '%s\n' "$VPP_DPDK_DEVICE" > "$WORK/initramfs/vpp-dpdk-device"
   test "$(printf '%s\n' $VPP_DPDK_PORTS | wc -l)" -ge 2 && touch "$WORK/initramfs/vpp-dpdk-e1000-2port.enabled"
   test "$VPP_DPDK_TRAFFIC_TEST" = 1 && touch "$WORK/initramfs/vpp-dpdk-traffic-test.enabled"
+  mkdir -p "$WORK/initramfs/etc/danos"
+  printf 'VPP_PEER_MAC1=%q\nVPP_PEER_MAC2=%q\nVPP_PEER_IP1=%q\nVPP_PEER_IP2=%q\n' \
+    "$VPP_PEER_MAC1" "$VPP_PEER_MAC2" "$VPP_PEER_IP1" "$VPP_PEER_IP2" \
+    > "$WORK/initramfs/etc/danos/vpp-traffic.env"
   chmod +x "$WORK/initramfs/usr/bin/vpp" "$WORK/initramfs/usr/bin/vppctl"
   docker rm -f "$VPP_CID" >/dev/null
 fi
