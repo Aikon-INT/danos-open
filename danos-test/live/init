@@ -10,6 +10,7 @@ mount -t tmpfs -o mode=0755 tmpfs /run 2>/dev/null || true
 if test -f /etc/danos/bridge.env; then
     . /etc/danos/bridge.env
 fi
+echo "DANOS VPP health_probe=${DANOS_VPP_HEALTH_PROBE:-0} restart_test=${DANOS_VPP_RESTART_TEST:-0}" > /dev/console
 
 echo ""
 echo "==============================================="
