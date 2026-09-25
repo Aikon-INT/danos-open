@@ -34,6 +34,7 @@ DANOS_ZAPI_REG_STAGE="${DANOS_ZAPI_REG_STAGE:-0}"
 DANOS_ZAPI_PACE_US="${DANOS_ZAPI_PACE_US:-0}"
 DANOS_SKIP_VPP_RECOVERY="${DANOS_SKIP_VPP_RECOVERY:-0}"
 DANOS_VPP_HEALTH_PROBE="${DANOS_VPP_HEALTH_PROBE:-0}"
+DANOS_VPP_RESTART_TEST="${DANOS_VPP_RESTART_TEST:-0}"
 
 mkdir -p "$WORK" "$PROJECT_ROOT/build"
 
@@ -221,6 +222,7 @@ if test "$DANOS_FIB_BRIDGE_ENABLE" = 1 && test -n "$DANOS_ZEBRA_ENDPOINT"; then
   printf 'DANOS_ZAPI_PACE_US=%q\n' "$DANOS_ZAPI_PACE_US" >> "$WORK/initramfs/etc/danos/bridge.env"
   printf 'DANOS_SKIP_VPP_RECOVERY=%q\n' "$DANOS_SKIP_VPP_RECOVERY" >> "$WORK/initramfs/etc/danos/bridge.env"
   printf 'DANOS_VPP_HEALTH_PROBE=%q\n' "$DANOS_VPP_HEALTH_PROBE" >> "$WORK/initramfs/etc/danos/bridge.env"
+  printf 'DANOS_VPP_RESTART_TEST=%q\n' "$DANOS_VPP_RESTART_TEST" >> "$WORK/initramfs/etc/danos/bridge.env"
   printf 'VPP_IF1_ADDR=%q\n' "$VPP_IF1_ADDR" >> "$WORK/initramfs/etc/danos/bridge.env"
   printf 'VPP_IF2_ADDR=%q\n' "$VPP_IF2_ADDR" >> "$WORK/initramfs/etc/danos/bridge.env"
 fi
