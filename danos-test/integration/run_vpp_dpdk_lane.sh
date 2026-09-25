@@ -1,6 +1,28 @@
 #!/bin/bash
 # VPP+DPDK dedicated lane preflight. Missing PCI/user-space driver is an explicit SKIP.
 set -euo pipefail
+RESULT_FILE="${DPDK_RESULT_FILE:-}"
+PCI_COUNT=0
+VMXNET3_COUNT=0
+TARGET_PATH=""
+finish_result() {
+    local rc=$?
+    test -n "$RESULT_FILE" || return "$rc"
+    {
+        printf 'status=%s\n' "$([ "$rc" -eq 0 ] && echo PASS || ([ "$rc" -eq 2 ] && echo SKIP || echo FAIL))"
+        printf 'exit_code=%s\n' "$rc"
+        printf 'vpp_bin=%q\n' "${VPP_BIN:-}"
+        printf 'vppctl=%q\n' "${VPPCTL:-}"
+        printf 'dpdk_plugin=%q\n' "${PLUGIN:-}"
+        printf 'pci_driver=%q\n' "${PCI_DRIVER:-}"
+        printf 'target_bdf=%q\n' "${TARGET_BDF:-}"
+        printf 'pci_ethernet_count=%s\nvmxnet3_count=%s\n' "$PCI_COUNT" "$VMXNET3_COUNT"
+        printf 'hugepages_total=%s\n' "$(awk '/^HugePages_Total:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)"
+        printf 'host_utc=%q\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    } > "$RESULT_FILE"
+    return "$rc"
+}
+trap finish_result EXIT
 VPP_BIN="${VPP_BIN:-}"
 VPPCTL="${VPPCTL:-}"
 if test -z "$VPP_BIN"; then
