@@ -11,6 +11,7 @@ ZAPI_PORT="${FRR_ZAPI_PORT:-23001}"
 MGMT_PORT="${FRR_MGMT_PORT:-24001}"
 FRR_SNAPSHOT="${FRR_QEMU_SNAPSHOT:-off}"
 FRR_DRIVE_EXTRA=""
+QEMU_DATAPLANE_MODEL="${QEMU_DATAPLANE_MODEL:-e1000}"
 if test "$FRR_SNAPSHOT" = on; then FRR_DRIVE_EXTRA=',snapshot=on'; fi
 test -f "$ISO" || { echo "[BLOCKED] DANOS ISO missing: $ISO"; exit 2; }
 for f in frr-1.qcow2 frr-2.qcow2 r1-seed.iso r2-seed.iso; do
@@ -33,9 +34,9 @@ MANIFEST="$T/run-manifest.env"
 qemu-system-x86_64 -enable-kvm -cpu host -m 2048 -smp 2 -cdrom "$ISO" \
   -vga none -device VGA,addr=0x4 \
   -netdev socket,id=lan1,listen=127.0.0.1:$LAN1_PORT \
-  -device e1000,netdev=lan1,addr=0x2,mac=52:54:00:10:01:01 \
+  -device "$QEMU_DATAPLANE_MODEL",netdev=lan1,addr=0x2,mac=52:54:00:10:01:01 \
   -netdev socket,id=lan2,listen=127.0.0.1:$LAN2_PORT \
-  -device e1000,netdev=lan2,addr=0x3,mac=52:54:00:10:02:01 \
+  -device "$QEMU_DATAPLANE_MODEL",netdev=lan2,addr=0x3,mac=52:54:00:10:02:01 \
   -netdev socket,id=mgmt,listen=127.0.0.1:$MGMT_PORT \
   -device virtio-net-pci,netdev=mgmt,addr=0x5,mac=52:54:00:10:03:01 \
   -display none -serial file:"$T/danos.serial.log" -monitor none \

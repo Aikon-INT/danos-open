@@ -17,7 +17,7 @@ echo "==============================================="
 echo "  DANOS-Open live system (kernel 6.12, mgrd)"
 echo "==============================================="
 
-# network drivers (QEMU e1000 and virtio-net)
+# network drivers (QEMU management NICs; DPDK owns dataplane NICs)
 if test ! -e /vpp-dpdk.enabled; then
     insmod /modules/e1000.ko 2>/dev/null || echo "e1000 insmod failed"
 fi
@@ -61,7 +61,12 @@ if test -e /vpp-dpdk.enabled; then
     done
     test -S /run/vpp/api.sock && echo "VPP API socket: ready" > /dev/console || echo "VPP API socket: missing" > /dev/console
     test -S /run/vpp/stats.sock && echo "VPP stats socket: ready" > /dev/console || echo "VPP stats socket: missing" > /dev/console
-    if test -e /vpp-dpdk-e1000.enabled; then
+    if test -e /vpp-dpdk-device; then
+        vpp_dpdk_device=$(cat /vpp-dpdk-device)
+    else
+        vpp_dpdk_device=e1000
+    fi
+    if test -e /vpp-dpdk-e1000.enabled || test "$vpp_dpdk_device" = vmxnet3; then
         /usr/bin/vppctl -s /run/vpp/cli.sock set interface state GigabitEthernet0/2/0 up > /dev/console 2>&1 || true
         /usr/bin/vppctl -s /run/vpp/cli.sock set interface ip address GigabitEthernet0/2/0 "${VPP_IF1_ADDR:-10.10.0.1/24}" > /dev/console 2>&1 || true
         if test -e /vpp-dpdk-e1000-2port.enabled; then
