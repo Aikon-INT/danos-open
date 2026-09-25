@@ -241,7 +241,18 @@ int main(int argc, char **argv)
                         (unsigned long long)withdraw_failed);
             programming_failed += withdraw_failed;
             if (programming_failed != 0 && reconnect) {
-                int recovered = recover_vpp_backend(true);
+                int recovered = -1;
+                /* During boot FRR can deliver the first route replay while
+                 * VPP has created api.sock but not yet its DPDK interfaces.
+                 * Treat that as recoverable and retry the backend replay for
+                 * a bounded window before declaring the ZAPI transaction
+                 * failed. */
+                for (int recovery_try = 0; recovery_try < 20; recovery_try++) {
+                    recovered = recover_vpp_backend(true);
+                    if (recovered > 0) break;
+                    struct timespec pause = { .tv_sec = 0, .tv_nsec = 200000000L };
+                    nanosleep(&pause, NULL);
+                }
                 if (recovered > 0) programming_failed = 0;
             }
             if (programming_failed != 0) {
