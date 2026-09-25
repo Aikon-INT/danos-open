@@ -400,3 +400,16 @@ Latest pushed commits: `88e1f5c` (backend contract gate) and `656713b`
 (dynamic FRR/VPP gate). Current environment blockers are the missing FRR
 `/var/run/frr/zserv.api`, missing host VPP runtime for the real PCI DPDK lane,
 and the absence of a privileged remote multi-flow QEMU topology.
+
+## 2026-09-25 execution update
+
+The QEMU topology-16 run is the current authoritative live evidence. With
+Debian trixie, FRR 10.3 and the dual-port VPP ISO, the FRR route cycle returned
+`add-rc=0`, `withdraw-rc=0`, and `restore-rc=0`. DANOS recorded
+`command=31 -> VPP route add`, `command=32 -> VPP route delete`, and a final
+`command=31 -> VPP route add`, with no programming failure or zserv EOF.
+
+The live ISO now subscribes to FRR route types `4,9` (static and BGP); the
+previous `3` value was incompatible with FRR 10.3 static notifications. The
+next gates remain ECMP multi-flow distribution and restart recovery, followed
+by BGP/OSPF neighbor validation.
