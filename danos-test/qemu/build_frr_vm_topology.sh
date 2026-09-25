@@ -43,7 +43,7 @@ runcmd:
   # when the seed is attached as a second CD-ROM.  Install explicitly before
   # touching FRR configuration so a missing package cannot masquerade as a
   # zserv/client failure.
-  - [sh, -c, "for i in 1 2 3; do apt-get update && apt-get install -y frr frr-pythontools iproute2 iputils-ping socat && break; sleep 5; done"]
+  - [sh, -c, "if command -v vtysh >/dev/null 2>&1; then exit 0; fi; for i in 1 2 3; do apt-get update && apt-get install -y frr frr-pythontools iproute2 iputils-ping socat && break; sleep 5; done"]
   - [sh, -c, "sed -i 's/^zebra=no/zebra=yes/; s/^bgpd=no/bgpd=yes/; s/^ospfd=no/ospfd=yes/' /etc/frr/daemons"]
   - [sh, -c, "cat > /etc/frr/frr.conf <<'CFG'"]
   - [sh, -c, "printf 'frr version 10.3\\nfrr defaults traditional\\nlog file /var/log/frr/frr.log debugging\\ndebug zebra redistribute\\nhostname $hostname\\nip route $prefix blackhole\\nrouter bgp $asn\\n bgp router-id $bgp_addr\\n no bgp ebgp-requires-policy\\n no bgp suppress-fib-pending\\n neighbor $bgp_peer remote-as $peer_asn\\n address-family ipv4 unicast\\n  neighbor $bgp_peer activate\\n  network $prefix\\n exit-address-family\\nrouter ospf\\n ospf router-id $bgp_addr\\n network 172.31.0.0/24 area 0\\n' >> /etc/frr/frr.conf"]
