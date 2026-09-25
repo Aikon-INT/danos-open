@@ -39,7 +39,7 @@ static danos_route_proto_t map_frr_protocol(uint8_t type)
     case 4:  return DANOS_ROUTE_PROTO_STATIC;
     case 6:  return DANOS_ROUTE_PROTO_OSPF;
     case 8:  return DANOS_ROUTE_PROTO_ISIS;
-    case 9:  return DANOS_ROUTE_PROTO_BGP;
+    case 10: return DANOS_ROUTE_PROTO_BGP;
     case 11: return DANOS_ROUTE_PROTO_OSPF;
     default: return DANOS_ROUTE_PROTO_UNSPEC;
     }
