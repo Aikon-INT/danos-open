@@ -17,6 +17,19 @@ for f in frr-1.qcow2 frr-2.qcow2 r1-seed.iso r2-seed.iso; do
     test -f "$T/$f" || { echo "[BLOCKED] topology artifact missing: $T/$f"; exit 2; }
 done
 
+# Persist the exact inputs used by this run so a passing serial log is
+# reproducible and cannot be confused with a different ISO/topology.
+MANIFEST="$T/run-manifest.env"
+{
+    printf 'git_commit=%q\n' "$(git -C "$ROOT" rev-parse HEAD)"
+    printf 'danos_iso=%q\n' "$(realpath "$ISO")"
+    printf 'danos_iso_sha256=%q\n' "$(sha256sum "$ISO" | awk '{print $1}')"
+    printf 'topology_dir=%q\n' "$(realpath "$T")"
+    printf 'lan1_port=%q\nlan2_port=%q\npeer_port=%q\nzapi_port=%q\nmgmt_port=%q\n' \
+        "$LAN1_PORT" "$LAN2_PORT" "$PEER_PORT" "$ZAPI_PORT" "$MGMT_PORT"
+    printf 'created_utc=%q\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+} > "$MANIFEST"
+
 qemu-system-x86_64 -enable-kvm -cpu host -m 2048 -smp 2 -cdrom "$ISO" \
   -vga none -device VGA,addr=0x4 \
   -netdev socket,id=lan1,listen=127.0.0.1:$LAN1_PORT \
@@ -56,4 +69,4 @@ qemu-system-x86_64 -enable-kvm -cpu host -m 1024 -smp 1 \
   -display none -serial file:"$T/frr-2.serial.log" -monitor none \
   -daemonize -pidfile "$T/frr-2.pid"
 
-echo "[PASS] QEMU topology launched; logs and pidfiles are under $T"
+echo "[PASS] QEMU topology launched; logs, manifest and pidfiles are under $T"

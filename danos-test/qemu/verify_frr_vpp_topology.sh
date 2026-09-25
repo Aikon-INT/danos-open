@@ -6,6 +6,11 @@ T="${QEMU_TOPOLOGY_DIR:-$ROOT/build/qemu-frr-vpp-topology-16}"
 DANOS_LOG="$T/danos.serial.log"
 FRR_LOG="$T/frr-1.serial.log"
 test -s "$DANOS_LOG" && test -s "$FRR_LOG" || { echo "[BLOCKED] topology logs missing: $T"; exit 2; }
+test -s "$T/run-manifest.env" || { echo "[FAIL] topology run manifest missing"; exit 1; }
+rg -q '^danos_iso_sha256=[0-9a-f]{64}$' "$T/run-manifest.env" || {
+    echo "[FAIL] topology run manifest has no ISO digest"; exit 1;
+}
+echo '[PASS] reproducible QEMU run manifest'
 
 require() {
     local pattern="$1" file="$2" label="$3"
