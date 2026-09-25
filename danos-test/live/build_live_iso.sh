@@ -158,7 +158,6 @@ if test -n "$VPP_IMAGE"; then
     VPP_DPDK_BLOCK=''
   fi
   if test "$VPP_VMXNET3_NATIVE" = 1; then
-    VPP_PLUGIN_LINE="$VPP_PLUGIN_LINE\n  plugin vmxnet3_plugin.so { enable }"
     docker cp "$VPP_CID:/usr/lib/x86_64-linux-gnu/vpp_plugins/vmxnet3_plugin.so" \
       "$WORK/initramfs/usr/lib/x86_64-linux-gnu/vpp_plugins/vmxnet3_plugin.so"
     if test "$VPP_DPDK_ENABLE" = 1; then
