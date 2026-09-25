@@ -153,6 +153,17 @@ int main(int argc, char **argv)
                 /* recv_frr uses zero for a bounded poll timeout as well as
                  * EOF.  A connected session is simply idle; do not tear it
                  * down and re-register on every 500 ms quiet period. */
+                static time_t last_vpp_probe_connected;
+                const char *health_probe = getenv("DANOS_VPP_HEALTH_PROBE");
+                time_t now = time(NULL);
+                if (health_probe && health_probe[0] && strcmp(health_probe, "0") != 0 &&
+                    now - last_vpp_probe_connected >= 5) {
+                    last_vpp_probe_connected = now;
+                    if (getenv("DANOS_VPP_DEBUG"))
+                        fprintf(stderr, "idle health probe: refreshing VPP\n");
+                    danos_vpp_api_disconnect();
+                    (void)recover_vpp_backend(true);
+                }
                 continue;
             }
             if (!reconnect) break;
