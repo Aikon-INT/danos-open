@@ -54,6 +54,7 @@ runcmd:
   - [sh, -c, "printf '[Unit]\nRequires=frr.service\nAfter=network-online.target frr.service\nWants=network-online.target\nPartOf=frr.service\n[Service]\nType=simple\nExecStart=/usr/local/sbin/danos-frr-zapi-proxy\nRestart=always\nRestartSec=2\nStandardOutput=append:/var/log/danos-frr-zapi.log\nStandardError=append:/var/log/danos-frr-zapi.log\n[Install]\nWantedBy=multi-user.target\n' >> /etc/systemd/system/danos-frr-zapi.service"]
   - [sh, -c, "systemctl daemon-reload; systemctl enable --now danos-frr-zapi.service"]
   - [sh, -c, "if [ '$node' = r1 ]; then ip link set ens6 up; ip addr replace 10.0.3.2/24 dev ens6; fi"]
+  - [sh, -c, "if [ '$node' = r1 ]; then ip route replace blackhole $prefix; vtysh -c 'conf t' -c 'router bgp $asn' -c 'address-family ipv4 unicast' -c 'network $prefix'; sleep 45; vtysh -c 'conf t' -c 'router bgp $asn' -c 'address-family ipv4 unicast' -c 'no network $prefix' >> /var/log/danos-frr-route-cycle.log 2>&1; sleep 15; vtysh -c 'conf t' -c 'router bgp $asn' -c 'address-family ipv4 unicast' -c 'network $prefix' >> /var/log/danos-frr-route-cycle.log 2>&1; fi"]
   - [sh, -c, "if [ '$node' = r1 ]; then systemctl --no-pager status frr.service danos-frr-zapi.service || true; ls -l /var/run/frr/zserv.api || true; ss -ltnp | grep ':2600' || true; fi"]
   - [sh, -c, "if [ '$node' = r1 ]; then sleep 8; tail -n 80 /var/log/frr/frr.log || true; tail -n 80 /var/log/danos-frr-zapi.log || true; fi"]
 EOF
