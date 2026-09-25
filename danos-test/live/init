@@ -179,7 +179,7 @@ if test -e /vpp-dpdk.enabled; then
                 sleep 1
             done
         restart_ok=0
-        for restart_check in $(seq 1 30); do
+        for restart_check in $(seq 1 120); do
             replay_log=/var/log/fib_live_bridge.log
             replay_start=${recovery_log_start:-0}
             if test -S /run/vpp/api.sock && test -f "$replay_log" && \
