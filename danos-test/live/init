@@ -74,9 +74,15 @@ if ip link show eth0 >/dev/null 2>&1; then
         sleep 15
         traffic_ok=1
         for traffic_target in ${DANOS_TRAFFIC_TARGETS}; do
-            if ! ping -c "${DANOS_TRAFFIC_COUNT}" -W 1 "$traffic_target" > "/tmp/ping-${traffic_target}.log" 2>&1; then
+            bench_start=$(awk '{printf "%d", $1 * 100}' /proc/uptime 2>/dev/null || echo 0)
+            if ! ping -c "${DANOS_TRAFFIC_COUNT}" -i "${DANOS_TRAFFIC_INTERVAL:-0.01}" -W 1 "$traffic_target" > "/tmp/ping-${traffic_target}.log" 2>&1; then
                 traffic_ok=0
             fi
+            bench_end=$(awk '{printf "%d", $1 * 100}' /proc/uptime 2>/dev/null || echo "$bench_start")
+            bench_cs=$((bench_end - bench_start))
+            test "$bench_cs" -gt 0 || bench_cs=1
+            bench_pps=$(awk -v n="${DANOS_TRAFFIC_COUNT}" -v cs="$bench_cs" 'BEGIN { printf "%.2f", n * 100 / cs }')
+            echo "PEER-TRAFFIC-BENCH target=$traffic_target packets=${DANOS_TRAFFIC_COUNT} elapsed_cs=$bench_cs pps=$bench_pps" > /dev/console
             cat "/tmp/ping-${traffic_target}.log" > /dev/console 2>&1 || true
         done
         test "$traffic_ok" = 1 && echo "PEER-TRAFFIC PASS" > /dev/console || echo "PEER-TRAFFIC FAIL" > /dev/console
