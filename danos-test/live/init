@@ -50,6 +50,10 @@ if ip link show eth0 >/dev/null 2>&1; then
     ip link set eth0 up
     ip route add default via "${DANOS_MGMT_GW:-10.0.2.2}" 2>/dev/null || true
     echo "eth0: ${DANOS_MGMT_ADDR:-10.0.2.15/24} and 10.0.3.1/24 up"
+    test -n "${DANOS_PEER_NEIGH1_IP:-}" && test -n "${DANOS_PEER_NEIGH1_MAC:-}" && \
+        ip neigh replace "$DANOS_PEER_NEIGH1_IP" lladdr "$DANOS_PEER_NEIGH1_MAC" nud permanent dev eth0 || true
+    test -n "${DANOS_PEER_NEIGH2_IP:-}" && test -n "${DANOS_PEER_NEIGH2_MAC:-}" && \
+        ip neigh replace "$DANOS_PEER_NEIGH2_IP" lladdr "$DANOS_PEER_NEIGH2_MAC" nud permanent dev eth0 || true
     if test "${DANOS_TRAFFIC_COUNT:-0}" -gt 0 && test -n "${DANOS_TRAFFIC_TARGETS:-}"; then
         sleep 15
         traffic_ok=1
