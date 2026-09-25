@@ -307,4 +307,8 @@ sleep 1
 ) &
 
 echo "--- live system ready. shell:"
-exec /bin/busybox sh
+# VMware may start the ISO without an interactive stdin.  Let an attached
+# serial/console user get a shell, but never allow PID 1 to exit and trigger
+# the kernel's "Attempted to kill init" panic when that console is absent.
+/bin/busybox sh </dev/console >/dev/console 2>&1 || true
+while :; do sleep 3600; done
