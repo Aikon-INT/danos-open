@@ -15,6 +15,10 @@ require() {
 
 require 'VPP API socket: ready' "$DANOS_LOG" 'VPP API socket'
 require 'VPP stats socket: ready' "$DANOS_LOG" 'VPP stats socket'
+require 'VPP-DPDK-PING-0 PASS' "$DANOS_LOG" 'packet reachability path 0'
+require 'VPP-DPDK-PING-1 PASS' "$DANOS_LOG" 'packet reachability path 1'
+require 'VPP-ECMP-COUNTERS-BEFORE' "$DANOS_LOG" 'ECMP counters before traffic'
+require 'VPP-ECMP-COUNTERS-AFTER' "$DANOS_LOG" 'ECMP counters after traffic'
 require 'command=31' "$DANOS_LOG" 'ZAPI route add'
 require 'command=32' "$DANOS_LOG" 'ZAPI route withdraw'
 require 'vpp route add' "$DANOS_LOG" 'VPP route programming'
