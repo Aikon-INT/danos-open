@@ -37,6 +37,7 @@ require 'add-rc=0' "$FRR_LOG" 'FRR route add'
 require 'withdraw-rc=0' "$FRR_LOG" 'FRR route withdraw'
 require 'restore-rc=0' "$FRR_LOG" 'FRR route restore'
 require 'cycle-done' "$FRR_LOG" 'FRR cycle completion'
+require 'FRR-RESTART-TEST PASS' "$FRR_LOG" 'FRR daemon restart and zserv recovery'
 if rg -q 'programming failed|zapi peer EOF|Syntax error' "$DANOS_LOG" "$FRR_LOG"; then
     echo '[FAIL] runtime error marker present'
     exit 1
