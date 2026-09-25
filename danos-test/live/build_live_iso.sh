@@ -217,6 +217,7 @@ if test "$DANOS_FIB_BRIDGE_ENABLE" = 1 && test -n "$DANOS_ZEBRA_ENDPOINT"; then
   mkdir -p "$WORK/initramfs/etc/danos"
   printf 'DANOS_ZEBRA_ENDPOINT=%q\n' "$DANOS_ZEBRA_ENDPOINT" > "$WORK/initramfs/etc/danos/bridge.env"
   printf 'DANOS_ZAPI_ROUTE_TYPES=%q\n' "${DANOS_ZAPI_ROUTE_TYPES:-4,9}" >> "$WORK/initramfs/etc/danos/bridge.env"
+  printf 'DANOS_ZAPI_PROTOCOL=%q\n' "${DANOS_ZAPI_PROTOCOL:-3}" >> "$WORK/initramfs/etc/danos/bridge.env"
   printf 'DANOS_ZAPI_HELLO_ONLY=%q\n' "$DANOS_ZAPI_HELLO_ONLY" >> "$WORK/initramfs/etc/danos/bridge.env"
   printf 'DANOS_ZAPI_REG_STAGE=%q\n' "$DANOS_ZAPI_REG_STAGE" >> "$WORK/initramfs/etc/danos/bridge.env"
   printf 'DANOS_ZAPI_PACE_US=%q\n' "$DANOS_ZAPI_PACE_US" >> "$WORK/initramfs/etc/danos/bridge.env"
