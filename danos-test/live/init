@@ -83,6 +83,14 @@ if test -e /vpp-dpdk.enabled; then
     vpp_if2=$(printf '%s\n' "$vpp_if_list" | sed -n '2p')
     test -n "$vpp_if1" || vpp_if1=GigabitEthernet0/2/0
     test -n "$vpp_if2" || vpp_if2=GigabitEthernet0/3/0
+    if /usr/bin/vppctl -s /run/vpp/cli.sock show interface 2>/dev/null \
+        | grep -Eq "^${vpp_if1}[[:space:]].*up" \
+        && /usr/bin/vppctl -s /run/vpp/cli.sock show interface 2>/dev/null \
+        | grep -Eq "^${vpp_if2}[[:space:]].*up"; then
+        echo "VPP-DPDK-INTERFACES PASS" > /dev/console
+    else
+        echo "VPP-DPDK-INTERFACES FAIL" > /dev/console
+    fi
     if test -e /vpp-dpdk-device; then
         vpp_dpdk_device=$(cat /vpp-dpdk-device)
     else

@@ -26,6 +26,7 @@ VPP_DPDK_DEVICE="${VPP_DPDK_DEVICE:-vmxnet3}"
 VPP_DPDK_PORTS="${VPP_DPDK_PORTS:-0000:00:02.0}"
 VPP_VMXNET3_NATIVE="${VPP_VMXNET3_NATIVE:-0}"
 VPP_DPDK_TRAFFIC_TEST="${VPP_DPDK_TRAFFIC_TEST:-0}"
+VPP_DPDK_NO_RX_INTERRUPTS="${VPP_DPDK_NO_RX_INTERRUPTS:-0}"
 VPP_IF1_ADDR="${VPP_IF1_ADDR:-10.10.0.1/24}"
 VPP_IF2_ADDR="${VPP_IF2_ADDR:-10.20.0.1/24}"
 DANOS_FIB_BRIDGE_ENABLE="${DANOS_FIB_BRIDGE_ENABLE:-0}"
@@ -143,11 +144,19 @@ if test -n "$VPP_IMAGE"; then
   done
   if test "$VPP_DPDK_ENABLE" = 1; then
     VPP_PLUGIN_LINE='  plugin dpdk_plugin.so { enable }'
-    VPP_DPDK_BLOCK=$(printf 'dpdk {\n')
-    for vpp_dpdk_bdf in $VPP_DPDK_PORTS; do
-      VPP_DPDK_BLOCK="${VPP_DPDK_BLOCK}  dev ${vpp_dpdk_bdf}$(printf '\n')"
-    done
-    VPP_DPDK_BLOCK="${VPP_DPDK_BLOCK}}"
+    if test "$VPP_DPDK_NO_RX_INTERRUPTS" = 1; then
+      VPP_DPDK_BLOCK=$(printf 'dpdk {\n')
+      for vpp_dpdk_bdf in $VPP_DPDK_PORTS; do
+        VPP_DPDK_BLOCK="${VPP_DPDK_BLOCK}  dev ${vpp_dpdk_bdf} {$(printf '\n')"
+        VPP_DPDK_BLOCK="${VPP_DPDK_BLOCK}    no-rx-interrupts$(printf '\n  }\n')"
+      done
+    else
+      VPP_DPDK_BLOCK=$(printf 'dpdk {\n')
+      for vpp_dpdk_bdf in $VPP_DPDK_PORTS; do
+        VPP_DPDK_BLOCK="${VPP_DPDK_BLOCK}  dev ${vpp_dpdk_bdf}$(printf '\n')"
+      done
+    fi
+    VPP_DPDK_BLOCK="${VPP_DPDK_BLOCK}$(printf '\n}')"
   else
     VPP_PLUGIN_LINE='  plugin dpdk_plugin.so { disable }'
     VPP_DPDK_BLOCK=''
