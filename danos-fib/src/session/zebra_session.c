@@ -228,22 +228,22 @@ int danos_zebra_session_register(uint8_t protocol, uint16_t instance)
     size_t route_type_count = registration_route_types(route_types, sizeof(route_types));
     for (size_t route_i = 0; route_i < route_type_count; route_i++) {
             uint8_t route_type = route_types[route_i];
-            /* FRR 10.3 ZEBRA_REDISTRIBUTE_ADD carries only the route type
-             * byte after the common zserv header.  Do not append AFI or
-             * instance fields: zebra would interpret the first extra byte
-             * as a different route type and silently omit BGP updates. */
-            req_len = htons(11); memcpy(req, &req_len, 2);
+            /* Match FRR zebra_redistribute_send(): AFI, route type, and
+             * redistribution instance follow the common header. */
+            req_len = htons(14); memcpy(req, &req_len, 2);
             cmd = htons(FRR_ZEBRA_REDISTRIBUTE_ADD); memcpy(req + 8, &cmd, 2);
-            req[10] = route_type;
-            ssize_t redist_sent = send(g_session.fd, req, 11, MSG_NOSIGNAL);
+            req[10] = 1; req[11] = route_type;
+            uint16_t redist_instance = 0;
+            memcpy(req + 12, &redist_instance, 2);
+            ssize_t redist_sent = send(g_session.fd, req, 14, MSG_NOSIGNAL);
             if (getenv("DANOS_ZAPI_DEBUG"))
                 fprintf(stderr, "zapi tx command=12 fd=%d sent=%zd errno=%d\n",
                         g_session.fd, redist_sent, errno);
-            if (redist_sent != 11) return -1;
-            trace_registration(FRR_ZEBRA_REDISTRIBUTE_ADD, 1, route_type, 0, 11);
+            if (redist_sent != 14) return -1;
+            trace_registration(FRR_ZEBRA_REDISTRIBUTE_ADD, 1, route_type, 0, 14);
             if (getenv("DANOS_ZAPI_DEBUG")) {
                 fprintf(stderr, "zapi tx frame:");
-                for (size_t byte_i = 0; byte_i < 11; byte_i++)
+                for (size_t byte_i = 0; byte_i < 14; byte_i++)
                     fprintf(stderr, " %02x", req[byte_i]);
                 fputc('\n', stderr);
             }
