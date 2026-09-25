@@ -10,6 +10,8 @@
 #include "zapi/zapi.h"
 #include <danos/dpa.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 static danos_obj_id_t g_zapi_next_id = 1000;
 
@@ -137,6 +139,8 @@ danos_status_t zapi_dispatch_frr(const zapi_message_t *msg, danos_tx_t *tx)
         return DANOS_ERR_NOT_SUPPORTED;
     zapi_frr_route_t in;
     if (zapi_decode_frr_route(msg, &in) != 0) return DANOS_ERR_INVALID_ARG;
+    if (getenv("DANOS_ZAPI_DEBUG"))
+        fprintf(stderr, "frr route event type=%u add=%d\n", in.type, add ? 1 : 0);
     /* The live VPP lane is currently IPv4-only.  Reject IPv6 before
      * creating DPA objects so the bridge can safely skip the event without
      * leaving an unprogrammable desired-state entry behind. */

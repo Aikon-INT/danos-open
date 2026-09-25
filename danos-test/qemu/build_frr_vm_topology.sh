@@ -68,7 +68,7 @@ EOF
 qemu-img create -f qcow2 -F qcow2 -b "$BASE" "$OUT/frr-1.qcow2" 8G >/dev/null
 qemu-img create -f qcow2 -F qcow2 -b "$BASE" "$OUT/frr-2.qcow2" 8G >/dev/null
 make_seed r1 frr-1 10.10.0.2 10.10.0.1 65001 65002 198.51.100.0/24
-make_seed r2 frr-2 10.20.0.2 10.20.0.1 65002 65001 203.0.113.0/24
+make_seed r2 frr-2 10.20.0.2 10.20.0.1 65002 65001 198.18.0.0/24
 cat > "$OUT/README" <<EOF
 QEMU topology artifacts
 
