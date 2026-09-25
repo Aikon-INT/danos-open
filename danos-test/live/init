@@ -134,12 +134,16 @@ if test -e /vpp-dpdk.enabled; then
         if test "${DANOS_VPP_RESTART_TEST:-0}" != 0; then
             bridge_skip_vpp_recovery=0
         fi
+        bridge_vpp_health_probe="${DANOS_VPP_HEALTH_PROBE:-0}"
+        if test "${DANOS_VPP_RESTART_TEST:-0}" != 0; then
+            bridge_vpp_health_probe=1
+        fi
         (
             DANOS_ZAPI_DEBUG=1 DANOS_VPP_DEBUG=1 DANOS_ZAPI_HELLO_ONLY="${DANOS_ZAPI_HELLO_ONLY:-0}" \
                 DANOS_ZAPI_REG_STAGE="${DANOS_ZAPI_REG_STAGE:-0}" \
                 DANOS_ZAPI_PACE_US="${DANOS_ZAPI_PACE_US:-0}" \
                 DANOS_SKIP_VPP_RECOVERY="$bridge_skip_vpp_recovery" \
-                DANOS_VPP_HEALTH_PROBE="${DANOS_VPP_HEALTH_PROBE:-0}" \
+                DANOS_VPP_HEALTH_PROBE="$bridge_vpp_health_probe" \
                 DANOS_VPP_RESTART_TEST="${DANOS_VPP_RESTART_TEST:-0}" \
                 DANOS_ZAPI_ROUTE_TYPES="${DANOS_ZAPI_ROUTE_TYPES:-4,10}" \
                 DANOS_ZAPI_PROTOCOL="${DANOS_ZAPI_PROTOCOL:-3}" \
