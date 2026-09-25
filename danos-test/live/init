@@ -134,10 +134,12 @@ if test -e /vpp-dpdk.enabled; then
             2>&1 | tee /var/log/fib_live_bridge.log /dev/tty0 /dev/ttyS0 >/dev/null &
         echo "FRR bridge started: $DANOS_ZEBRA_ENDPOINT" > /dev/console
     fi
+    echo "VPP-RESTART-TEST MODE=${DANOS_VPP_RESTART_TEST:-0}" > /dev/console
     if test "${DANOS_VPP_RESTART_TEST:-0}" != 0; then
         (
-            sleep 150
-            echo "VPP-RESTART-TEST BEGIN" > /dev/console
+            echo "VPP-RESTART-TEST SCHEDULED" > /dev/console
+            sleep 120
+            echo "VPP-RESTART-TEST BEGIN" | tee /dev/console /dev/ttyS0 >/dev/null
             vpp_pid=$(pidof vpp 2>/dev/null || true)
             if test -n "$vpp_pid"; then kill "$vpp_pid" 2>/dev/null || true; fi
             for restart_wait in $(seq 1 20); do
@@ -150,9 +152,9 @@ if test -e /vpp-dpdk.enabled; then
                 sleep 1
             done
             if test -S /run/vpp/api.sock && /usr/bin/vppctl -s /run/vpp/cli.sock show ip fib 198.51.100.0/24 2>/dev/null | grep -q '198.51.100.0/24'; then
-                echo "VPP-RESTART-TEST PASS" > /dev/console
+                echo "VPP-RESTART-TEST PASS" | tee /dev/console /dev/ttyS0 >/dev/null
             else
-                echo "VPP-RESTART-TEST FAIL" > /dev/console
+                echo "VPP-RESTART-TEST FAIL" | tee /dev/console /dev/ttyS0 >/dev/null
             fi
         ) &
     fi
