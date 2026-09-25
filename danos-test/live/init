@@ -11,6 +11,11 @@ if test -f /etc/danos/bridge.env; then
     . /etc/danos/bridge.env
 fi
 echo "DANOS VPP health_probe=${DANOS_VPP_HEALTH_PROBE:-0} restart_test=${DANOS_VPP_RESTART_TEST:-0}" > /dev/console
+for pci_dev in /sys/bus/pci/devices/*; do
+    test -r "$pci_dev/class" || continue
+    test "$(cat "$pci_dev/class" 2>/dev/null)" = 0x020000 || continue
+    echo "PCI-NIC $(basename "$pci_dev") vendor=$(cat "$pci_dev/vendor" 2>/dev/null) device=$(cat "$pci_dev/device" 2>/dev/null)" > /dev/console
+done
 
 echo ""
 echo "==============================================="
@@ -64,11 +69,20 @@ if test -e /vpp-dpdk.enabled; then
     vpp_if1=GigabitEthernet0/2/0
     vpp_if2=GigabitEthernet0/3/0
     if test -e /vpp-vmxnet3-native.enabled; then
-        /usr/bin/vppctl -s /run/vpp/cli.sock create interface vmxnet3 0000:00:02.0 bind force > /dev/console 2>&1 || true
-        /usr/bin/vppctl -s /run/vpp/cli.sock create interface vmxnet3 0000:00:03.0 bind force > /dev/console 2>&1 || true
+        native_ports=$(cat /vpp-vmxnet3-native-ports 2>/dev/null || echo '0000:00:02.0 0000:00:03.0')
+        native_bdf1=$(printf '%s\n' $native_ports | sed -n '1p')
+        native_bdf2=$(printf '%s\n' $native_ports | sed -n '2p')
+        /usr/bin/vppctl -s /run/vpp/cli.sock create interface vmxnet3 "$native_bdf1" bind force > /dev/console 2>&1 || true
+        test -n "$native_bdf2" && /usr/bin/vppctl -s /run/vpp/cli.sock create interface vmxnet3 "$native_bdf2" bind force > /dev/console 2>&1 || true
         vpp_if1=vmxnet3-0/2/0
         vpp_if2=vmxnet3-0/3/0
     fi
+    vpp_if_list=$( /usr/bin/vppctl -s /run/vpp/cli.sock show interface 2>/dev/null \
+        | awk '/^(GigabitEthernet|vmxnet3-)/ {print $1}' )
+    vpp_if1=$(printf '%s\n' "$vpp_if_list" | sed -n '1p')
+    vpp_if2=$(printf '%s\n' "$vpp_if_list" | sed -n '2p')
+    test -n "$vpp_if1" || vpp_if1=GigabitEthernet0/2/0
+    test -n "$vpp_if2" || vpp_if2=GigabitEthernet0/3/0
     if test -e /vpp-dpdk-device; then
         vpp_dpdk_device=$(cat /vpp-dpdk-device)
     else

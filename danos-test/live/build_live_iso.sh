@@ -143,16 +143,11 @@ if test -n "$VPP_IMAGE"; then
   done
   if test "$VPP_DPDK_ENABLE" = 1; then
     VPP_PLUGIN_LINE='  plugin dpdk_plugin.so { enable }'
-    if test "$VPP_DPDK_PORTS" = "0000:00:02.0 0000:00:03.0"; then
-      VPP_DPDK_BLOCK='dpdk {
-  dev 0000:00:02.0
-  dev 0000:00:03.0
-}'
-    else
-      VPP_DPDK_BLOCK='dpdk {
-  dev 0000:00:02.0
-}'
-    fi
+    VPP_DPDK_BLOCK=$(printf 'dpdk {\n')
+    for vpp_dpdk_bdf in $VPP_DPDK_PORTS; do
+      VPP_DPDK_BLOCK="${VPP_DPDK_BLOCK}  dev ${vpp_dpdk_bdf}$(printf '\n')"
+    done
+    VPP_DPDK_BLOCK="${VPP_DPDK_BLOCK}}"
   else
     VPP_PLUGIN_LINE='  plugin dpdk_plugin.so { disable }'
     VPP_DPDK_BLOCK=''
@@ -190,9 +185,10 @@ ${VPP_DPDK_BLOCK}
 EOF
   touch "$WORK/initramfs/vpp-dpdk.enabled"
   test "$VPP_VMXNET3_NATIVE" = 1 && touch "$WORK/initramfs/vpp-vmxnet3-native.enabled"
+  test "$VPP_VMXNET3_NATIVE" = 1 && printf '%s\n' "$VPP_DPDK_PORTS" > "$WORK/initramfs/vpp-vmxnet3-native-ports"
   test "$VPP_DPDK_DEVICE" = e1000 && touch "$WORK/initramfs/vpp-dpdk-e1000.enabled"
   printf '%s\n' "$VPP_DPDK_DEVICE" > "$WORK/initramfs/vpp-dpdk-device"
-  test "$VPP_DPDK_PORTS" = "0000:00:02.0 0000:00:03.0" && touch "$WORK/initramfs/vpp-dpdk-e1000-2port.enabled"
+  test "$(printf '%s\n' $VPP_DPDK_PORTS | wc -l)" -ge 2 && touch "$WORK/initramfs/vpp-dpdk-e1000-2port.enabled"
   test "$VPP_DPDK_TRAFFIC_TEST" = 1 && touch "$WORK/initramfs/vpp-dpdk-traffic-test.enabled"
   chmod +x "$WORK/initramfs/usr/bin/vpp" "$WORK/initramfs/usr/bin/vppctl"
   docker rm -f "$VPP_CID" >/dev/null
