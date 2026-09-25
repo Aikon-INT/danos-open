@@ -17,6 +17,7 @@ Requirements (not available in current env, framework ready for deployment):
 
 Usage:
     python3 test_multicore_perf.py --cores 4 --duration 60 --frame-size 64
+    python3 test_multicore_perf.py --simulate --cores 4  # demo only, never an acceptance result
     python3 test_multicore_perf.py --topology b2b --validate-scaling
 """
 
@@ -58,13 +59,19 @@ class TestResult:
 
 
 def run_trex(cores: int, duration: int, frame_size: int,
-             trex_dir: str = "/opt/trex") -> dict:
+             trex_dir: str = "/opt/trex", simulate: bool = False) -> dict:
     """Run TRex traffic generator and return parsed stats."""
     # In production: invoke TRex STL client
     # python3 -c "from trex_stl_lib import *; ..."
     #
-    # For now, return mock results that demonstrate linear scaling
-    # Real implementation would parse TRex JSON output
+    if not simulate:
+        raise RuntimeError(
+            "TRex integration is not available; refusing to fabricate a "
+            "DPDK performance result (use --simulate only for a demo)"
+        )
+
+    # Explicit demo mode only. These values must never be used as an
+    # acceptance baseline.
     results = []
     base_pps = 14.88e6  # 10Gbps @ 64B frames = 14.88 Mpps
     per_core_pps = base_pps / 1.0  # each core handles ~14.88 Mpps
@@ -84,9 +91,13 @@ def run_trex(cores: int, duration: int, frame_size: int,
     return {"per_core": results}
 
 
-def measure_latency(duration: int) -> dict:
+def measure_latency(duration: int, simulate: bool = False) -> dict:
     """Measure latency percentiles using TRex latency stream."""
-    # In production: TRex provides latency stats per stream
+    if not simulate:
+        raise RuntimeError(
+            "TRex latency integration is not available; refusing to "
+            "fabricate latency percentiles"
+        )
     return {
         "p50_ns": 5000,    # 5us
         "p95_ns": 15000,   # 15us
@@ -94,7 +105,8 @@ def measure_latency(duration: int) -> dict:
     }
 
 
-def run_test(cores: int, duration: int, frame_size: int) -> TestResult:
+def run_test(cores: int, duration: int, frame_size: int,
+             simulate: bool = False) -> TestResult:
     """Run multi-core throughput test."""
     print(f"Starting multi-core throughput test:")
     print(f"  Cores: {cores}")
@@ -102,8 +114,8 @@ def run_test(cores: int, duration: int, frame_size: int) -> TestResult:
     print(f"  Frame size: {frame_size}B")
 
     # Run traffic
-    trex_stats = run_trex(cores, duration, frame_size)
-    latency = measure_latency(duration)
+    trex_stats = run_trex(cores, duration, frame_size, simulate=simulate)
+    latency = measure_latency(duration, simulate=simulate)
 
     # Build per-core results
     per_core = []
@@ -196,26 +208,28 @@ def main():
                         help="Run 1,2,4 core tests and validate scaling")
     parser.add_argument("--output", default=None,
                         help="Output JSON file for results")
+    parser.add_argument("--simulate", action="store_true",
+                        help="Run synthetic demo data; never a real acceptance result")
     args = parser.parse_args()
 
-    if args.validate_scaling:
-        results = []
-        for n in [1, 2, 4]:
-            if n > args.cores:
-                continue
-            r = run_test(n, args.duration, args.frame_size)
-            results.append(r)
-            print(f"\nResult: {r.aggregate_mpps:.2f} Mpps, "
-                  f"{r.aggregate_gbps:.2f} Gbps, "
-                  f"p99={r.latency_p99_ns/1000:.1f}us")
+    try:
+        if args.validate_scaling:
+            results = []
+            for n in [1, 2, 4]:
+                if n > args.cores:
+                    continue
+                r = run_test(n, args.duration, args.frame_size, args.simulate)
+                results.append(r)
+                print(f"\nResult: {r.aggregate_mpps:.2f} Mpps, "
+                      f"{r.aggregate_gbps:.2f} Gbps, "
+                      f"p99={r.latency_p99_ns/1000:.1f}us")
 
-        ok = validate_scaling(results)
-        if args.output:
-            with open(args.output, "w") as f:
-                json.dump([asdict(r) for r in results], f, indent=2)
-        sys.exit(0 if ok else 1)
-    else:
-        r = run_test(args.cores, args.duration, args.frame_size)
+            ok = validate_scaling(results)
+            if args.output:
+                with open(args.output, "w") as f:
+                    json.dump([asdict(r) for r in results], f, indent=2)
+            sys.exit(0 if ok else 1)
+        r = run_test(args.cores, args.duration, args.frame_size, args.simulate)
         print(f"\n=== Result ===")
         print(f"Aggregate: {r.aggregate_mpps:.2f} Mpps / {r.aggregate_gbps:.2f} Gbps")
         print(f"Latency p50/p95/p99: {r.latency_p50_ns}/"
@@ -228,6 +242,9 @@ def main():
         if args.output:
             with open(args.output, "w") as f:
                 json.dump(asdict(r), f, indent=2)
+    except RuntimeError as exc:
+        print(f"[ENVIRONMENT-OPEN] {exc}", file=sys.stderr)
+        sys.exit(2)
 
 
 if __name__ == "__main__":
