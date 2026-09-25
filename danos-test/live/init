@@ -146,6 +146,7 @@ if test -e /vpp-dpdk.enabled; then
                 test ! -S /run/vpp/api.sock && break
                 sleep 1
             done
+            rm -f /run/vpp/api.sock /run/vpp/cli.sock /run/vpp/stats.sock
             /usr/bin/vpp -c /etc/vpp/startup.conf >/var/log/vpp/vpp-restart.log 2>&1 &
             for restart_wait in $(seq 1 30); do
                 test -S /run/vpp/api.sock && break
@@ -155,6 +156,7 @@ if test -e /vpp-dpdk.enabled; then
                 echo "VPP-RESTART-TEST PASS" | tee /dev/console /dev/ttyS0 >/dev/null
             else
                 echo "VPP-RESTART-TEST FAIL" | tee /dev/console /dev/ttyS0 >/dev/null
+                tail -n 80 /var/log/vpp/vpp-restart.log > /dev/console 2>&1 || true
             fi
         ) &
     fi
