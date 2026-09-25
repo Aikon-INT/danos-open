@@ -24,6 +24,7 @@ VPP_IMAGE="${VPP_IMAGE:-}"
 VPP_DPDK_ENABLE="${VPP_DPDK_ENABLE:-1}"
 VPP_DPDK_DEVICE="${VPP_DPDK_DEVICE:-vmxnet3}"
 VPP_DPDK_PORTS="${VPP_DPDK_PORTS:-0000:00:02.0}"
+VPP_VMXNET3_NATIVE="${VPP_VMXNET3_NATIVE:-0}"
 VPP_DPDK_TRAFFIC_TEST="${VPP_DPDK_TRAFFIC_TEST:-0}"
 VPP_IF1_ADDR="${VPP_IF1_ADDR:-10.10.0.1/24}"
 VPP_IF2_ADDR="${VPP_IF2_ADDR:-10.20.0.1/24}"
@@ -156,6 +157,18 @@ if test -n "$VPP_IMAGE"; then
     VPP_PLUGIN_LINE='  plugin dpdk_plugin.so { disable }'
     VPP_DPDK_BLOCK=''
   fi
+  if test "$VPP_VMXNET3_NATIVE" = 1; then
+    VPP_PLUGIN_LINE="$VPP_PLUGIN_LINE\n  plugin vmxnet3_plugin.so { enable }"
+    docker cp "$VPP_CID:/usr/lib/x86_64-linux-gnu/vpp_plugins/vmxnet3_plugin.so" \
+      "$WORK/initramfs/usr/lib/x86_64-linux-gnu/vpp_plugins/vmxnet3_plugin.so"
+    if test "$VPP_DPDK_ENABLE" = 1; then
+      VPP_PLUGIN_LINE='  plugin dpdk_plugin.so { enable }'
+    else
+      VPP_PLUGIN_LINE='  plugin dpdk_plugin.so { disable }'
+    fi
+    VPP_PLUGIN_LINE="$VPP_PLUGIN_LINE
+  plugin vmxnet3_plugin.so { enable }"
+  fi
   cat > "$WORK/initramfs/etc/vpp/startup.conf" <<EOF
 unix {
   nodaemon
@@ -177,6 +190,7 @@ statseg {
 ${VPP_DPDK_BLOCK}
 EOF
   touch "$WORK/initramfs/vpp-dpdk.enabled"
+  test "$VPP_VMXNET3_NATIVE" = 1 && touch "$WORK/initramfs/vpp-vmxnet3-native.enabled"
   test "$VPP_DPDK_DEVICE" = e1000 && touch "$WORK/initramfs/vpp-dpdk-e1000.enabled"
   printf '%s\n' "$VPP_DPDK_DEVICE" > "$WORK/initramfs/vpp-dpdk-device"
   test "$VPP_DPDK_PORTS" = "0000:00:02.0 0000:00:03.0" && touch "$WORK/initramfs/vpp-dpdk-e1000-2port.enabled"

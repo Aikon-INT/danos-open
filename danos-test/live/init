@@ -61,23 +61,31 @@ if test -e /vpp-dpdk.enabled; then
     done
     test -S /run/vpp/api.sock && echo "VPP API socket: ready" > /dev/console || echo "VPP API socket: missing" > /dev/console
     test -S /run/vpp/stats.sock && echo "VPP stats socket: ready" > /dev/console || echo "VPP stats socket: missing" > /dev/console
+    vpp_if1=GigabitEthernet0/2/0
+    vpp_if2=GigabitEthernet0/3/0
+    if test -e /vpp-vmxnet3-native.enabled; then
+        /usr/bin/vppctl -s /run/vpp/cli.sock create interface vmxnet3 0000:00:02.0 bind force > /dev/console 2>&1 || true
+        /usr/bin/vppctl -s /run/vpp/cli.sock create interface vmxnet3 0000:00:03.0 bind force > /dev/console 2>&1 || true
+        vpp_if1=vmxnet3-0/2/0
+        vpp_if2=vmxnet3-0/3/0
+    fi
     if test -e /vpp-dpdk-device; then
         vpp_dpdk_device=$(cat /vpp-dpdk-device)
     else
         vpp_dpdk_device=e1000
     fi
     if test -e /vpp-dpdk-e1000.enabled || test "$vpp_dpdk_device" = vmxnet3; then
-        /usr/bin/vppctl -s /run/vpp/cli.sock set interface state GigabitEthernet0/2/0 up > /dev/console 2>&1 || true
-        /usr/bin/vppctl -s /run/vpp/cli.sock set interface ip address GigabitEthernet0/2/0 "${VPP_IF1_ADDR:-10.10.0.1/24}" > /dev/console 2>&1 || true
+        /usr/bin/vppctl -s /run/vpp/cli.sock set interface state "$vpp_if1" up > /dev/console 2>&1 || true
+        /usr/bin/vppctl -s /run/vpp/cli.sock set interface ip address "$vpp_if1" "${VPP_IF1_ADDR:-10.10.0.1/24}" > /dev/console 2>&1 || true
         if test -e /vpp-dpdk-e1000-2port.enabled; then
-            /usr/bin/vppctl -s /run/vpp/cli.sock set interface state GigabitEthernet0/3/0 up > /dev/console 2>&1 || true
-            /usr/bin/vppctl -s /run/vpp/cli.sock set interface ip address GigabitEthernet0/3/0 "${VPP_IF2_ADDR:-10.20.0.1/24}" > /dev/console 2>&1 || true
+            /usr/bin/vppctl -s /run/vpp/cli.sock set interface state "$vpp_if2" up > /dev/console 2>&1 || true
+            /usr/bin/vppctl -s /run/vpp/cli.sock set interface ip address "$vpp_if2" "${VPP_IF2_ADDR:-10.20.0.1/24}" > /dev/console 2>&1 || true
             # The QEMU e1000 lane has deterministic peer MACs.  Install
             # static neighbors so the two-path FIB resolves to two buckets
             # without depending on an external ARP generator.
-            /usr/bin/vppctl -s /run/vpp/cli.sock set ip neighbor GigabitEthernet0/2/0 10.10.0.2 52:54:00:11:01:02 > /dev/console 2>&1 || true
-            /usr/bin/vppctl -s /run/vpp/cli.sock set ip neighbor GigabitEthernet0/3/0 10.20.0.2 52:54:00:12:01:02 > /dev/console 2>&1 || true
-            /usr/bin/vppctl -s /run/vpp/cli.sock ip route add 30.30.30.0/24 via 10.10.0.2 GigabitEthernet0/2/0 via 10.20.0.2 GigabitEthernet0/3/0 > /dev/console 2>&1 || true
+            /usr/bin/vppctl -s /run/vpp/cli.sock set ip neighbor "$vpp_if1" 10.10.0.2 52:54:00:11:01:02 > /dev/console 2>&1 || true
+            /usr/bin/vppctl -s /run/vpp/cli.sock set ip neighbor "$vpp_if2" 10.20.0.2 52:54:00:12:01:02 > /dev/console 2>&1 || true
+            /usr/bin/vppctl -s /run/vpp/cli.sock ip route add 30.30.30.0/24 via 10.10.0.2 "$vpp_if1" via 10.20.0.2 "$vpp_if2" > /dev/console 2>&1 || true
             echo "--- VPP ECMP FIB ---" > /dev/console
             /usr/bin/vppctl -s /run/vpp/cli.sock show ip fib 30.30.30.0/24 > /dev/console 2>&1 || true
         fi
@@ -86,12 +94,14 @@ if test -e /vpp-dpdk.enabled; then
             echo "VPP-ECMP-COUNTERS-BEFORE" > /dev/console
             /usr/bin/vppctl -s /run/vpp/cli.sock show interface > /tmp/vpp-if-before.log 2>&1 || true
             cat /tmp/vpp-if-before.log > /dev/console 2>&1 || true
-            if /usr/bin/vppctl -s /run/vpp/cli.sock ping 10.10.0.2 repeat 3 > /tmp/vpp-ping0.log 2>&1; then
+            if /usr/bin/vppctl -s /run/vpp/cli.sock ping 10.10.0.2 repeat 3 > /tmp/vpp-ping0.log 2>&1 \
+                && ! grep -Eq 'unknown input|connect:|unknown interface|No such' /tmp/vpp-ping0.log; then
                 echo "VPP-DPDK-PING-0 PASS" > /dev/console
             else
                 echo "VPP-DPDK-PING-0 FAIL" > /dev/console
             fi
-            if /usr/bin/vppctl -s /run/vpp/cli.sock ping 10.20.0.2 repeat 3 > /tmp/vpp-ping1.log 2>&1; then
+            if /usr/bin/vppctl -s /run/vpp/cli.sock ping 10.20.0.2 repeat 3 > /tmp/vpp-ping1.log 2>&1 \
+                && ! grep -Eq 'unknown input|connect:|unknown interface|No such' /tmp/vpp-ping1.log; then
                 echo "VPP-DPDK-PING-1 PASS" > /dev/console
             else
                 echo "VPP-DPDK-PING-1 FAIL" > /dev/console
@@ -99,7 +109,8 @@ if test -e /vpp-dpdk.enabled; then
             cat /tmp/vpp-ping0.log /tmp/vpp-ping1.log > /dev/console 2>&1 || true
             ecmp_multi_ok=1
             for ecmp_dst in 30.30.30.2 30.30.30.3 30.30.30.4 30.30.30.5; do
-                if ! /usr/bin/vppctl -s /run/vpp/cli.sock ping "$ecmp_dst" repeat 3 > /tmp/vpp-ecmp-${ecmp_dst}.log 2>&1; then
+                if ! /usr/bin/vppctl -s /run/vpp/cli.sock ping "$ecmp_dst" repeat 3 > /tmp/vpp-ecmp-${ecmp_dst}.log 2>&1 \
+                    || grep -Eq 'unknown input|connect:|unknown interface|No such' /tmp/vpp-ecmp-${ecmp_dst}.log; then
                     ecmp_multi_ok=0
                 fi
             done
