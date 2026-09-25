@@ -413,3 +413,7 @@ The live ISO now subscribes to FRR route types `4,9` (static and BGP); the
 previous `3` value was incompatible with FRR 10.3 static notifications. The
 next gates remain ECMP multi-flow distribution and restart recovery, followed
 by BGP/OSPF neighbor validation.
+
+Topology-26 closes the real QEMU VPP process-restart gate: the guest emitted
+`VPP-RESTART-TEST PASS` after SIGTERM, API socket recreation and route lookup;
+the bridge concurrently reported `replay attempted=1 failed=0`.
