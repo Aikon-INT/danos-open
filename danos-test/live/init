@@ -51,10 +51,25 @@ if ip link show eth0 >/dev/null 2>&1; then
     ip link set eth0 up
     ip route add default via "${DANOS_MGMT_GW:-10.0.2.2}" 2>/dev/null || true
     echo "eth0: ${DANOS_MGMT_ADDR:-10.0.2.15/24} and 10.0.3.1/24 up"
-    test -n "${DANOS_PEER_NEIGH1_IP:-}" && test -n "${DANOS_PEER_NEIGH1_MAC:-}" && \
-        ip neigh replace "$DANOS_PEER_NEIGH1_IP" lladdr "$DANOS_PEER_NEIGH1_MAC" nud permanent dev eth0 || true
-    test -n "${DANOS_PEER_NEIGH2_IP:-}" && test -n "${DANOS_PEER_NEIGH2_MAC:-}" && \
-        ip neigh replace "$DANOS_PEER_NEIGH2_IP" lladdr "$DANOS_PEER_NEIGH2_MAC" nud permanent dev eth0 || true
+    if test -n "${DANOS_PEER_ADDR2:-}" && ip link show eth1 >/dev/null 2>&1; then
+        ip addr add "$DANOS_PEER_ADDR2" dev eth1 2>/dev/null || true
+        ip link set eth1 up 2>/dev/null || true
+        echo "eth1: $DANOS_PEER_ADDR2 up" > /dev/console
+    fi
+    # BusyBox ip in the minimal peer image may not implement `neigh replace`.
+    # Try replace first, then add, and expose the resulting table for the
+    # serial verifier; normal ARP remains the fallback when both are absent.
+    for neigh_spec in \
+        "${DANOS_PEER_NEIGH1_IP:-} ${DANOS_PEER_NEIGH1_MAC:-}" \
+        "${DANOS_PEER_NEIGH2_IP:-} ${DANOS_PEER_NEIGH2_MAC:-}"; do
+        set -- $neigh_spec
+        test -n "${1:-}" && test -n "${2:-}" || continue
+        ip neigh replace "$1" lladdr "$2" nud permanent dev eth0 2>/dev/null || \
+            ip neigh add "$1" lladdr "$2" nud permanent dev eth0 2>/dev/null || true
+    done
+    ip addr show dev eth0 > /dev/console 2>&1 || true
+    ip route show > /dev/console 2>&1 || true
+    ip neigh show > /dev/console 2>&1 || true
     if test "${DANOS_TRAFFIC_COUNT:-0}" -gt 0 && test -n "${DANOS_TRAFFIC_TARGETS:-}"; then
         sleep 15
         traffic_ok=1
@@ -122,6 +137,8 @@ if test -e /vpp-dpdk.enabled; then
             /usr/bin/vppctl -s /run/vpp/cli.sock set ip neighbor "$vpp_if1" "${VPP_PEER_IP1:-10.10.0.2}" "${VPP_PEER_MAC1:-52:54:00:11:01:02}" > /dev/console 2>&1 || true
             /usr/bin/vppctl -s /run/vpp/cli.sock set ip neighbor "$vpp_if2" "${VPP_PEER_IP2:-10.20.0.2}" "${VPP_PEER_MAC2:-52:54:00:12:01:02}" > /dev/console 2>&1 || true
             /usr/bin/vppctl -s /run/vpp/cli.sock ip route add 30.30.30.0/24 via "${VPP_PEER_IP1:-10.10.0.2}" "$vpp_if1" via "${VPP_PEER_IP2:-10.20.0.2}" "$vpp_if2" > /dev/console 2>&1 || true
+            echo "--- VPP DPDK interface addresses ---" > /dev/console
+            /usr/bin/vppctl -s /run/vpp/cli.sock show interface address > /dev/console 2>&1 || true
             echo "--- VPP ECMP FIB ---" > /dev/console
             /usr/bin/vppctl -s /run/vpp/cli.sock show ip fib 30.30.30.0/24 > /dev/console 2>&1 || true
         fi

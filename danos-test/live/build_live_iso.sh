@@ -36,6 +36,7 @@ VPP_IF1_ADDR="${VPP_IF1_ADDR:-10.10.0.1/24}"
 VPP_IF2_ADDR="${VPP_IF2_ADDR:-10.20.0.1/24}"
 DANOS_MGMT_ADDR="${DANOS_MGMT_ADDR:-10.0.2.15/24}"
 DANOS_MGMT_GW="${DANOS_MGMT_GW:-10.0.2.2}"
+DANOS_PEER_ADDR2="${DANOS_PEER_ADDR2:-}"
 DANOS_TRAFFIC_TARGETS="${DANOS_TRAFFIC_TARGETS:-}"
 DANOS_TRAFFIC_COUNT="${DANOS_TRAFFIC_COUNT:-0}"
 DANOS_PEER_NEIGH1_IP="${DANOS_PEER_NEIGH1_IP:-}"
@@ -221,15 +222,16 @@ EOF
   test "$(printf '%s\n' $VPP_DPDK_PORTS | wc -l)" -ge 2 && touch "$WORK/initramfs/vpp-dpdk-e1000-2port.enabled"
   test "$VPP_DPDK_TRAFFIC_TEST" = 1 && touch "$WORK/initramfs/vpp-dpdk-traffic-test.enabled"
   mkdir -p "$WORK/initramfs/etc/danos"
-  printf 'VPP_PEER_MAC1=%q\nVPP_PEER_MAC2=%q\nVPP_PEER_IP1=%q\nVPP_PEER_IP2=%q\n' \
+  printf 'VPP_PEER_MAC1=%q\nVPP_PEER_MAC2=%q\nVPP_PEER_IP1=%q\nVPP_PEER_IP2=%q\nVPP_IF1_ADDR=%q\nVPP_IF2_ADDR=%q\n' \
     "$VPP_PEER_MAC1" "$VPP_PEER_MAC2" "$VPP_PEER_IP1" "$VPP_PEER_IP2" \
+    "$VPP_IF1_ADDR" "$VPP_IF2_ADDR" \
     > "$WORK/initramfs/etc/danos/vpp-traffic.env"
   chmod +x "$WORK/initramfs/usr/bin/vpp" "$WORK/initramfs/usr/bin/vppctl"
   docker rm -f "$VPP_CID" >/dev/null
 fi
 mkdir -p "$WORK/initramfs/etc/danos"
-printf 'DANOS_MGMT_ADDR=%q\nDANOS_MGMT_GW=%q\nDANOS_TRAFFIC_TARGETS=%q\nDANOS_TRAFFIC_COUNT=%q\nDANOS_PEER_NEIGH1_IP=%q\nDANOS_PEER_NEIGH1_MAC=%q\nDANOS_PEER_NEIGH2_IP=%q\nDANOS_PEER_NEIGH2_MAC=%q\n' \
-  "$DANOS_MGMT_ADDR" "$DANOS_MGMT_GW" "$DANOS_TRAFFIC_TARGETS" "$DANOS_TRAFFIC_COUNT" \
+printf 'DANOS_MGMT_ADDR=%q\nDANOS_MGMT_GW=%q\nDANOS_PEER_ADDR2=%q\nDANOS_TRAFFIC_TARGETS=%q\nDANOS_TRAFFIC_COUNT=%q\nDANOS_PEER_NEIGH1_IP=%q\nDANOS_PEER_NEIGH1_MAC=%q\nDANOS_PEER_NEIGH2_IP=%q\nDANOS_PEER_NEIGH2_MAC=%q\n' \
+  "$DANOS_MGMT_ADDR" "$DANOS_MGMT_GW" "$DANOS_PEER_ADDR2" "$DANOS_TRAFFIC_TARGETS" "$DANOS_TRAFFIC_COUNT" \
   "$DANOS_PEER_NEIGH1_IP" "$DANOS_PEER_NEIGH1_MAC" "$DANOS_PEER_NEIGH2_IP" "$DANOS_PEER_NEIGH2_MAC" \
   > "$WORK/initramfs/etc/danos/network.env"
 cp "$WORK/busybox" "$WORK/initramfs/bin/busybox"
