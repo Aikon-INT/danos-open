@@ -12,6 +12,7 @@ MGMT_PORT="${FRR_MGMT_PORT:-24001}"
 FRR_SNAPSHOT="${FRR_QEMU_SNAPSHOT:-off}"
 FRR_DRIVE_EXTRA=""
 QEMU_DATAPLANE_MODEL="${QEMU_DATAPLANE_MODEL:-e1000}"
+QEMU_MACHINE="${QEMU_MACHINE:-pc}"
 if test "$FRR_SNAPSHOT" = on; then FRR_DRIVE_EXTRA=',snapshot=on'; fi
 test -f "$ISO" || { echo "[BLOCKED] DANOS ISO missing: $ISO"; exit 2; }
 for f in frr-1.qcow2 frr-2.qcow2 r1-seed.iso r2-seed.iso; do
@@ -28,10 +29,11 @@ MANIFEST="$T/run-manifest.env"
     printf 'topology_dir=%q\n' "$(realpath "$T")"
     printf 'lan1_port=%q\nlan2_port=%q\npeer_port=%q\nzapi_port=%q\nmgmt_port=%q\n' \
         "$LAN1_PORT" "$LAN2_PORT" "$PEER_PORT" "$ZAPI_PORT" "$MGMT_PORT"
+    printf 'qemu_machine=%q\nqemu_dataplane_model=%q\n' "$QEMU_MACHINE" "$QEMU_DATAPLANE_MODEL"
     printf 'created_utc=%q\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 } > "$MANIFEST"
 
-qemu-system-x86_64 -enable-kvm -cpu host -m 2048 -smp 2 -cdrom "$ISO" \
+qemu-system-x86_64 -enable-kvm -machine "$QEMU_MACHINE" -cpu host -m 2048 -smp 2 -cdrom "$ISO" \
   -vga none -device VGA,addr=0x4 \
   -netdev socket,id=lan1,listen=127.0.0.1:$LAN1_PORT \
   -device "$QEMU_DATAPLANE_MODEL",netdev=lan1,addr=0x2,mac=52:54:00:10:01:01 \
@@ -42,7 +44,7 @@ qemu-system-x86_64 -enable-kvm -cpu host -m 2048 -smp 2 -cdrom "$ISO" \
   -display none -serial file:"$T/danos.serial.log" -monitor none \
   -daemonize -pidfile "$T/danos.pid"
 
-qemu-system-x86_64 -enable-kvm -cpu host -m 1024 -smp 1 \
+qemu-system-x86_64 -enable-kvm -machine "$QEMU_MACHINE" -cpu host -m 1024 -smp 1 \
   -boot order=c \
   -drive file="$T/frr-1.qcow2",if=virtio,format=qcow2${FRR_DRIVE_EXTRA} \
   -cdrom "$T/r1-seed.iso" \
@@ -57,7 +59,7 @@ qemu-system-x86_64 -enable-kvm -cpu host -m 1024 -smp 1 \
   -display none -serial file:"$T/frr-1.serial.log" -monitor none \
   -daemonize -pidfile "$T/frr-1.pid"
 
-qemu-system-x86_64 -enable-kvm -cpu host -m 1024 -smp 1 \
+qemu-system-x86_64 -enable-kvm -machine "$QEMU_MACHINE" -cpu host -m 1024 -smp 1 \
   -boot order=c \
   -drive file="$T/frr-2.qcow2",if=virtio,format=qcow2${FRR_DRIVE_EXTRA} \
   -cdrom "$T/r2-seed.iso" \
