@@ -34,6 +34,10 @@ VPP_PEER_IP1="${VPP_PEER_IP1:-10.10.0.2}"
 VPP_PEER_IP2="${VPP_PEER_IP2:-10.20.0.2}"
 VPP_IF1_ADDR="${VPP_IF1_ADDR:-10.10.0.1/24}"
 VPP_IF2_ADDR="${VPP_IF2_ADDR:-10.20.0.1/24}"
+DANOS_MGMT_ADDR="${DANOS_MGMT_ADDR:-10.0.2.15/24}"
+DANOS_MGMT_GW="${DANOS_MGMT_GW:-10.0.2.2}"
+DANOS_TRAFFIC_TARGETS="${DANOS_TRAFFIC_TARGETS:-}"
+DANOS_TRAFFIC_COUNT="${DANOS_TRAFFIC_COUNT:-0}"
 DANOS_FIB_BRIDGE_ENABLE="${DANOS_FIB_BRIDGE_ENABLE:-0}"
 DANOS_ZEBRA_ENDPOINT="${DANOS_ZEBRA_ENDPOINT:-}"
 DANOS_ZAPI_HELLO_ONLY="${DANOS_ZAPI_HELLO_ONLY:-0}"
@@ -216,6 +220,10 @@ EOF
   chmod +x "$WORK/initramfs/usr/bin/vpp" "$WORK/initramfs/usr/bin/vppctl"
   docker rm -f "$VPP_CID" >/dev/null
 fi
+mkdir -p "$WORK/initramfs/etc/danos"
+printf 'DANOS_MGMT_ADDR=%q\nDANOS_MGMT_GW=%q\nDANOS_TRAFFIC_TARGETS=%q\nDANOS_TRAFFIC_COUNT=%q\n' \
+  "$DANOS_MGMT_ADDR" "$DANOS_MGMT_GW" "$DANOS_TRAFFIC_TARGETS" "$DANOS_TRAFFIC_COUNT" \
+  > "$WORK/initramfs/etc/danos/network.env"
 cp "$WORK/busybox" "$WORK/initramfs/bin/busybox"
 cp "$WORK/libc.so.6" "$WORK/initramfs/lib/libc.so.6"
 cp "$WORK/ld-linux.so.2" "$WORK/initramfs/lib/ld-linux-x86-64.so.2"

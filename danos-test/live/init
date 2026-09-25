@@ -13,6 +13,9 @@ fi
 if test -f /etc/danos/vpp-traffic.env; then
     . /etc/danos/vpp-traffic.env
 fi
+if test -f /etc/danos/network.env; then
+    . /etc/danos/network.env
+fi
 echo "DANOS VPP health_probe=${DANOS_VPP_HEALTH_PROBE:-0} restart_test=${DANOS_VPP_RESTART_TEST:-0}" > /dev/console
 for pci_dev in /sys/bus/pci/devices/*; do
     test -r "$pci_dev/class" || continue
@@ -42,11 +45,22 @@ if ip link show eth0 >/dev/null 2>&1; then
     # The QEMU topology uses a direct socket link to FRR-1 for ZAPI.
     # Keep the user-mode address as a compatibility fallback, and add the
     # deterministic point-to-point management address used by the bridge.
-    ip addr add 10.0.2.15/24 dev eth0 2>/dev/null || true
+    ip addr add "${DANOS_MGMT_ADDR:-10.0.2.15/24}" dev eth0 2>/dev/null || true
     ip addr add 10.0.3.1/24 dev eth0 2>/dev/null || true
     ip link set eth0 up
-    ip route add default via 10.0.2.2 2>/dev/null
-    echo "eth0: 10.0.2.15/24 and 10.0.3.1/24 up"
+    ip route add default via "${DANOS_MGMT_GW:-10.0.2.2}" 2>/dev/null || true
+    echo "eth0: ${DANOS_MGMT_ADDR:-10.0.2.15/24} and 10.0.3.1/24 up"
+    if test "${DANOS_TRAFFIC_COUNT:-0}" -gt 0 && test -n "${DANOS_TRAFFIC_TARGETS:-}"; then
+        sleep 15
+        traffic_ok=1
+        for traffic_target in ${DANOS_TRAFFIC_TARGETS}; do
+            if ! ping -c "${DANOS_TRAFFIC_COUNT}" -W 1 "$traffic_target" > "/tmp/ping-${traffic_target}.log" 2>&1; then
+                traffic_ok=0
+            fi
+            cat "/tmp/ping-${traffic_target}.log" > /dev/console 2>&1 || true
+        done
+        test "$traffic_ok" = 1 && echo "PEER-TRAFFIC PASS" > /dev/console || echo "PEER-TRAFFIC FAIL" > /dev/console
+    fi
 fi
 
 if test -e /vpp-dpdk.enabled; then
