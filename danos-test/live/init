@@ -152,7 +152,15 @@ if test -e /vpp-dpdk.enabled; then
                 test -S /run/vpp/api.sock && break
                 sleep 1
             done
+        restart_ok=0
+        for restart_check in $(seq 1 30); do
             if test -S /run/vpp/api.sock && /usr/bin/vppctl -s /run/vpp/cli.sock show ip fib 198.51.100.0/24 2>/dev/null | grep -q '198.51.100.0/24'; then
+                restart_ok=1
+                break
+            fi
+            sleep 1
+        done
+        if test "$restart_ok" = 1; then
                 echo "VPP-RESTART-TEST PASS" | tee /dev/console /dev/ttyS0 >/dev/null
             else
                 echo "VPP-RESTART-TEST FAIL" | tee /dev/console /dev/ttyS0 >/dev/null
