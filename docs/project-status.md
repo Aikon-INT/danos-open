@@ -17,7 +17,7 @@ dependency is a real VFIO/uio-bound DPDK runner; it is tracked as an
 environment gate and is not conflated with software dataplane acceptance.
 
 The current mainline is clean and synchronized with `origin/main` at
-`a0fbde9`; the latest tag remains `v0.14.0`, while main has moved ahead with
+`ad8ae23`; the latest tag remains `v0.14.0`, while main has moved ahead with
 v0.16 integration work. The complete deterministic suite passes 34/34.
 Privileged evidence is recorded separately from the DPDK hardware gate.
 
@@ -93,6 +93,9 @@ Privileged evidence is recorded separately from the DPDK hardware gate.
 - Current host/container DPDK preflight is structured `SKIP`: no privileged
   VPP/DPDK PCI runner is available. No QEMU or packet baseline result is
   counted as real PCI line-rate performance.
+- The planned common output contract for QEMU, VMware and PCI performance
+  lanes is `docs/v0.16-performance-result-schema.md`; it separates packet
+  regression evidence from line-rate qualification.
 
 ## Capability maturity
 
