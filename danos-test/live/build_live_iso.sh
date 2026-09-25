@@ -92,6 +92,9 @@ MODULE_ROOTS='/lib/modules /usr/lib/modules'
 E1000=$(docker exec danos-iso-build sh -c \
     'find /lib/modules /usr/lib/modules -name "e1000.ko*" 2>/dev/null | head -1')
 docker cp "danos-iso-build:$E1000" "$WORK/e1000.ko.raw"
+VMXNET3=$(docker exec danos-iso-build sh -c \
+    'find /lib/modules /usr/lib/modules -name "vmxnet3.ko*" 2>/dev/null | head -1')
+docker cp "danos-iso-build:$VMXNET3" "$WORK/vmxnet3.ko.raw"
 VIRTIO_NET=$(docker exec danos-iso-build sh -c \
     'find /lib/modules /usr/lib/modules -name "virtio_net.ko*" 2>/dev/null | head -1')
 docker cp "danos-iso-build:$VIRTIO_NET" "$WORK/virtio_net.ko.raw"
@@ -286,6 +289,10 @@ fi
 case "$E1000" in
   *.xz) xz -q -d -c "$WORK/e1000.ko.raw" > "$WORK/initramfs/modules/e1000.ko" ;;
   *)    cp "$WORK/e1000.ko.raw" "$WORK/initramfs/modules/e1000.ko" ;;
+esac
+case "$VMXNET3" in
+  *.xz) xz -q -d -c "$WORK/vmxnet3.ko.raw" > "$WORK/initramfs/modules/vmxnet3.ko" ;;
+  *)    cp "$WORK/vmxnet3.ko.raw" "$WORK/initramfs/modules/vmxnet3.ko" ;;
 esac
 case "$VIRTIO_NET" in
   *.xz) xz -q -d -c "$WORK/virtio_net.ko.raw" > "$WORK/initramfs/modules/virtio_net.ko" ;;
