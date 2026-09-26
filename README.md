@@ -5,6 +5,21 @@
 > Built with Linux, FRR, VPP, DPDK, and P4 — unified by the DANOS Data Plane
 > Abstraction (DPA).
 
+## Current v0.16 status
+
+`v0.16.0-rc1` is the current release candidate. The scoped L3 NOS software
+closure is covered by CTest 34/34, topology-89 FRR/VPP lifecycle recovery,
+QEMU e1000 two-port forwarding, and VMware VMXNET3 polling-only packet
+baselines (about 100 pps, 0% loss). These virtualized results are functional
+and regression evidence, not line-rate DPDK performance. Real PCI DPDK remains
+`ENVIRONMENT-OPEN` until a dedicated VFIO/uio, HugePages, VPP-DPDK runner is
+available. BFD, VLAN, VXLAN, and EVPN remain deferred until the formal
+`v0.16.0` release.
+
+Authoritative status: [v0.16 acceptance matrix](docs/v0.16-acceptance-matrix.md)
+and [project status](docs/project-status.md). The release-candidate gate is
+`bash danos-test/integration/run_v016_release_gate.sh`.
+
 ## Quick Start (5 minutes)
 
 ### Prerequisites
@@ -35,7 +50,7 @@ ctest --output-on-failure
 ./build/danos-test/conformance_test
 ```
 
-Expected output: 28 ctest suites pass, including the v0.3 vertical
+Expected output: 34 ctest suites pass, including the v0.3 vertical
 stack suites:
 ```
 vpp_proto     — VPP binary API handshake + typed messages + stat segment (mock VPP server)

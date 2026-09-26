@@ -17,7 +17,7 @@ dependency is a real VFIO/uio-bound DPDK runner; it is tracked as an
 environment gate and is not conflated with software dataplane acceptance.
 
 The current mainline is clean and synchronized with `origin/main` at
-`5fe0dd5`; `v0.16.0-rc1` is the current release-candidate tag (the latest
+`b47bd91`; `v0.16.0-rc1` is the current release-candidate tag (the latest
 formal release remains `v0.14.0`). The complete deterministic suite passes
 34/34.
 Privileged evidence is recorded separately from the DPDK hardware gate.

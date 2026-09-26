@@ -7,6 +7,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PEER_LOG="${VMWARE_PEER_LOG:-$ROOT/build/vmware-vmxnet3-test/peer.serial.log}"
 DANOS_LOG="${VMWARE_DANOS_LOG:-$ROOT/build/vmware-vmxnet3-test/danos.serial.log}"
 MIN_PPS="${VMWARE_MIN_PPS:-50}"
+RESULT_FILE="${VMWARE_RESULT_FILE:-}"
 test -s "$PEER_LOG" && test -s "$DANOS_LOG" || {
     echo "[BLOCKED] VMware serial logs missing"; exit 2;
 }
@@ -43,5 +44,22 @@ for row in "${rates[@]}"; do
     }
     echo "[PASS] $target packet baseline pps=$pps"
 done
+
+if test -n "$RESULT_FILE"; then
+    iso_path="${VMWARE_ISO:-$ROOT/build/danos-open-v0.16.0-rc1-vmware-vmxnet3-polling.iso}"
+    iso_sha256=""
+    test -f "$iso_path" && iso_sha256=$(sha256sum "$iso_path" | awk '{print $1}') || true
+    commit=$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)
+    first_pps=$(printf '%s\n' "${rates[0]}" | awk '{print $2}')
+    {
+        printf 'status=PASS\n'
+        printf 'lane=vmware-vmxnet3-polling\n'
+        printf 'commit=%s\n' "$commit"
+        printf 'iso_sha256=%s\n' "$iso_sha256"
+        printf 'packet_size_bytes=64\nflows=2\npackets_tx=\npackets_rx=\n'
+        printf 'loss_pct=0\nduration_ms=\npps=%s\nmbps=\nrtt_p50_us=\nrtt_p99_us=\ncpu_pct=\n' "$first_pps"
+        printf 'ecmp_bucket_0=\necmp_bucket_1=\nrestart_replay=SKIP\n'
+    } > "$RESULT_FILE"
+fi
 
 echo '[PASS] VMware VMXNET3 packet baseline gate'
