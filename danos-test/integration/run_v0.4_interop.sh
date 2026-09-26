@@ -24,13 +24,14 @@ GNMIC="${GNMIC:-$HOME/go/bin/gnmic}"
 PORT="${PORT:-59244}"
 SRV_LOG=$(mktemp)
 OUT=$(mktemp)
+SRV_PID=""
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; NC='\033[0m'
 pass() { echo -e "${GREEN}[PASS]${NC} $1"; }
 fail() { echo -e "${RED}[FAIL]${NC} $1"; FAILED=1; }
 FAILED=0
 
-cleanup() { kill $SRV_PID 2>/dev/null; rm -f "$SRV_LOG" "$OUT"; }
+cleanup() { test -n "$SRV_PID" && kill "$SRV_PID" 2>/dev/null || true; rm -f "$SRV_LOG" "$OUT"; }
 trap cleanup EXIT
 
 echo "=== DANOS-Open v0.4 external interop verification (gnmic) ==="
