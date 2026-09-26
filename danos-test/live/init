@@ -4,6 +4,7 @@ mount -t proc proc /proc
 mount -t sysfs sysfs /sys
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || echo "devtmpfs: using static nodes"
 echo "DANOS-INIT-ENTER" > /dev/console 2>/dev/null || true
+echo "DANOS-INIT-ENTER" > /dev/tty0 2>/dev/null || true
 mkdir -p /dev/shm /run /var/run
 mount -t tmpfs -o mode=1777 tmpfs /dev/shm 2>/dev/null || true
 mount -t tmpfs -o mode=0755 tmpfs /run 2>/dev/null || true
@@ -28,6 +29,10 @@ echo "" > /dev/console
 echo "===============================================" > /dev/console
 echo "  DANOS-Open live system (kernel 6.12, mgrd)" > /dev/console
 echo "===============================================" > /dev/console
+echo "" > /dev/tty0 2>/dev/null || true
+echo "===============================================" > /dev/tty0 2>/dev/null || true
+echo "  DANOS-Open live system (kernel 6.12, mgrd)" > /dev/tty0 2>/dev/null || true
+echo "===============================================" > /dev/tty0 2>/dev/null || true
 
 # network drivers (QEMU management NICs; DPDK owns dataplane NICs)
 if test ! -e /vpp-dpdk.enabled; then
