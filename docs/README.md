@@ -15,6 +15,7 @@ contributor needs lives here; everything else is an archive.
 | [Project status](project-status.md) | Current assessment, roadmap and acceptance policy |
 | [v0.16 acceptance matrix](v0.16-acceptance-matrix.md) | Single current rc1 acceptance record |
 | [v0.16 performance schema](v0.16-performance-result-schema.md) | Machine-readable QEMU/VMware/PCI result fields |
+| [v0.16 PCI runner contract](v0.16-pci-runner-contract.md) | External real-DPDK runner prerequisites and first-pass contract |
 | [v0.16 next-stage plan](v0.16-next-stage-plan.md) | Release closure sequence and deferred extensions |
 
 ## Entry points outside docs/
