@@ -14,6 +14,7 @@ run_gate() {
 }
 
 run_gate backend-contract bash "$ROOT/danos-test/integration/run_backend_contract.sh"
+run_gate pci-result-validator python3 "$ROOT/danos-test/integration/test_record_dpdk_perf_result.py"
 run_gate ctest ctest --test-dir "$ROOT/build" --output-on-failure
 run_gate qemu-frr-vpp env QEMU_TOPOLOGY_DIR="$QEMU_TOPOLOGY_DIR" \
     bash "$ROOT/danos-test/qemu/verify_frr_vpp_topology.sh"
