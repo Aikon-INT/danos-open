@@ -10,6 +10,11 @@ finish_result() {
     test -n "$RESULT_FILE" || return "$rc"
     {
         printf 'status=%s\n' "$([ "$rc" -eq 0 ] && echo PASS || ([ "$rc" -eq 2 ] && echo SKIP || echo FAIL))"
+        printf 'lane=pci-dpdk\n'
+        printf 'commit=%s\n' "$(git rev-parse HEAD 2>/dev/null || true)"
+        printf 'iso_sha256=\npacket_size_bytes=64\nflows=\npackets_tx=\npackets_rx=\n'
+        printf 'loss_pct=\nduration_ms=\npps=\nmbps=\nrtt_p50_us=\nrtt_p99_us=\ncpu_pct=\n'
+        printf 'ecmp_bucket_0=\necmp_bucket_1=\nrestart_replay=SKIP\n'
         printf 'exit_code=%s\n' "$rc"
         printf 'vpp_bin=%q\n' "${VPP_BIN:-}"
         printf 'vppctl=%q\n' "${VPPCTL:-}"

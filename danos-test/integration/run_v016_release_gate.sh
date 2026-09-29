@@ -18,6 +18,7 @@ run_gate ctest ctest --test-dir "$ROOT/build" --output-on-failure
 run_gate qemu-frr-vpp env QEMU_TOPOLOGY_DIR="$QEMU_TOPOLOGY_DIR" \
     bash "$ROOT/danos-test/qemu/verify_frr_vpp_topology.sh"
 run_gate vmware-vmxnet3 env VMWARE_MIN_PPS="$VMWARE_MIN_PPS" \
+    VMWARE_RESULT_FILE="$ROOT/build/v016-vmware-vmxnet3.env" \
     bash "$ROOT/danos-test/vmware/verify_vmxnet3_packet_baseline.sh"
 
 echo '=== pci-dpdk-preflight ==='
@@ -44,6 +45,8 @@ if test "$failures" -eq 0; then overall=PASS; else overall=FAIL; fi
     printf 'dpdk_status=%s\n' "$dpdk_status"
     printf 'qemu_topology=%q\n' "$QEMU_TOPOLOGY_DIR"
     printf 'vmware_min_pps=%q\n' "$VMWARE_MIN_PPS"
+    printf 'vmware_result=%q\n' "$ROOT/build/v016-vmware-vmxnet3.env"
+    printf 'dpdk_result=%q\n' "$ROOT/build/v016-dpdk-preflight.env"
     printf 'git_commit=%q\n' "$(git -C "$ROOT" rev-parse HEAD)"
     printf 'utc=%q\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 } > "$RESULT_FILE"
