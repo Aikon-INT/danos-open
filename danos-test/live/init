@@ -317,7 +317,10 @@ echo "--- live system ready. shell:"
 # /dev/console is a valid output sink but may not provide a controlling tty,
 # which leaves a physical USB keyboard unable to deliver input.
 if test -c /dev/tty1; then
-    /bin/busybox setsid /bin/busybox sh </dev/tty1 >/dev/tty1 2>&1 || true
+    # cttyhack makes tty1 the controlling terminal, which is required for
+    # local USB keyboard input when PID 1 launches the shell.
+    /bin/busybox setsid /bin/busybox cttyhack /bin/busybox sh \
+        </dev/tty1 >/dev/tty1 2>&1 || true
 else
     /bin/busybox sh </dev/console >/dev/console 2>&1 || true
 fi
