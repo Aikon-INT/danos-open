@@ -87,6 +87,7 @@ VKERNEL=$(docker exec danos-iso-build sh -c 'ls /boot/vmlinuz-* | head -1')
 docker cp "danos-iso-build:$VKERNEL" "$WORK/vmlinuz"
 docker cp danos-iso-build:/bin/busybox "$WORK/busybox"
 docker cp danos-iso-build:/usr/lib/ISOLINUX/isolinux.bin "$WORK/isolinux.bin"
+docker cp danos-iso-build:/usr/lib/ISOLINUX/isohdpfx.bin "$WORK/isohdpfx.bin"
 docker cp danos-iso-build:/usr/lib/syslinux/modules/bios/ldlinux.c32 "$WORK/ldlinux.c32"
 docker cp danos-iso-build:/usr/lib/x86_64-linux-gnu/libc.so.6 "$WORK/libc.so.6"
 docker cp danos-iso-build:/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 "$WORK/ld-linux.so.2"
@@ -333,7 +334,8 @@ LABEL danos
   # retaining the serial kernel console for automated QEMU diagnostics.
   APPEND initrd=/initramfs.cpio.gz console=ttyS0,115200 console=tty0
 EOF
-xorriso -as mkisofs -o "$OUT_ISO" -b isolinux/isolinux.bin \
+xorriso -as mkisofs -o "$OUT_ISO" -isohybrid-mbr "$WORK/isohdpfx.bin" \
+    -isohybrid-gpt-basdat -b isolinux/isolinux.bin \
     -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 \
     -boot-info-table -J -R "$WORK/isoroot" 2>&1 | tail -1
 
