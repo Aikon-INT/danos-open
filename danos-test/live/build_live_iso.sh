@@ -27,6 +27,7 @@ VPP_DPDK_PORTS="${VPP_DPDK_PORTS:-0000:00:02.0}"
 VPP_VMXNET3_NATIVE="${VPP_VMXNET3_NATIVE:-0}"
 VPP_DPDK_TRAFFIC_TEST="${VPP_DPDK_TRAFFIC_TEST:-0}"
 VPP_DPDK_NO_RX_INTERRUPTS="${VPP_DPDK_NO_RX_INTERRUPTS:-0}"
+VPP_AUTOSTART="${VPP_AUTOSTART:-1}"
 VPP_PING_ENABLE="${VPP_PING_ENABLE:-0}"
 VPP_PEER_MAC1="${VPP_PEER_MAC1:-52:54:00:11:01:02}"
 VPP_PEER_MAC2="${VPP_PEER_MAC2:-52:54:00:12:01:02}"
@@ -216,7 +217,7 @@ statseg {
 }
 ${VPP_DPDK_BLOCK}
 EOF
-  touch "$WORK/initramfs/vpp-dpdk.enabled"
+  test "$VPP_AUTOSTART" = 1 && touch "$WORK/initramfs/vpp-dpdk.enabled"
   test "$VPP_VMXNET3_NATIVE" = 1 && touch "$WORK/initramfs/vpp-vmxnet3-native.enabled"
   test "$VPP_VMXNET3_NATIVE" = 1 && printf '%s\n' "$VPP_DPDK_PORTS" > "$WORK/initramfs/vpp-vmxnet3-native-ports"
   test "$VPP_DPDK_DEVICE" = e1000 && touch "$WORK/initramfs/vpp-dpdk-e1000.enabled"
