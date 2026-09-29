@@ -34,6 +34,23 @@ echo "===============================================" > /dev/tty0 2>/dev/null |
 echo "  DANOS-Open live system (kernel 6.12, mgrd)" > /dev/tty0 2>/dev/null || true
 echo "===============================================" > /dev/tty0 2>/dev/null || true
 
+# Physical USB keyboards need their host-controller and HID modules in this
+# minimal initramfs; a tty shell alone does not make USB input available.
+for module in usb_common usbcore input_core hid xhci_hcd xhci_pci \
+    ehci_hcd ehci_pci uhci_hcd ohci_hcd ohci_pci usbhid hid_generic; do
+    if test -f "/modules/${module}.ko"; then
+        insmod "/modules/${module}.ko" 2>/dev/null || \
+            echo "USB-INPUT module load failed: ${module}" > /dev/console
+    fi
+done
+echo "USB-INPUT modules initialized" > /dev/console
+sleep 2
+if test -r /proc/bus/input/devices && grep -Eq 'Handlers=.*kbd' /proc/bus/input/devices; then
+    echo "USB-KEYBOARD detected" > /dev/console
+else
+    echo "USB-KEYBOARD not detected; check USB controller/port" > /dev/console
+fi
+
 # network drivers (QEMU management NICs; DPDK owns dataplane NICs)
 if test ! -e /vpp-dpdk.enabled; then
     insmod /modules/e1000.ko 2>/dev/null || echo "e1000 insmod failed"

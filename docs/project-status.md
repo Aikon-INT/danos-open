@@ -20,13 +20,14 @@ The current mainline is clean and synchronized with `origin/main`; `v0.16.0-rc1`
 is the current release-candidate tag (the latest
 formal release remains `v0.14.0`). The complete deterministic suite passes
 34/34. The backend contract gate also passes its capability/transaction,
-programming-pipeline, and composite-route stages. The live ISO shell now
-binds to tty1 with a controlling terminal; a physical USB keyboard or serial
-failure remains an external hardware/console issue and is not inferred from
-the VMware console. A full I211-DPDK ISO is now reproducibly available at
-`build/danos-open-v0.16.0-rc1-i211-dpdk-usb-tty1-final.iso` with digest
-`c68642a08b89e443c6dc61c525a2e5a28934281b121f2ea7a680fad27b7df216`; its
-physical boot and line-rate performance remain separate open gates.
+programming-pipeline, and composite-route stages. The live ISO loads USB
+host-controller and HID modules and binds its shell to tty1 with a controlling
+terminal. QEMU xHCI enumerated a USB keyboard; a typed shell command reached
+tty1 and emitted the expected serial marker, recorded in
+`build/i211-usb-keyboard-qemu.serial.log`. The current I211-DPDK image is
+`build/danos-open-v0.16.0-rc1-i211-dpdk-usb-hid-final.iso`, SHA256
+`c13c2a4464520a42d7635d924dbc9ea44ba04fad30f8e40ef8ff9f07a7c423f3`;
+physical I211 boot and line-rate performance remain open gates.
 Privileged evidence is recorded separately from the DPDK hardware gate.
 
 ## Evidence snapshot

@@ -68,7 +68,7 @@ Suites: trixie trixie-updates
 Components: main contrib non-free non-free-firmware
 EOF
 apt-get update -qq >/dev/null 2>&1
-apt-get install -y -qq build-essential cmake busybox-static \
+apt-get install -y -qq build-essential cmake busybox-static zstd \
     linux-image-amd64 isolinux syslinux-common >/dev/null 2>&1
 cmake -B /tmp/b -S /src -DCMAKE_BUILD_TYPE=Release >/dev/null 2>&1
 cmake --build /tmp/b -j\$(nproc) --target danos-mgrd >/dev/null 2>&1
@@ -112,8 +112,13 @@ UIO=$(docker exec danos-iso-build sh -c \
     'find /lib/modules /usr/lib/modules -name "uio.ko*" 2>/dev/null | head -1')
 UIO_PCI_GENERIC=$(docker exec danos-iso-build sh -c \
     'find /lib/modules /usr/lib/modules -name "uio_pci_generic.ko*" 2>/dev/null | head -1')
-for module in failover net_failover virtio_pci uio uio_pci_generic; do
-  eval "source=\$${module^^}"
+for module in usb_common usbcore input_core hid xhci_hcd xhci_pci \
+    ehci_hcd ehci_pci uhci_hcd ohci_hcd ohci_pci usbhid hid_generic \
+    failover net_failover virtio_pci uio uio_pci_generic; do
+  module_file="${module//_/-}"
+  source=$(docker exec danos-iso-build sh -c \
+    "find /lib/modules /usr/lib/modules \\( -name '${module}.ko*' -o -name '${module_file}.ko*' \\) 2>/dev/null | head -1")
+  eval "${module^^}=\$source"
   if test -n "$source"; then
     docker cp "danos-iso-build:$source" "$WORK/${module}.ko.raw"
   fi
@@ -304,11 +309,14 @@ case "$VIRTIO_NET" in
   *.xz) xz -q -d -c "$WORK/virtio_net.ko.raw" > "$WORK/initramfs/modules/virtio_net.ko" ;;
   *)    cp "$WORK/virtio_net.ko.raw" "$WORK/initramfs/modules/virtio_net.ko" ;;
 esac
-for module in failover net_failover virtio_pci uio uio_pci_generic; do
+for module in usb_common usbcore input_core hid xhci_hcd xhci_pci \
+    ehci_hcd ehci_pci uhci_hcd ohci_hcd ohci_pci usbhid hid_generic \
+    failover net_failover virtio_pci uio uio_pci_generic; do
   eval "source=\$${module^^}"
   test -f "$WORK/${module}.ko.raw" || continue
   case "$source" in
     *.xz) xz -q -d -c "$WORK/${module}.ko.raw" > "$WORK/initramfs/modules/${module}.ko" ;;
+    *.zst) docker exec danos-iso-build zstd -q -d -c "$source" > "$WORK/initramfs/modules/${module}.ko" ;;
     *)    cp "$WORK/${module}.ko.raw" "$WORK/initramfs/modules/${module}.ko" ;;
   esac
 done
