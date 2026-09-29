@@ -26,7 +26,7 @@ terminal. QEMU xHCI enumerated a USB keyboard; a typed shell command reached
 tty1 and emitted the expected serial marker, recorded in
 `build/i211-usb-keyboard-qemu.serial.log`. The current I211-DPDK image is
 `build/danos-open-v0.16.0-rc1-i211-dpdk-usb-hid-final.iso`, SHA256
-`c13c2a4464520a42d7635d924dbc9ea44ba04fad30f8e40ef8ff9f07a7c423f3`;
+`ebb3fc3418d22c4db55e7c5b9114ca3754e685bf3c039e11fcfbb0f13b64006a`;
 physical I211 boot and line-rate performance remain open gates.
 Privileged evidence is recorded separately from the DPDK hardware gate.
 

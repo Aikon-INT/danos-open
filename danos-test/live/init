@@ -36,19 +36,23 @@ echo "===============================================" > /dev/tty0 2>/dev/null |
 
 # Physical USB keyboards need their host-controller and HID modules in this
 # minimal initramfs; a tty shell alone does not make USB input available.
+say_live() {
+    echo "$*" > /dev/console 2>/dev/null || true
+    echo "$*" > /dev/ttyS0 2>/dev/null || true
+}
 for module in usb_common usbcore input_core hid xhci_hcd xhci_pci \
     ehci_hcd ehci_pci uhci_hcd ohci_hcd ohci_pci usbhid hid_generic; do
     if test -f "/modules/${module}.ko"; then
         insmod "/modules/${module}.ko" 2>/dev/null || \
-            echo "USB-INPUT module load failed: ${module}" > /dev/console
+            say_live "USB-INPUT module load failed: ${module}"
     fi
 done
-echo "USB-INPUT modules initialized" > /dev/console
+say_live "USB-INPUT modules initialized"
 sleep 2
 if test -r /proc/bus/input/devices && grep -Eq 'Handlers=.*kbd' /proc/bus/input/devices; then
-    echo "USB-KEYBOARD detected" > /dev/console
+    say_live "USB-KEYBOARD detected"
 else
-    echo "USB-KEYBOARD not detected; check USB controller/port" > /dev/console
+    say_live "USB-KEYBOARD not detected; check USB controller/port"
 fi
 
 # network drivers (QEMU management NICs; DPDK owns dataplane NICs)
@@ -329,7 +333,8 @@ sleep 1
     cat /proc/net/route > /dev/console 2>&1
 ) &
 
-echo "--- live system ready. shell:"
+say_live "--- live system ready. shell:"
+say_live "LIVE-SHELL-READY"
 # Bind the interactive shell to tty1 when a local VGA keyboard is present.
 # /dev/console is a valid output sink but may not provide a controlling tty,
 # which leaves a physical USB keyboard unable to deliver input.

@@ -18,7 +18,8 @@
 - VMware VMXNET3 `no-rx-interrupts` polling-only 双网段报文基线 PASS：
   100/1000 包约 97–99 pps、0% 丢包。
 - I211 live ISO 加入 USB host-controller 和 HID keyboard modules；QEMU xHCI
-  验证键盘枚举，并通过 USB keyboard 输入命令至 tty1 shell。
+  验证键盘枚举，并通过 USB keyboard 输入命令至 tty1 shell；可用
+  `danos-test/live/verify_usb_keyboard_qemu.py` 重复验收。
 
 ## 明确边界与已知缺陷
 
@@ -30,7 +31,7 @@
 - 真实 PCI DPDK 性能为 `ENVIRONMENT-OPEN`，等待独立 VFIO/uio、HugePages、
   VPP DPDK 和流量发生器 runner。
 - 最新 I211 USB hybrid ISO：`build/danos-open-v0.16.0-rc1-i211-dpdk-usb-hid-final.iso`；
-  SHA256 `c13c2a4464520a42d7635d924dbc9ea44ba04fad30f8e40ef8ff9f07a7c423f3`。
+  SHA256 `ebb3fc3418d22c4db55e7c5b9114ca3754e685bf3c039e11fcfbb0f13b64006a`。
 - BFD、VLAN、VXLAN、EVPN、OVS、P4 和平台适配不在本候选版本范围内。
 
 ## 验收入口
