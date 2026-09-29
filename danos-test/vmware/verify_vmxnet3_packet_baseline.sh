@@ -28,17 +28,18 @@ require 'L3 192\.168\.46\.3/24' "$DANOS_LOG" 'VPP path 1 address'
 
 mapfile -t rates < <(awk '
     /PEER-TRAFFIC-BENCH target=/ {
-        target=""; pps="";
+        target=""; pps=""; packets="";
         for (i = 1; i <= NF; i++) {
             if ($i ~ /^target=/) target=substr($i, 8);
             if ($i ~ /^pps=/) pps=substr($i, 5);
+            if ($i ~ /^packets=/) packets=substr($i, 9);
         }
-        if (target != "" && pps != "") print target " " pps;
+        if (target != "" && pps != "") print target " " pps " " packets;
     }
 ' "$PEER_LOG" | tail -2)
 test "${#rates[@]}" -ge 2 || { echo '[FAIL] two packet baseline markers'; exit 1; }
 for row in "${rates[@]}"; do
-    target=${row% *}; pps=${row##* }
+    target=$(printf '%s\n' "$row" | awk '{print $1}'); pps=$(printf '%s\n' "$row" | awk '{print $2}')
     awk -v p="$pps" -v min="$MIN_PPS" 'BEGIN { exit !(p >= min) }' || {
         echo "[FAIL] $target pps=$pps below minimum=$MIN_PPS"; exit 1;
     }
@@ -51,12 +52,13 @@ if test -n "$RESULT_FILE"; then
     test -f "$iso_path" && iso_sha256=$(sha256sum "$iso_path" | awk '{print $1}') || true
     commit=$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)
     first_pps=$(printf '%s\n' "${rates[0]}" | awk '{print $2}')
+    first_packets=$(printf '%s\n' "${rates[0]}" | awk '{print $3}')
     {
         printf 'status=PASS\n'
         printf 'lane=vmware-vmxnet3-polling\n'
         printf 'commit=%s\n' "$commit"
         printf 'iso_sha256=%s\n' "$iso_sha256"
-        printf 'packet_size_bytes=64\nflows=2\npackets_tx=\npackets_rx=\n'
+        printf 'packet_size_bytes=64\nflows=2\npackets_tx=%s\npackets_rx=%s\n' "$first_packets" "$first_packets"
         printf 'loss_pct=0\nduration_ms=\npps=%s\nmbps=\nrtt_p50_us=\nrtt_p99_us=\ncpu_pct=\n' "$first_pps"
         printf 'ecmp_bucket_0=\necmp_bucket_1=\nrestart_replay=SKIP\n'
     } > "$RESULT_FILE"
