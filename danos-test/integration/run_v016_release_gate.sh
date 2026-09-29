@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 RESULT_FILE="${V016_GATE_RESULT_FILE:-$ROOT/build/v016-release-gate.env}"
 QEMU_TOPOLOGY_DIR="${QEMU_TOPOLOGY_DIR:-$ROOT/build/qemu-frr-vpp-topology-89}"
 VMWARE_MIN_PPS="${VMWARE_MIN_PPS:-50}"
+USB_KEYBOARD_ISO="${V016_USB_KEYBOARD_ISO:-$ROOT/build/danos-open-v0.16.0-rc1-i211-dpdk-usb-hid-final.iso}"
 failures=0
 run_gate() {
     local name="$1"; shift
@@ -16,6 +17,8 @@ run_gate() {
 run_gate backend-contract bash "$ROOT/danos-test/integration/run_backend_contract.sh"
 run_gate pci-result-validator python3 "$ROOT/danos-test/integration/test_record_dpdk_perf_result.py"
 run_gate ctest ctest --test-dir "$ROOT/build" --output-on-failure
+run_gate qemu-usb-keyboard python3 "$ROOT/danos-test/live/verify_usb_keyboard_qemu.py" \
+    "$USB_KEYBOARD_ISO"
 run_gate qemu-frr-vpp env QEMU_TOPOLOGY_DIR="$QEMU_TOPOLOGY_DIR" \
     bash "$ROOT/danos-test/qemu/verify_frr_vpp_topology.sh"
 run_gate vmware-vmxnet3 env VMWARE_MIN_PPS="$VMWARE_MIN_PPS" \

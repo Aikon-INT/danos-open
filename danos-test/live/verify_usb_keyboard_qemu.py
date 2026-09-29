@@ -52,7 +52,9 @@ def main() -> int:
                         help="serial log path (default: build/i211-usb-keyboard-qemu.serial.log)")
     parser.add_argument("--qemu", default=os.environ.get("QEMU", "qemu-system-x86_64"))
     parser.add_argument("--boot-timeout", type=float, default=90)
-    parser.add_argument("--input-settle", type=float, default=2)
+    # Allow the live init script to finish opening the controlling tty and
+    # leave its shell prompt ready before injecting a keyboard sequence.
+    parser.add_argument("--input-settle", type=float, default=10)
     parser.add_argument("--input-timeout", type=float, default=15)
     args = parser.parse_args()
 
