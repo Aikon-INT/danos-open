@@ -17,14 +17,16 @@ dependency is a real VFIO/uio-bound DPDK runner; it is tracked as an
 environment gate and is not conflated with software dataplane acceptance.
 
 The current mainline is clean and synchronized with `origin/main` at
-`fb484f1`; `v0.16.0-rc1` is the current release-candidate tag (the latest
+`c8f1cda`; `v0.16.0-rc1` is the current release-candidate tag (the latest
 formal release remains `v0.14.0`). The complete deterministic suite passes
 34/34. The backend contract gate also passes its capability/transaction,
 programming-pipeline, and composite-route stages. The live ISO shell now
 binds to tty1 with a controlling terminal; a physical USB keyboard or serial
 failure remains an external hardware/console issue and is not inferred from
-the VMware console. A full I211-DPDK ISO rebuild remains environment-open
-until the Debian trixie VPP runtime image is restored.
+the VMware console. A full I211-DPDK ISO is now reproducibly available at
+`build/danos-open-v0.16.0-rc1-i211-dpdk-usb-tty1-final.iso` with digest
+`c68642a08b89e443c6dc61c525a2e5a28934281b121f2ea7a680fad27b7df216`; its
+physical boot and line-rate performance remain separate open gates.
 Privileged evidence is recorded separately from the DPDK hardware gate.
 
 ## Evidence snapshot
