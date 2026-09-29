@@ -29,6 +29,9 @@ tty1 and emitted the expected serial marker, recorded in
 `ebb3fc3418d22c4db55e7c5b9114ca3754e685bf3c039e11fcfbb0f13b64006a`;
 physical I211 boot and line-rate performance remain open gates.
 Privileged evidence is recorded separately from the DPDK hardware gate.
+The same QEMU serial gate now restarts `mgrd` against its existing WAL and
+checks both record recovery and backend replay counters (3 attempted, 3 OK,
+0 failed), followed by gNMI/metrics listener recovery.
 
 ## Evidence snapshot
 
