@@ -101,11 +101,11 @@ in this workspace, so its reported physical keyboard failure is unresolved.
   verifier. Rechecking its retained serial log with the strict verifier exposed
   path-0 packet loss and incomplete ECMP responses; it is no longer the packet
   acceptance source of truth.
-- Fresh Debian trixie topology-109 passes the strict QEMU verifier end to end:
+- Fresh Debian trixie topology-110, running source commit `4c658d7`, passes the strict QEMU verifier end to end:
   two direct pings; four ECMP targets at 3/3 replies and 0% loss; both bucket
   counters; BGP add/withdraw; OSPF Full/DR; FRR route add/withdraw/restore;
   FRR/zserv restart; VPP restart/replay. Its manifest and serial evidence are
-  under `build/qemu-frr-vpp-topology-109/`; the test ISO digest is recorded in
+  under `build/qemu-frr-vpp-topology-110/`; the test ISO digest is recorded in
   that manifest.
 - VMware Workstation VMXNET3 polling-only packet baseline passes on two
   independent subnets: 100 packets per path, approximately 99.01/98.04 pps,
@@ -115,7 +115,7 @@ in this workspace, so its reported physical keyboard failure is unresolved.
   stale listeners on reused FRR disks, and asymmetric ECMP return paths. The
   harness now uses an isolated readiness port gated on the remote BGP prefix,
   and ECMP probes use a loopback source with explicit per-peer return routes.
-  The clean topology-109 run closes these packet and lifecycle checks under
+  The clean topology-110 run closes these packet and lifecycle checks under
   the strict verifier; older failed runs remain diagnostic evidence only.
 - QEMU VMXNET3 DPDK and native VMXNET3 interrupt-mode results remain explicit
   FAIL boundaries: DPDK initialization SIGSEGV and native `No sufficient
