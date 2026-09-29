@@ -18,7 +18,8 @@ case "$OUT_ISO" in
   *) OUT_ISO="$PROJECT_ROOT/$OUT_ISO" ;;
 esac
 GNMIC_SRC="${GNMIC:-/tmp/gnmic-bin}"
-WORK=/tmp/danos-iso-work
+WORK="${DANOS_ISO_WORK_DIR:-/tmp/danos-iso-work-$$}"
+BUILD_CONTAINER="danos-iso-build-$$"
 APT_MIRROR="${APT_MIRROR:-http://repo.huaweicloud.com/debian}"
 VPP_IMAGE="${VPP_IMAGE:-}"
 VPP_DPDK_ENABLE="${VPP_DPDK_ENABLE:-1}"
@@ -29,6 +30,9 @@ VPP_DPDK_TRAFFIC_TEST="${VPP_DPDK_TRAFFIC_TEST:-0}"
 VPP_DPDK_NO_RX_INTERRUPTS="${VPP_DPDK_NO_RX_INTERRUPTS:-0}"
 VPP_AUTOSTART="${VPP_AUTOSTART:-1}"
 VPP_PING_ENABLE="${VPP_PING_ENABLE:-0}"
+VPP_TRAFFIC_TEST_DELAY="${VPP_TRAFFIC_TEST_DELAY:-0}"
+VPP_TRAFFIC_READY_ENDPOINT="${VPP_TRAFFIC_READY_ENDPOINT:-}"
+VPP_TRAFFIC_READY_TIMEOUT="${VPP_TRAFFIC_READY_TIMEOUT:-600}"
 VPP_PEER_MAC1="${VPP_PEER_MAC1:-52:54:00:11:01:02}"
 VPP_PEER_MAC2="${VPP_PEER_MAC2:-52:54:00:12:01:02}"
 VPP_PEER_IP1="${VPP_PEER_IP1:-10.10.0.2}"
@@ -57,70 +61,75 @@ DANOS_VPP_RESTART_TEST="${DANOS_VPP_RESTART_TEST:-${DANOS_VPP_HEALTH_PROBE:-0}}"
 mkdir -p "$WORK" "$PROJECT_ROOT/build"
 
 # --- 1. trixie build container: kernel + busybox + isolinux + mgrd ------
-docker rm -f danos-iso-build >/dev/null 2>&1 || true
-trap 'docker rm -f danos-iso-build >/dev/null 2>&1 || true' EXIT
-docker run -d --name danos-iso-build -v "$PROJECT_ROOT:/src" \
+docker rm -f "$BUILD_CONTAINER" >/dev/null 2>&1 || true
+trap 'docker rm -f "$BUILD_CONTAINER" >/dev/null 2>&1 || true' EXIT
+docker run -d --name "$BUILD_CONTAINER" -v "$PROJECT_ROOT:/src" \
     -w /src debian:trixie-slim sh -c "
+set -eu
+rm -f /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources
 cat > /etc/apt/sources.list.d/danos-mirror.sources <<EOF
 Types: deb
 URIs: $APT_MIRROR
 Suites: trixie trixie-updates
 Components: main contrib non-free non-free-firmware
 EOF
-apt-get update -qq >/dev/null 2>&1
-apt-get install -y -qq build-essential cmake busybox-static zstd \
-    linux-image-amd64 isolinux syslinux-common >/dev/null 2>&1
+apt-get update -qq
+apt-get install -y -qq --no-install-recommends build-essential cmake busybox-static zstd \
+    linux-image-amd64 isolinux syslinux-common
+test -n \"\$(find /boot -maxdepth 1 -name 'vmlinuz-*' -print -quit)\"
+test -x /bin/busybox
 cmake -B /tmp/b -S /src -DCMAKE_BUILD_TYPE=Release >/dev/null 2>&1
 cmake --build /tmp/b -j\$(nproc) --target danos-mgrd >/dev/null 2>&1
+test -x /tmp/b/danos-mgrd/danos-mgrd
 echo ISO-DEPS-OK
 sleep 600"
 # wait for deps to be ready (log marker), max ~6 min
 for i in $(seq 1 180); do
-    docker logs danos-iso-build 2>&1 | grep -q ISO-DEPS-OK && break
+    docker logs "$BUILD_CONTAINER" 2>&1 | grep -q ISO-DEPS-OK && break
     sleep 2
 done
-docker logs danos-iso-build 2>&1 | grep -q ISO-DEPS-OK \
+docker logs "$BUILD_CONTAINER" 2>&1 | grep -q ISO-DEPS-OK \
     || { echo "ERROR: ISO deps build failed"; exit 1; }
 
 # --- 2. extract pieces ---------------------------------------------------
 mkdir -p "$WORK"
-VKERNEL=$(docker exec danos-iso-build sh -c 'ls /boot/vmlinuz-* | head -1')
-docker cp "danos-iso-build:$VKERNEL" "$WORK/vmlinuz"
-docker cp danos-iso-build:/bin/busybox "$WORK/busybox"
-docker cp danos-iso-build:/usr/lib/ISOLINUX/isolinux.bin "$WORK/isolinux.bin"
-docker cp danos-iso-build:/usr/lib/ISOLINUX/isohdpfx.bin "$WORK/isohdpfx.bin"
-docker cp danos-iso-build:/usr/lib/syslinux/modules/bios/ldlinux.c32 "$WORK/ldlinux.c32"
-docker cp danos-iso-build:/usr/lib/x86_64-linux-gnu/libc.so.6 "$WORK/libc.so.6"
-docker cp danos-iso-build:/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 "$WORK/ld-linux.so.2"
+VKERNEL=$(docker exec "$BUILD_CONTAINER" sh -c 'ls /boot/vmlinuz-* | head -1')
+docker cp "$BUILD_CONTAINER:$VKERNEL" "$WORK/vmlinuz"
+docker cp "$BUILD_CONTAINER:/bin/busybox" "$WORK/busybox"
+docker cp "$BUILD_CONTAINER:/usr/lib/ISOLINUX/isolinux.bin" "$WORK/isolinux.bin"
+docker cp "$BUILD_CONTAINER:/usr/lib/ISOLINUX/isohdpfx.bin" "$WORK/isohdpfx.bin"
+docker cp "$BUILD_CONTAINER:/usr/lib/syslinux/modules/bios/ldlinux.c32" "$WORK/ldlinux.c32"
+docker cp "$BUILD_CONTAINER:/usr/lib/x86_64-linux-gnu/libc.so.6" "$WORK/libc.so.6"
+docker cp "$BUILD_CONTAINER:/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2" "$WORK/ld-linux.so.2"
 MODULE_ROOTS='/lib/modules /usr/lib/modules'
-E1000=$(docker exec danos-iso-build sh -c \
+E1000=$(docker exec "$BUILD_CONTAINER" sh -c \
     'find /lib/modules /usr/lib/modules -name "e1000.ko*" 2>/dev/null | head -1')
-docker cp "danos-iso-build:$E1000" "$WORK/e1000.ko.raw"
-VMXNET3=$(docker exec danos-iso-build sh -c \
+docker cp "$BUILD_CONTAINER:$E1000" "$WORK/e1000.ko.raw"
+VMXNET3=$(docker exec "$BUILD_CONTAINER" sh -c \
     'find /lib/modules /usr/lib/modules -name "vmxnet3.ko*" 2>/dev/null | head -1')
-docker cp "danos-iso-build:$VMXNET3" "$WORK/vmxnet3.ko.raw"
-VIRTIO_NET=$(docker exec danos-iso-build sh -c \
+docker cp "$BUILD_CONTAINER:$VMXNET3" "$WORK/vmxnet3.ko.raw"
+VIRTIO_NET=$(docker exec "$BUILD_CONTAINER" sh -c \
     'find /lib/modules /usr/lib/modules -name "virtio_net.ko*" 2>/dev/null | head -1')
-docker cp "danos-iso-build:$VIRTIO_NET" "$WORK/virtio_net.ko.raw"
-NET_FAILOVER=$(docker exec danos-iso-build sh -c \
+docker cp "$BUILD_CONTAINER:$VIRTIO_NET" "$WORK/virtio_net.ko.raw"
+NET_FAILOVER=$(docker exec "$BUILD_CONTAINER" sh -c \
     'find /lib/modules /usr/lib/modules -name "net_failover.ko*" 2>/dev/null | head -1')
-FAILOVER=$(docker exec danos-iso-build sh -c \
+FAILOVER=$(docker exec "$BUILD_CONTAINER" sh -c \
     'find /lib/modules /usr/lib/modules -name "failover.ko*" 2>/dev/null | head -1')
-VIRTIO_PCI=$(docker exec danos-iso-build sh -c \
+VIRTIO_PCI=$(docker exec "$BUILD_CONTAINER" sh -c \
     'find /lib/modules /usr/lib/modules -name "virtio_pci.ko*" 2>/dev/null | head -1')
-UIO=$(docker exec danos-iso-build sh -c \
+UIO=$(docker exec "$BUILD_CONTAINER" sh -c \
     'find /lib/modules /usr/lib/modules -name "uio.ko*" 2>/dev/null | head -1')
-UIO_PCI_GENERIC=$(docker exec danos-iso-build sh -c \
+UIO_PCI_GENERIC=$(docker exec "$BUILD_CONTAINER" sh -c \
     'find /lib/modules /usr/lib/modules -name "uio_pci_generic.ko*" 2>/dev/null | head -1')
 for module in usb_common usbcore input_core hid xhci_hcd xhci_pci \
     ehci_hcd ehci_pci uhci_hcd ohci_hcd ohci_pci usbhid hid_generic \
     failover net_failover virtio_pci uio uio_pci_generic; do
   module_file="${module//_/-}"
-  source=$(docker exec danos-iso-build sh -c \
+  source=$(docker exec "$BUILD_CONTAINER" sh -c \
     "find /lib/modules /usr/lib/modules \\( -name '${module}.ko*' -o -name '${module_file}.ko*' \\) 2>/dev/null | head -1")
   eval "${module^^}=\$source"
   if test -n "$source"; then
-    docker cp "danos-iso-build:$source" "$WORK/${module}.ko.raw"
+    docker cp "$BUILD_CONTAINER:$source" "$WORK/${module}.ko.raw"
   fi
 done
 if test -x "$GNMIC_SRC"; then
@@ -136,8 +145,21 @@ if test -n "$VPP_IMAGE"; then
   # Keep the image container alive so readlink can resolve SONAME targets.
   VPP_CID=$(docker create "$VPP_IMAGE" sleep infinity)
   docker start "$VPP_CID" >/dev/null
-  trap 'docker rm -f danos-iso-build "$VPP_CID" >/dev/null 2>&1 || true' EXIT
+  trap 'docker rm -f "$BUILD_CONTAINER" "$VPP_CID" >/dev/null 2>&1 || true' EXIT
   mkdir -p "$WORK/initramfs"/{usr/bin,usr/lib/x86_64-linux-gnu/vpp_plugins,lib/x86_64-linux-gnu,etc/vpp,run/vpp,var/log/vpp}
+  copy_vpp_plugin() {
+    local plugin="$1" candidate
+    for candidate in \
+      "/usr/lib/x86_64-linux-gnu/vpp_plugins/$plugin" \
+      "/lib/x86_64-linux-gnu/vpp_plugins/$plugin"; do
+      if docker cp "$VPP_CID:$candidate" \
+          "$WORK/initramfs/usr/lib/x86_64-linux-gnu/vpp_plugins/$plugin" 2>/dev/null; then
+        return 0
+      fi
+    done
+    echo "ERROR: VPP runtime image lacks $plugin in standard plugin directories" >&2
+    return 1
+  }
   docker cp "$VPP_CID:/usr/bin/vpp" "$WORK/initramfs/usr/bin/vpp"
   docker cp "$VPP_CID:/usr/bin/vppctl" "$WORK/initramfs/usr/bin/vppctl"
   for etc_file in passwd group nsswitch.conf hosts; do
@@ -148,8 +170,7 @@ if test -n "$VPP_IMAGE"; then
   # builder image.  The guest profile is explicitly an integration image.
   docker cp "$VPP_CID:/lib/x86_64-linux-gnu/." \
     "$WORK/initramfs/lib/x86_64-linux-gnu/"
-  docker cp "$VPP_CID:/usr/lib/x86_64-linux-gnu/vpp_plugins/dpdk_plugin.so" \
-    "$WORK/initramfs/usr/lib/x86_64-linux-gnu/vpp_plugins/dpdk_plugin.so"
+  copy_vpp_plugin dpdk_plugin.so
   # Keep glibc and math/loader objects from the same Debian trixie VPP
   # runtime.  docker cp of a SONAME symlink can otherwise copy only the
   # link, leaving a mixed host/build-container ABI in the initramfs.
@@ -187,8 +208,7 @@ if test -n "$VPP_IMAGE"; then
     VPP_DPDK_BLOCK=''
   fi
   if test "$VPP_VMXNET3_NATIVE" = 1; then
-    docker cp "$VPP_CID:/usr/lib/x86_64-linux-gnu/vpp_plugins/vmxnet3_plugin.so" \
-      "$WORK/initramfs/usr/lib/x86_64-linux-gnu/vpp_plugins/vmxnet3_plugin.so"
+    copy_vpp_plugin vmxnet3_plugin.so
     if test "$VPP_DPDK_ENABLE" = 1; then
       VPP_PLUGIN_LINE='  plugin dpdk_plugin.so { enable }'
     else
@@ -198,8 +218,7 @@ if test -n "$VPP_IMAGE"; then
   plugin vmxnet3_plugin.so { enable }"
   fi
   if test "$VPP_PING_ENABLE" = 1; then
-    docker cp "$VPP_CID:/usr/lib/x86_64-linux-gnu/vpp_plugins/ping_plugin.so" \
-      "$WORK/initramfs/usr/lib/x86_64-linux-gnu/vpp_plugins/ping_plugin.so"
+    copy_vpp_plugin ping_plugin.so
     VPP_PLUGIN_LINE="${VPP_PLUGIN_LINE}$(printf '\n  plugin ping_plugin.so { enable }')"
   fi
   cat > "$WORK/initramfs/etc/vpp/startup.conf" <<EOF
@@ -231,9 +250,10 @@ EOF
   test "$(printf '%s\n' $VPP_DPDK_PORTS | wc -l)" -ge 2 && touch "$WORK/initramfs/vpp-dpdk-e1000-2port.enabled"
   test "$VPP_DPDK_TRAFFIC_TEST" = 1 && touch "$WORK/initramfs/vpp-dpdk-traffic-test.enabled"
   mkdir -p "$WORK/initramfs/etc/danos"
-  printf 'VPP_PEER_MAC1=%q\nVPP_PEER_MAC2=%q\nVPP_PEER_IP1=%q\nVPP_PEER_IP2=%q\nVPP_IF1_ADDR=%q\nVPP_IF2_ADDR=%q\n' \
+  printf 'VPP_PEER_MAC1=%q\nVPP_PEER_MAC2=%q\nVPP_PEER_IP1=%q\nVPP_PEER_IP2=%q\nVPP_IF1_ADDR=%q\nVPP_IF2_ADDR=%q\nVPP_TRAFFIC_TEST_DELAY=%q\nVPP_TRAFFIC_READY_ENDPOINT=%q\nVPP_TRAFFIC_READY_TIMEOUT=%q\n' \
     "$VPP_PEER_MAC1" "$VPP_PEER_MAC2" "$VPP_PEER_IP1" "$VPP_PEER_IP2" \
-    "$VPP_IF1_ADDR" "$VPP_IF2_ADDR" \
+    "$VPP_IF1_ADDR" "$VPP_IF2_ADDR" "$VPP_TRAFFIC_TEST_DELAY" \
+    "$VPP_TRAFFIC_READY_ENDPOINT" "$VPP_TRAFFIC_READY_TIMEOUT" \
     > "$WORK/initramfs/etc/danos/vpp-traffic.env"
   chmod +x "$WORK/initramfs/usr/bin/vpp" "$WORK/initramfs/usr/bin/vppctl"
   docker rm -f "$VPP_CID" >/dev/null
@@ -261,7 +281,7 @@ if test -n "$VPP_IMAGE"; then
        "$WORK/initramfs/lib64/libc.so.6"
 fi
 # mgrd built in step 1 lives in the container; fetch fresh copy
-docker cp danos-iso-build:/tmp/b/danos-mgrd/danos-mgrd "$WORK/initramfs/bin/mgrd"
+docker cp "$BUILD_CONTAINER:/tmp/b/danos-mgrd/danos-mgrd" "$WORK/initramfs/bin/mgrd"
 chmod +x "$WORK/initramfs/bin/mgrd"
 if test -x "$WORK/../build/danos-test/fib_live_bridge"; then
   cp "$WORK/../build/danos-test/fib_live_bridge" "$WORK/initramfs/bin/fib_live_bridge"
@@ -316,14 +336,14 @@ for module in usb_common usbcore input_core hid xhci_hcd xhci_pci \
   test -f "$WORK/${module}.ko.raw" || continue
   case "$source" in
     *.xz) xz -q -d -c "$WORK/${module}.ko.raw" > "$WORK/initramfs/modules/${module}.ko" ;;
-    *.zst) docker exec danos-iso-build zstd -q -d -c "$source" > "$WORK/initramfs/modules/${module}.ko" ;;
+    *.zst) docker exec "$BUILD_CONTAINER" zstd -q -d -c "$source" > "$WORK/initramfs/modules/${module}.ko" ;;
     *)    cp "$WORK/${module}.ko.raw" "$WORK/initramfs/modules/${module}.ko" ;;
   esac
 done
 
 # --- 4. pack initramfs ----------------------------------------------------
 cd "$WORK/initramfs"
-find . | cpio -o -H newc --quiet | gzip -9 > "$WORK/initramfs.cpio.gz"
+find . | cpio -o -H newc --quiet | gzip -6 > "$WORK/initramfs.cpio.gz"
 
 # --- 5. ISO ---------------------------------------------------------------
 rm -rf "$WORK/isoroot"; mkdir -p "$WORK/isoroot/isolinux"

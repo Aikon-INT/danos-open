@@ -22,13 +22,24 @@ require 'VPP API socket: ready' "$DANOS_LOG" 'VPP API socket'
 require 'VPP stats socket: ready' "$DANOS_LOG" 'VPP stats socket'
 require 'VPP-DPDK-PING-0 PASS' "$DANOS_LOG" 'packet reachability path 0'
 require 'VPP-DPDK-PING-1 PASS' "$DANOS_LOG" 'packet reachability path 1'
+require 'VPP-TRAFFIC-PEER-READY PASS endpoint=10\.0\.3\.2:[0-9]+' "$DANOS_LOG" 'FRR dataplane peer readiness'
+require 'VPP-ECMP-FIB PASS buckets=([2-9]|[1-9][0-9]+)' "$DANOS_LOG" 'resolved ECMP forwarding buckets'
+require 'VPP-ECMP-SOURCE PASS address=30\.30\.30\.1 interface=loop[0-9]+' "$DANOS_LOG" 'symmetric ECMP probe source'
 require 'VPP-ECMP-MULTI-FLOW PASS' "$DANOS_LOG" 'ECMP multi-destination traffic'
-require 'VPP-ECMP-COUNTERS-BEFORE' "$DANOS_LOG" 'ECMP counters before traffic'
-require 'VPP-ECMP-COUNTERS-AFTER' "$DANOS_LOG" 'ECMP counters after traffic'
+for destination in 30.30.30.2 30.30.30.3 30.30.30.4 30.30.30.5; do
+    require "VPP-ECMP-FLOW target=${destination} tx=3 rx=3 loss=0" "$DANOS_LOG" \
+        "ECMP flow ${destination} received all probes"
+done
+require 'VPP-ECMP-BUCKETS bucket0_packets=[1-9][0-9]* bucket1_packets=[1-9][0-9]*' \
+    "$DANOS_LOG" 'traffic observed on both ECMP output interfaces'
+if rg -q "unknown input .*ping|VPP-DPDK-PING-[01] FAIL|VPP-TRAFFIC-PEER-READY FAIL|VPP-ECMP-FIB FAIL|VPP-ECMP-SOURCE FAIL|VPP-ECMP-FLOW FAIL|VPP-ECMP-MULTI-FLOW FAIL" "$DANOS_LOG"; then
+    echo '[FAIL] VPP ping/ECMP command failed despite any PASS markers'
+    exit 1
+fi
 require 'VPP-RESTART-TEST PASS' "$DANOS_LOG" 'VPP process restart and route replay'
 require 'frr route event type=10 add=1' "$DANOS_LOG" 'BGP route add into DANOS'
 require 'frr route event type=10 add=0' "$DANOS_LOG" 'BGP route withdraw from DANOS'
-require 'End-of-RIB.*172\.31\.0\.3|172\.31\.0\.3.*End-of-RIB|172\.31\.0\.3.*65002|65002.*172\.31\.0\.3' "$FRR_LOG" 'FRR BGP route exchange'
+require 'FRR-PEER-ROUTE-READY PASS' "$FRR_LOG" 'FRR BGP peer route learned before dataplane traffic'
 require 'Full' "$FRR_LOG" 'FRR OSPF adjacency'
 require 'command=31' "$DANOS_LOG" 'ZAPI route add'
 require 'command=32' "$DANOS_LOG" 'ZAPI route withdraw'

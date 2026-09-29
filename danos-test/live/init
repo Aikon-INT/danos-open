@@ -40,6 +40,11 @@ say_live() {
     echo "$*" > /dev/console 2>/dev/null || true
     echo "$*" > /dev/ttyS0 2>/dev/null || true
 }
+say_live_file() {
+    while IFS= read -r live_line; do
+        say_live "$live_line"
+    done < "$1"
+}
 for module in usb_common usbcore input_core hid xhci_hcd xhci_pci \
     ehci_hcd ehci_pci uhci_hcd ohci_hcd ohci_pci usbhid hid_generic; do
     if test -f "/modules/${module}.ko"; then
@@ -125,17 +130,17 @@ if test -e /vpp-dpdk.enabled; then
     echo "--- starting optional VPP/DPDK guest profile"
     echo "--- VPP binary probe ---"
     /usr/bin/vpp --version > /var/log/vpp/vpp-probe.log 2>&1 || true
-    cat /var/log/vpp/vpp-probe.log > /dev/console 2>&1
+    say_live_file /var/log/vpp/vpp-probe.log
     /usr/bin/vpp -c /etc/vpp/startup.conf >/var/log/vpp/vpp-console.log 2>&1 &
     sleep 2
     echo "--- VPP guest startup log ---"
-    cat /var/log/vpp/vpp-console.log > /dev/console 2>&1
+    say_live_file /var/log/vpp/vpp-console.log
     for vpp_wait in $(seq 1 30); do
         test -S /run/vpp/api.sock && break
         sleep 1
     done
-    test -S /run/vpp/api.sock && echo "VPP API socket: ready" > /dev/console || echo "VPP API socket: missing" > /dev/console
-    test -S /run/vpp/stats.sock && echo "VPP stats socket: ready" > /dev/console || echo "VPP stats socket: missing" > /dev/console
+    test -S /run/vpp/api.sock && say_live "VPP API socket: ready" || say_live "VPP API socket: missing"
+    test -S /run/vpp/stats.sock && say_live "VPP stats socket: ready" || say_live "VPP stats socket: missing"
     vpp_if1=GigabitEthernet0/2/0
     vpp_if2=GigabitEthernet0/3/0
     if test -e /vpp-vmxnet3-native.enabled; then
@@ -179,44 +184,137 @@ if test -e /vpp-dpdk.enabled; then
             | grep -Eq "^${vpp_if1}[[:space:]].*up" \
             && /usr/bin/vppctl -s /run/vpp/cli.sock show interface 2>/dev/null \
             | grep -Eq "^${vpp_if2}[[:space:]].*up"; then
-            echo "VPP-DPDK-INTERFACES PASS" > /dev/console
+            say_live "VPP-DPDK-INTERFACES PASS"
         else
-            echo "VPP-DPDK-INTERFACES FAIL" > /dev/console
+            say_live "VPP-DPDK-INTERFACES FAIL"
         fi
         if test -e /vpp-dpdk-traffic-test.enabled; then
-            echo "--- VPP DPDK traffic test ---" > /dev/console
-            echo "VPP-ECMP-COUNTERS-BEFORE" > /dev/console
+            say_live "--- VPP DPDK traffic test ---"
+            traffic_peer_ready=1
+            if test -n "${VPP_TRAFFIC_READY_ENDPOINT:-}"; then
+                ready_host=${VPP_TRAFFIC_READY_ENDPOINT#tcp://}
+                ready_host=${ready_host%:*}
+                ready_port=${VPP_TRAFFIC_READY_ENDPOINT##*:}
+                traffic_peer_ready=0
+                say_live "VPP-TRAFFIC-PEER-READY waiting endpoint=$ready_host:$ready_port timeout=${VPP_TRAFFIC_READY_TIMEOUT:-600}s"
+                for ready_try in $(seq 1 "${VPP_TRAFFIC_READY_TIMEOUT:-600}"); do
+                    if /bin/busybox nc -w 1 "$ready_host" "$ready_port" \
+                        </dev/null >/dev/null 2>&1; then
+                        traffic_peer_ready=1
+                        break
+                    fi
+                    sleep 1
+                done
+                if test "$traffic_peer_ready" = 1; then
+                    say_live "VPP-TRAFFIC-PEER-READY PASS endpoint=$ready_host:$ready_port"
+                else
+                    say_live "VPP-TRAFFIC-PEER-READY FAIL endpoint=$ready_host:$ready_port"
+                fi
+            fi
+            if test "${VPP_TRAFFIC_TEST_DELAY:-0}" -gt 0; then
+                say_live "VPP-TRAFFIC-SETTLE delay=${VPP_TRAFFIC_TEST_DELAY}s"
+                sleep "$VPP_TRAFFIC_TEST_DELAY"
+            fi
+            say_live "VPP-ECMP-COUNTERS-BEFORE"
             /usr/bin/vppctl -s /run/vpp/cli.sock show interface > /tmp/vpp-if-before.log 2>&1 || true
-            cat /tmp/vpp-if-before.log > /dev/console 2>&1 || true
+            say_live_file /tmp/vpp-if-before.log
+            say_live "VPP-ECMP-NEIGHBORS"
+            /usr/bin/vppctl -s /run/vpp/cli.sock show ip neighbor > /tmp/vpp-neighbor-before.log 2>&1 || true
+            say_live_file /tmp/vpp-neighbor-before.log
             if /usr/bin/vppctl -s /run/vpp/cli.sock ping "${VPP_PEER_IP1:-10.10.0.2}" repeat 3 > /tmp/vpp-ping0.log 2>&1 \
-                && ! grep -Eq 'unknown input|connect:|unknown interface|No such' /tmp/vpp-ping0.log; then
-                echo "VPP-DPDK-PING-0 PASS" > /dev/console
+                && grep -Fq 'Statistics: 3 sent, 3 received, 0% packet loss' /tmp/vpp-ping0.log; then
+                say_live "VPP-DPDK-PING-0 PASS"
             else
-                echo "VPP-DPDK-PING-0 FAIL" > /dev/console
+                say_live "VPP-DPDK-PING-0 FAIL"
             fi
             if /usr/bin/vppctl -s /run/vpp/cli.sock ping "${VPP_PEER_IP2:-10.20.0.2}" repeat 3 > /tmp/vpp-ping1.log 2>&1 \
-                && ! grep -Eq 'unknown input|connect:|unknown interface|No such' /tmp/vpp-ping1.log; then
-                echo "VPP-DPDK-PING-1 PASS" > /dev/console
+                && grep -Fq 'Statistics: 3 sent, 3 received, 0% packet loss' /tmp/vpp-ping1.log; then
+                say_live "VPP-DPDK-PING-1 PASS"
             else
-                echo "VPP-DPDK-PING-1 FAIL" > /dev/console
+                say_live "VPP-DPDK-PING-1 FAIL"
             fi
-            cat /tmp/vpp-ping0.log /tmp/vpp-ping1.log > /dev/console 2>&1 || true
-            ecmp_multi_ok=1
-            for ecmp_dst in 30.30.30.2 30.30.30.3 30.30.30.4 30.30.30.5; do
-                if ! /usr/bin/vppctl -s /run/vpp/cli.sock ping "$ecmp_dst" repeat 3 > /tmp/vpp-ecmp-${ecmp_dst}.log 2>&1 \
-                    || grep -Eq 'unknown input|connect:|unknown interface|No such' /tmp/vpp-ecmp-${ecmp_dst}.log; then
-                    ecmp_multi_ok=0
+            say_live_file /tmp/vpp-ping0.log
+            say_live_file /tmp/vpp-ping1.log
+
+            # Capture per-interface packet counters immediately before the
+            # multi-destination ECMP probes, so unrelated startup traffic
+            # cannot make a zero-forwarding ECMP run look successful.
+            /usr/bin/vppctl -s /run/vpp/cli.sock show interface "$vpp_if1" > /tmp/vpp-ecmp-if0-before.log 2>&1 || true
+            /usr/bin/vppctl -s /run/vpp/cli.sock show interface "$vpp_if2" > /tmp/vpp-ecmp-if1-before.log 2>&1 || true
+            ecmp_if0_before=$(awk '$1 == "rx" && $2 == "packets" {rx=$3} $1 == "tx" && $2 == "packets" {tx=$3} END {printf "%d %d", rx, tx}' /tmp/vpp-ecmp-if0-before.log)
+            ecmp_if1_before=$(awk '$1 == "rx" && $2 == "packets" {rx=$3} $1 == "tx" && $2 == "packets" {tx=$3} END {printf "%d %d", rx, tx}' /tmp/vpp-ecmp-if1-before.log)
+            set -- $ecmp_if0_before; ecmp_if0_rx_before=$1; ecmp_if0_tx_before=$2
+            set -- $ecmp_if1_before; ecmp_if1_rx_before=$1; ecmp_if1_tx_before=$2
+
+            ecmp_multi_ok=$traffic_peer_ready
+            ecmp_fib_file=/tmp/vpp-ecmp-fib.log
+            /usr/bin/vppctl -s /run/vpp/cli.sock show ip fib 30.30.30.0/24 > "$ecmp_fib_file" 2>&1 || true
+            if ! grep -Eq 'dpo-load-balance:.*buckets:([2-9]|[1-9][0-9]+)' "$ecmp_fib_file" \
+                || grep -q 'dpo-drop' "$ecmp_fib_file"; then
+                ecmp_multi_ok=0
+                say_live "VPP-ECMP-FIB FAIL (no resolved multi-bucket forwarding DPO)"
+            else
+                ecmp_bucket_count=$(sed -n 's/.*dpo-load-balance:.*buckets:\([0-9][0-9]*\).*/\1/p' "$ecmp_fib_file" | head -1)
+                say_live "VPP-ECMP-FIB PASS buckets=$ecmp_bucket_count"
+            fi
+            # Use an address from the tested destination subnet as the probe
+            # source. Each FRR peer can then return directly on its own
+            # dataplane link, independent of which ECMP bucket handled the
+            # request; a management-side source would force asymmetric return
+            # routing through the FRR peer link.
+            /usr/bin/vppctl -s /run/vpp/cli.sock create loopback interface \
+                > /tmp/vpp-ecmp-loopback.log 2>&1 || true
+            ecmp_source_if=$(sed -n 's/^\(loop[0-9][0-9]*\).*/\1/p' \
+                /tmp/vpp-ecmp-loopback.log | head -1)
+            if test -z "$ecmp_source_if"; then
+                ecmp_source_if=$(/usr/bin/vppctl -s /run/vpp/cli.sock show interface 2>/dev/null \
+                    | awk '$1 ~ /^loop[0-9]+$/ {print $1; exit}')
+            fi
+            ecmp_source_ready=0
+            if test -n "$ecmp_source_if"; then
+                /usr/bin/vppctl -s /run/vpp/cli.sock set interface state \
+                    "$ecmp_source_if" up >/dev/null 2>&1 || true
+                /usr/bin/vppctl -s /run/vpp/cli.sock set interface ip address \
+                    "$ecmp_source_if" 30.30.30.1/32 >/dev/null 2>&1 || true
+                if /usr/bin/vppctl -s /run/vpp/cli.sock show interface address 2>/dev/null \
+                    | grep -Fq '30.30.30.1/32'; then
+                    ecmp_source_ready=1
+                    say_live "VPP-ECMP-SOURCE PASS address=30.30.30.1 interface=$ecmp_source_if"
                 fi
-            done
-            if test "$ecmp_multi_ok" = 1; then
-                echo "VPP-ECMP-MULTI-FLOW PASS" > /dev/console
-            else
-                echo "VPP-ECMP-MULTI-FLOW FAIL" > /dev/console
             fi
-            echo "VPP-ECMP-COUNTERS-AFTER" > /dev/console
+            test "$ecmp_source_ready" = 1 || say_live "VPP-ECMP-SOURCE FAIL"
+            for ecmp_dst in 30.30.30.2 30.30.30.3 30.30.30.4 30.30.30.5; do
+                if test "$ecmp_source_ready" != 1 \
+                    || ! /usr/bin/vppctl -s /run/vpp/cli.sock ping "$ecmp_dst" source "$ecmp_source_if" repeat 3 > /tmp/vpp-ecmp-${ecmp_dst}.log 2>&1 \
+                    || ! grep -Fq 'Statistics: 3 sent, 3 received, 0% packet loss' /tmp/vpp-ecmp-${ecmp_dst}.log; then
+                    ecmp_multi_ok=0
+                    say_live "VPP-ECMP-FLOW FAIL target=$ecmp_dst"
+                else
+                    say_live "VPP-ECMP-FLOW target=$ecmp_dst tx=3 rx=3 loss=0"
+                fi
+                say_live_file /tmp/vpp-ecmp-${ecmp_dst}.log
+            done
+            /usr/bin/vppctl -s /run/vpp/cli.sock show interface "$vpp_if1" > /tmp/vpp-ecmp-if0-after.log 2>&1 || true
+            /usr/bin/vppctl -s /run/vpp/cli.sock show interface "$vpp_if2" > /tmp/vpp-ecmp-if1-after.log 2>&1 || true
+            ecmp_if0_after=$(awk '$1 == "rx" && $2 == "packets" {rx=$3} $1 == "tx" && $2 == "packets" {tx=$3} END {printf "%d %d", rx, tx}' /tmp/vpp-ecmp-if0-after.log)
+            ecmp_if1_after=$(awk '$1 == "rx" && $2 == "packets" {rx=$3} $1 == "tx" && $2 == "packets" {tx=$3} END {printf "%d %d", rx, tx}' /tmp/vpp-ecmp-if1-after.log)
+            set -- $ecmp_if0_after; ecmp_if0_rx_after=$1; ecmp_if0_tx_after=$2
+            set -- $ecmp_if1_after; ecmp_if1_rx_after=$1; ecmp_if1_tx_after=$2
+            ecmp_bucket0_delta=$((ecmp_if0_rx_after - ecmp_if0_rx_before + ecmp_if0_tx_after - ecmp_if0_tx_before))
+            ecmp_bucket1_delta=$((ecmp_if1_rx_after - ecmp_if1_rx_before + ecmp_if1_tx_after - ecmp_if1_tx_before))
+            say_live "VPP-ECMP-BUCKETS bucket0_packets=$ecmp_bucket0_delta bucket1_packets=$ecmp_bucket1_delta"
+            if test "$ecmp_bucket0_delta" -le 0 || test "$ecmp_bucket1_delta" -le 0; then
+                ecmp_multi_ok=0
+            fi
+            if test "$ecmp_multi_ok" = 1; then
+                say_live "VPP-ECMP-MULTI-FLOW PASS"
+            else
+                say_live "VPP-ECMP-MULTI-FLOW FAIL"
+            fi
+            say_live "VPP-ECMP-COUNTERS-AFTER"
             /usr/bin/vppctl -s /run/vpp/cli.sock show interface > /tmp/vpp-if-after.log 2>&1 || true
-            cat /tmp/vpp-if-after.log > /dev/console 2>&1 || true
-            echo "VPP-ECMP-DISTRIBUTION PARTIAL (peer reachability/counters captured; remote multi-flow generator required)" > /dev/console
+            say_live_file /tmp/vpp-if-after.log
+            say_live "VPP-ECMP-DISTRIBUTION PARTIAL (per-interface packet deltas captured; remote high-rate generator required)"
         fi
     fi
     /usr/bin/vppctl -s /run/vpp/cli.sock show interface > /dev/console 2>&1 || true
@@ -230,7 +328,8 @@ if test -e /vpp-dpdk.enabled; then
         bridge_host=${bridge_host%:*}
         bridge_port=${DANOS_ZEBRA_ENDPOINT##*:}
         for bridge_try in $(seq 1 12); do
-            if /bin/busybox nc -z -w 1 "$bridge_host" "$bridge_port" 2>/dev/null; then
+            if /bin/busybox nc -w 1 "$bridge_host" "$bridge_port" \
+                </dev/null >/dev/null 2>&1; then
                 break
             fi
             sleep 2
