@@ -6,26 +6,49 @@ TARGET_BDF="${DPDK_PCI_BDF:-}"
 PCI_DRIVER="${DPDK_PCI_DRIVER:-vfio-pci}"
 RESULT_FILE="${DPDK_RESULT_FILE:-}"
 STATUS=FAIL
+TARGET_VENDOR=""
+TARGET_DEVICE=""
+TARGET_BOUND_DRIVER=""
+ISO_SHA256=""
+DPDK_ISO="${DPDK_ISO:-}"
+if test -n "$DPDK_ISO" && test -r "$DPDK_ISO"; then
+    ISO_SHA256=$(sha256sum "$DPDK_ISO" | awk '{print $1}')
+fi
 finish_result() {
     local rc=$?
     test -n "$RESULT_FILE" || return "$rc"
     {
         printf 'status=%s\n' "$STATUS"
+        preflight_status="$STATUS"
+        test "$STATUS" != ENVIRONMENT-OPEN || preflight_status=PASS
+        printf 'preflight_status=%s\nperformance_status=ENVIRONMENT-OPEN\nstage=preflight\n' \
+            "$preflight_status"
         printf 'lane=pci-dpdk\n'
         printf 'commit=%s\n' "$(git rev-parse HEAD 2>/dev/null || true)"
-        printf 'iso_sha256=\npacket_size_bytes=64\nflows=\npackets_tx=\npackets_rx=\n'
+        printf 'iso_sha256=%s\npacket_size_bytes=64\nflows=\npackets_tx=\n' "$ISO_SHA256"
+        printf 'packets_rx=\n'
         printf 'loss_pct=\nduration_ms=\npps=\nmbps=\nrtt_p50_us=\nrtt_p99_us=\ncpu_pct=\n'
         printf 'ecmp_bucket_0=\necmp_bucket_1=\nrestart_replay=SKIP\n'
         printf 'exit_code=%s\n' "$rc"
         printf 'container=%q\n' "$CONTAINER"
         printf 'pci_driver=%q\n' "$PCI_DRIVER"
         printf 'target_bdf=%q\n' "$TARGET_BDF"
+        printf 'pci_vendor_id=%q\npci_device_id=%q\npci_bound_driver=%q\n' \
+            "$TARGET_VENDOR" "$TARGET_DEVICE" "$TARGET_BOUND_DRIVER"
         printf 'host_utc=%q\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     } > "$RESULT_FILE"
     return "$rc"
 }
 trap finish_result EXIT
 skip() { STATUS=SKIP; echo "$1"; exit 2; }
+test -n "$TARGET_BDF" || skip '[SKIP] DPDK_PCI_BDF must identify the NIC under test'
+[[ "$TARGET_BDF" =~ ^[[:xdigit:]]{4}:[[:xdigit:]]{2}:[[:xdigit:]]{2}\.[0-7]$ ]] || {
+    skip "[SKIP] invalid PCI BDF: $TARGET_BDF"
+}
+case "$PCI_DRIVER" in
+    vfio-pci|uio_pci_generic|igb_uio) ;;
+    *) skip "[SKIP] unsupported DPDK PCI binding driver: $PCI_DRIVER" ;;
+esac
 docker inspect "$CONTAINER" >/dev/null 2>&1 || {
     skip "[SKIP] DPDK container unavailable: $CONTAINER"
 }
@@ -46,18 +69,20 @@ run "grep -Eq 'HugePages_Total:[[:space:]]+[1-9]' /proc/meminfo" || {
 PCI=$(run "for d in /sys/bus/pci/devices/*; do test -e \"\$d/class\" || continue; test \"\$(cat \"\$d/class\")\" = 0x020000 && basename \"\$d\"; done" || true)
 test -n "$PCI" || skip '[SKIP] no PCI Ethernet device exposed'
 echo "[INFO] PCI Ethernet: $PCI"
-if [ -n "$TARGET_BDF" ]; then
-    printf '%s\n' "$PCI" | grep -qx "$TARGET_BDF" || {
-        skip "[SKIP] requested PCI BDF not exposed: $TARGET_BDF"
-    }
-    DRIVER=$(run "readlink -f /sys/bus/pci/devices/$TARGET_BDF/driver 2>/dev/null | xargs -r basename || true")
-    test "$DRIVER" = "$PCI_DRIVER" || {
-        skip "[SKIP] $TARGET_BDF bound to ${DRIVER:-unbound}, expected $PCI_DRIVER"
-    }
-    echo "[INFO] target $TARGET_BDF bound to $PCI_DRIVER"
-fi
+printf '%s\n' "$PCI" | grep -qx "$TARGET_BDF" || {
+    skip "[SKIP] requested PCI BDF not exposed as Ethernet: $TARGET_BDF"
+}
+TARGET_VENDOR=$(run "cat /sys/bus/pci/devices/$TARGET_BDF/vendor" 2>/dev/null || true)
+TARGET_DEVICE=$(run "cat /sys/bus/pci/devices/$TARGET_BDF/device" 2>/dev/null || true)
+TARGET_BOUND_DRIVER=$(run "readlink -f /sys/bus/pci/devices/$TARGET_BDF/driver 2>/dev/null | xargs -r basename || true")
+test "$TARGET_BOUND_DRIVER" = "$PCI_DRIVER" || {
+    skip "[SKIP] $TARGET_BDF bound to ${TARGET_BOUND_DRIVER:-unbound}, expected $PCI_DRIVER"
+}
+echo "[INFO] target $TARGET_BDF id=$TARGET_VENDOR:$TARGET_DEVICE bound to $TARGET_BOUND_DRIVER"
 run 'vppctl show plugins | grep -qi dpdk' || {
     skip '[SKIP] running VPP has no loaded DPDK plugin'
 }
-STATUS=PASS
+STATUS=ENVIRONMENT-OPEN
 echo "[PASS] container DPDK plugin, PCI/$PCI_DRIVER and hugepage preflight passed"
+echo "[OPEN] no real traffic-generator result supplied; 64-byte performance acceptance remains open"
+exit 2

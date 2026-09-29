@@ -32,7 +32,13 @@ if test "$dpdk_rc" -eq 0; then
     echo '[PASS] pci-dpdk-preflight'
 elif test "$dpdk_rc" -eq 2; then
     dpdk_status=ENVIRONMENT-OPEN
-    echo '[OPEN] pci-dpdk-preflight (structured SKIP)'
+    dpdk_result_status=$(sed -n 's/^status=//p' "$ROOT/build/v016-dpdk-preflight.env" | head -1)
+    dpdk_preflight_status=$(sed -n 's/^preflight_status=//p' "$ROOT/build/v016-dpdk-preflight.env" | head -1)
+    if test "$dpdk_result_status" = ENVIRONMENT-OPEN && test "$dpdk_preflight_status" = PASS; then
+        echo '[OPEN] pci-dpdk-preflight passed; traffic measurements are still open'
+    else
+        echo '[OPEN] pci-dpdk-preflight skipped; runner prerequisites are unavailable'
+    fi
 else
     dpdk_status=FAIL
     echo '[FAIL] pci-dpdk-preflight'
