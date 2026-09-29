@@ -16,8 +16,8 @@ observability and automated protocol/quality tests. The primary external
 dependency is a real VFIO/uio-bound DPDK runner; it is tracked as an
 environment gate and is not conflated with software dataplane acceptance.
 
-The current mainline is clean and synchronized with `origin/main` at
-`c8f1cda`; `v0.16.0-rc1` is the current release-candidate tag (the latest
+The current mainline is clean and synchronized with `origin/main`; `v0.16.0-rc1`
+is the current release-candidate tag (the latest
 formal release remains `v0.14.0`). The complete deterministic suite passes
 34/34. The backend contract gate also passes its capability/transaction,
 programming-pipeline, and composite-route stages. The live ISO shell now
