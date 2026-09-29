@@ -2,7 +2,7 @@
 
 ## Current assessment
 
-As of 2026-09-26, DANOS-Open v0.16 is in integration closure. The
+As of 2026-09-29, DANOS-Open v0.16 is in integration closure. The
 management-plane, frozen Route/NH/NHGroup contract, FRR 10.3 ZAPI path,
 VPP 26.10 API/FIB path, route lifecycle, ECMP, QEMU e1000 and VMware
 VMXNET3 polling-only lanes are covered by repeatable evidence. The remaining
@@ -17,9 +17,14 @@ dependency is a real VFIO/uio-bound DPDK runner; it is tracked as an
 environment gate and is not conflated with software dataplane acceptance.
 
 The current mainline is clean and synchronized with `origin/main` at
-`6bd9c4d`; `v0.16.0-rc1` is the current release-candidate tag (the latest
+`ffd0d39`; `v0.16.0-rc1` is the current release-candidate tag (the latest
 formal release remains `v0.14.0`). The complete deterministic suite passes
-34/34.
+34/34. The backend contract gate also passes its capability/transaction,
+programming-pipeline, and composite-route stages. The live ISO shell now
+binds to tty1 with a controlling terminal; a physical USB keyboard or serial
+failure remains an external hardware/console issue and is not inferred from
+the VMware console. A full I211-DPDK ISO rebuild remains environment-open
+until the Debian trixie VPP runtime image is restored.
 Privileged evidence is recorded separately from the DPDK hardware gate.
 
 ## Evidence snapshot
