@@ -137,10 +137,10 @@ if test -e /vpp-dpdk.enabled; then
     else
         vpp_dpdk_device=e1000
     fi
-    if test -e /vpp-dpdk-e1000.enabled || test "$vpp_dpdk_device" = vmxnet3; then
+    if test -e /vpp-dpdk-e1000.enabled || test "$vpp_dpdk_device" = vmxnet3 || test -e /vpp-dpdk-2port.enabled; then
         /usr/bin/vppctl -s /run/vpp/cli.sock set interface state "$vpp_if1" up > /dev/console 2>&1 || true
         /usr/bin/vppctl -s /run/vpp/cli.sock set interface ip address "$vpp_if1" "${VPP_IF1_ADDR:-10.10.0.1/24}" > /dev/console 2>&1 || true
-        if test -e /vpp-dpdk-e1000-2port.enabled; then
+        if test -e /vpp-dpdk-2port.enabled || test -e /vpp-dpdk-e1000-2port.enabled; then
             /usr/bin/vppctl -s /run/vpp/cli.sock set interface state "$vpp_if2" up > /dev/console 2>&1 || true
             /usr/bin/vppctl -s /run/vpp/cli.sock set interface ip address "$vpp_if2" "${VPP_IF2_ADDR:-10.20.0.1/24}" > /dev/console 2>&1 || true
             # The QEMU e1000 lane has deterministic peer MACs.  Install

@@ -220,6 +220,7 @@ EOF
   test "$VPP_VMXNET3_NATIVE" = 1 && printf '%s\n' "$VPP_DPDK_PORTS" > "$WORK/initramfs/vpp-vmxnet3-native-ports"
   test "$VPP_DPDK_DEVICE" = e1000 && touch "$WORK/initramfs/vpp-dpdk-e1000.enabled"
   printf '%s\n' "$VPP_DPDK_DEVICE" > "$WORK/initramfs/vpp-dpdk-device"
+  test "$(printf '%s\n' $VPP_DPDK_PORTS | wc -l)" -ge 2 && touch "$WORK/initramfs/vpp-dpdk-2port.enabled"
   test "$(printf '%s\n' $VPP_DPDK_PORTS | wc -l)" -ge 2 && touch "$WORK/initramfs/vpp-dpdk-e1000-2port.enabled"
   test "$VPP_DPDK_TRAFFIC_TEST" = 1 && touch "$WORK/initramfs/vpp-dpdk-traffic-test.enabled"
   mkdir -p "$WORK/initramfs/etc/danos"
