@@ -131,16 +131,16 @@ in this workspace, so its reported physical keyboard failure is unresolved.
 
 | Area | Current maturity | Main gap |
 |---|---|---|
-| DPA/core state and transactions | Foundation complete | Full rollback/verify contract |
+| DPA/core state and transactions | Foundation complete; v0.16 Route/NH/NHGroup backend lifecycle contract frozen and conformance gate passes | Broader object families and platform-specific rollback semantics |
 | WAL and restart recovery | Working baseline | Real-disk fsync and migration policy |
-| Desired/programmed reconciliation | Working baseline | Complete dependency deletion semantics |
+| Desired/programmed reconciliation | Route/NH/NHGroup add/delete, tombstone sweep and replay verified | Extend the frozen semantics to additional object families |
 | gNMI/CLI/NETCONF | Strong prototype | Multi-stream edge cases, in-process TLS, long-term protocol maintenance |
 | Linux backend | Real backend verified | Broader topology and recovery acceptance |
 | VPP backend | Runtime/conformance/API ECMP and packet-forwarding verified | Traffic scale and recovery |
-| FRR integration | Live bridge entry point plus ZAPI/BGP/OSPF baseline | Privileged route lifecycle, daemon hardening and BFD |
+| FRR integration | topology-110 verifies BGP route lifecycle, OSPF adjacency, ZAPI, FRR/zserv restart and VPP programming | Production hardening, partial ECMP path-failure convergence and BFD |
 | Data model | Route/VRF/NH plus primary interface IPv4/IPv6 model | VLAN, multi-address, tunnel/EVPN models |
 | Observability/security | Initial implementation | Operational semantics, HA and upgrade evidence |
-| OVS/P4/platform | Intentionally not started | Defer until backend contract is frozen |
+| OVS/P4/platform | Intentionally deferred | Revisit after v0.16 release qualification; frozen contract is necessary but not sufficient |
 
 ## Direction and principles
 
@@ -192,7 +192,7 @@ Execution status:
   topology now proves API-driven route, ECMP and packet forwarding; only the
   separate DPDK hardware lane remains open.
 - FRR BGP/OSPF route installation and withdrawal through the full DPA/backend
-  path: PASS in strict clean topology-109; the ZAPI mapper normalizes multipath route
+  path: PASS in strict clean topology-110; the ZAPI mapper normalizes multipath route
   messages into multi-member DPA NHGroups and has regression coverage.
 - The runnable `build/danos-test/fib_live_bridge` now connects a real FRR zebra
   socket, dispatches each message through the FIB mapper and DPA transaction,

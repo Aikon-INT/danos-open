@@ -12,6 +12,9 @@ mount -t tmpfs -o mode=0755 tmpfs /run 2>/dev/null || true
 if test -f /etc/danos/bridge.env; then
     . /etc/danos/bridge.env
 fi
+if test -f /etc/danos/build-info.env; then
+    . /etc/danos/build-info.env
+fi
 if test -f /etc/danos/vpp-traffic.env; then
     . /etc/danos/vpp-traffic.env
 fi
@@ -45,6 +48,9 @@ say_live_file() {
         say_live "$live_line"
     done < "$1"
 }
+if test -n "${DANOS_BUILD_COMMIT:-}"; then
+    say_live "DANOS-BUILD commit=${DANOS_BUILD_COMMIT} source_dirty=${DANOS_BUILD_SOURCE_DIRTY:-unknown} iso=${DANOS_BUILD_ISO:-unknown} no_rx_interrupts=${DANOS_BUILD_DPDK_NO_RX_INTERRUPTS:-unknown} utc=${DANOS_BUILD_UTC:-unknown}"
+fi
 for module in usb_common usbcore input_core hid xhci_hcd xhci_pci \
     ehci_hcd ehci_pci uhci_hcd ohci_hcd ohci_pci usbhid hid_generic; do
     if test -f "/modules/${module}.ko"; then

@@ -12,6 +12,13 @@
 
 set -eu
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+BUILD_COMMIT="$(git -C "$PROJECT_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
+if git -C "$PROJECT_ROOT" diff --quiet && git -C "$PROJECT_ROOT" diff --cached --quiet; then
+  BUILD_SOURCE_DIRTY=0
+else
+  BUILD_SOURCE_DIRTY=1
+fi
+BUILD_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 OUT_ISO="${1:-$PROJECT_ROOT/build/danos-open-live.iso}"
 case "$OUT_ISO" in
   /*) ;;
@@ -141,6 +148,16 @@ fi
 # --- 3. initramfs tree ---------------------------------------------------
 rm -rf "$WORK/initramfs"
 mkdir -p "$WORK/initramfs"/{bin,dev,proc,sys,tmp,lib,lib64,modules}
+mkdir -p "$WORK/initramfs/etc/danos"
+{
+  printf 'DANOS_BUILD_COMMIT=%q\n' "$BUILD_COMMIT"
+  printf 'DANOS_BUILD_SOURCE_DIRTY=%q\n' "$BUILD_SOURCE_DIRTY"
+  printf 'DANOS_BUILD_UTC=%q\n' "$BUILD_UTC"
+  printf 'DANOS_BUILD_ISO=%q\n' "$(basename "$OUT_ISO")"
+  printf 'DANOS_BUILD_VPP_IMAGE=%q\n' "$VPP_IMAGE"
+  printf 'DANOS_BUILD_DPDK_PORTS=%q\n' "$VPP_DPDK_PORTS"
+  printf 'DANOS_BUILD_DPDK_NO_RX_INTERRUPTS=%q\n' "$VPP_DPDK_NO_RX_INTERRUPTS"
+} > "$WORK/initramfs/etc/danos/build-info.env"
 if test -n "$VPP_IMAGE"; then
   # Keep the image container alive so readlink can resolve SONAME targets.
   VPP_CID=$(docker create "$VPP_IMAGE" sleep infinity)
