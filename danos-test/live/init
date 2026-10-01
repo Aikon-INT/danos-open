@@ -202,21 +202,35 @@ if test -e /vpp-dpdk.enabled; then
                 ready_host=${ready_host%:*}
                 ready_port=${VPP_TRAFFIC_READY_ENDPOINT##*:}
                 traffic_peer_ready=0
-                say_live "VPP-TRAFFIC-PEER-READY waiting endpoint=$ready_host:$ready_port timeout=${VPP_TRAFFIC_READY_TIMEOUT:-600}s"
-                for ready_try in $(seq 1 "${VPP_TRAFFIC_READY_TIMEOUT:-600}"); do
-                    if /bin/busybox nc -w 1 "$ready_host" "$ready_port" \
-                        </dev/null >/dev/null 2>&1; then
-                        traffic_peer_ready=1
-                        break
-                    fi
-                    sleep 1
-                done
+                # This is an optional traffic qualification lane, not a boot
+                # prerequisite.  Keep a finite default so a live ISO without
+                # its external FRR peer still reaches its local shell promptly.
+                # Dedicated lab runs may explicitly request a longer window.
+                ready_timeout=${VPP_TRAFFIC_READY_TIMEOUT:-15}
+                ready_attempt_timeout=${VPP_TRAFFIC_READY_ATTEMPT_TIMEOUT:-3}
+                say_live "VPP-TRAFFIC-PEER-READY waiting endpoint=$ready_host:$ready_port timeout=${ready_timeout}s"
+                if /bin/busybox timeout "$ready_timeout" /bin/busybox sh -c '
+                    while :; do
+                        if /bin/busybox timeout "$3" /bin/busybox nc -w 1 "$1" "$2" \
+                            </dev/null 2>/dev/null | grep -Fq FRR-DP-READY; then
+                            exit 0
+                        fi
+                        sleep 1
+                    done
+                ' sh "$ready_host" "$ready_port" "$ready_attempt_timeout"; then
+                    traffic_peer_ready=1
+                fi
                 if test "$traffic_peer_ready" = 1; then
                     say_live "VPP-TRAFFIC-PEER-READY PASS endpoint=$ready_host:$ready_port"
                 else
                     say_live "VPP-TRAFFIC-PEER-READY FAIL endpoint=$ready_host:$ready_port"
                 fi
             fi
+            if test "$traffic_peer_ready" = 0; then
+                # A missing external traffic peer must not strand the live
+                # console behind a long sequence of probes with no egress.
+                say_live "VPP-TRAFFIC-TEST SKIP reason=peer-not-ready"
+            else
             if test "${VPP_TRAFFIC_TEST_DELAY:-0}" -gt 0; then
                 say_live "VPP-TRAFFIC-SETTLE delay=${VPP_TRAFFIC_TEST_DELAY}s"
                 sleep "$VPP_TRAFFIC_TEST_DELAY"
@@ -317,29 +331,143 @@ if test -e /vpp-dpdk.enabled; then
             else
                 say_live "VPP-ECMP-MULTI-FLOW FAIL"
             fi
+            ecmp_failover_ok=1
+            say_live "VPP-ECMP-PATH-DOWN BEGIN interface=$vpp_if2"
+            if /usr/bin/vppctl -s /run/vpp/cli.sock set interface state "$vpp_if2" down \
+                >/tmp/vpp-ecmp-path-down.log 2>&1; then
+                sleep 2
+                /usr/bin/vppctl -s /run/vpp/cli.sock show interface "$vpp_if2" \
+                    > /tmp/vpp-ecmp-path-down-state.log 2>&1 || true
+                say_live_file /tmp/vpp-ecmp-path-down-state.log
+                if ! grep -Eq "^${vpp_if2}[[:space:]].*down" /tmp/vpp-ecmp-path-down-state.log; then
+                    ecmp_failover_ok=0
+                fi
+                if /usr/bin/vppctl -s /run/vpp/cli.sock ip route del 30.30.30.0/24 \
+                    via "${VPP_PEER_IP2:-10.20.0.2}" "$vpp_if2" \
+                    >/tmp/vpp-ecmp-path-withdraw.log 2>&1; then
+                    say_live "VPP-ECMP-NH-WITHDRAW PASS nexthop=${VPP_PEER_IP2:-10.20.0.2} interface=$vpp_if2"
+                else
+                    ecmp_failover_ok=0
+                    say_live "VPP-ECMP-NH-WITHDRAW FAIL nexthop=${VPP_PEER_IP2:-10.20.0.2} interface=$vpp_if2"
+                fi
+                say_live_file /tmp/vpp-ecmp-path-withdraw.log
+                /usr/bin/vppctl -s /run/vpp/cli.sock show ip fib 30.30.30.0/24 \
+                    > /tmp/vpp-ecmp-path-down-fib.log 2>&1 || true
+                down_buckets=$(sed -n 's/.*dpo-load-balance:.*buckets:\([0-9][0-9]*\).*/\1/p' \
+                    /tmp/vpp-ecmp-path-down-fib.log | head -1)
+                say_live "VPP-ECMP-PATH-DOWN-BUCKETS buckets=${down_buckets:-0}"
+                say_live "VPP-ECMP-PATH-DOWN-FIB"
+                say_live_file /tmp/vpp-ecmp-path-down-fib.log
+                /usr/bin/vppctl -s /run/vpp/cli.sock show ip neighbor \
+                    > /tmp/vpp-ecmp-path-down-neighbors.log 2>&1 || true
+                say_live "VPP-ECMP-PATH-DOWN-NEIGHBORS"
+                say_live_file /tmp/vpp-ecmp-path-down-neighbors.log
+                if test "${down_buckets:-0}" != 1; then
+                    ecmp_failover_ok=0
+                fi
+                sleep 2
+                for ecmp_dst in 30.30.30.2 30.30.30.3 30.30.30.4 30.30.30.5; do
+                    if /usr/bin/vppctl -s /run/vpp/cli.sock ping "$ecmp_dst" \
+                        source "$ecmp_source_if" repeat 5 interval 0.2 > "/tmp/vpp-ecmp-down-${ecmp_dst}.log" 2>&1 \
+                        && grep -Fq 'Statistics: 5 sent, 5 received, 0% packet loss' \
+                            "/tmp/vpp-ecmp-down-${ecmp_dst}.log"; then
+                        say_live "VPP-ECMP-PATH-DOWN-FLOW target=$ecmp_dst tx=5 rx=5 loss=0"
+                    else
+                        ecmp_failover_ok=0
+                        say_live "VPP-ECMP-PATH-DOWN-FLOW-FAIL target=$ecmp_dst"
+                    fi
+                    say_live_file "/tmp/vpp-ecmp-down-${ecmp_dst}.log"
+                done
+            else
+                ecmp_failover_ok=0
+                say_live "VPP-ECMP-PATH-DOWN-FAIL interface=$vpp_if2"
+                say_live_file /tmp/vpp-ecmp-path-down.log
+            fi
+            # Always restore the dataplane port, even when failover probes fail.
+            if ! /usr/bin/vppctl -s /run/vpp/cli.sock set interface state "$vpp_if2" up \
+                >/tmp/vpp-ecmp-path-up.log 2>&1; then
+                ecmp_failover_ok=0
+                say_live "VPP-ECMP-PATH-UP-FAIL interface=$vpp_if2"
+                say_live_file /tmp/vpp-ecmp-path-up.log
+            fi
+            if /usr/bin/vppctl -s /run/vpp/cli.sock ip route add 30.30.30.0/24 \
+                via "${VPP_PEER_IP2:-10.20.0.2}" "$vpp_if2" \
+                >/tmp/vpp-ecmp-path-restore.log 2>&1; then
+                say_live "VPP-ECMP-NH-RESTORE PASS nexthop=${VPP_PEER_IP2:-10.20.0.2} interface=$vpp_if2"
+            else
+                ecmp_failover_ok=0
+                say_live "VPP-ECMP-NH-RESTORE FAIL nexthop=${VPP_PEER_IP2:-10.20.0.2} interface=$vpp_if2"
+            fi
+            say_live_file /tmp/vpp-ecmp-path-restore.log
+            sleep 3
+            ecmp_restored_buckets=0
+            for ecmp_restore_wait in $(seq 1 30); do
+                /usr/bin/vppctl -s /run/vpp/cli.sock show interface "$vpp_if2" \
+                    > /tmp/vpp-ecmp-path-up-state.log 2>&1 || true
+                /usr/bin/vppctl -s /run/vpp/cli.sock show ip fib 30.30.30.0/24 \
+                    > /tmp/vpp-ecmp-path-up-fib.log 2>&1 || true
+                ecmp_restored_buckets=$(sed -n 's/.*dpo-load-balance:.*buckets:\([0-9][0-9]*\).*/\1/p' \
+                    /tmp/vpp-ecmp-path-up-fib.log | head -1)
+                if grep -Eq "^${vpp_if2}[[:space:]]+[0-9]+[[:space:]]+up[[:space:]]" /tmp/vpp-ecmp-path-up-state.log \
+                    && test "${ecmp_restored_buckets:-0}" -ge 2; then
+                    break
+                fi
+                sleep 1
+            done
+            say_live_file /tmp/vpp-ecmp-path-up-state.log
+            say_live "VPP-ECMP-PATH-UP-FIB"
+            say_live_file /tmp/vpp-ecmp-path-up-fib.log
+            if ! grep -Eq "^${vpp_if2}[[:space:]]+[0-9]+[[:space:]]+up[[:space:]]" /tmp/vpp-ecmp-path-up-state.log \
+                || test "${ecmp_restored_buckets:-0}" -lt 2; then
+                ecmp_failover_ok=0
+            fi
+            # Prime neighbor/adjacency resolution after rejoining the path;
+            # then begin the measured restore probes with a fresh ping flow.
+            /usr/bin/vppctl -s /run/vpp/cli.sock ping 10.20.0.2 repeat 2 interval 0.2 \
+                >/tmp/vpp-ecmp-path-up-prime.log 2>&1 || true
+            sleep 2
+            for ecmp_dst in 30.30.30.2 30.30.30.3 30.30.30.4 30.30.30.5; do
+                if /usr/bin/vppctl -s /run/vpp/cli.sock ping "$ecmp_dst" \
+                    source "$ecmp_source_if" repeat 5 interval 0.2 > "/tmp/vpp-ecmp-up-${ecmp_dst}.log" 2>&1 \
+                    && grep -Fq 'Statistics: 5 sent, 5 received, 0% packet loss' \
+                        "/tmp/vpp-ecmp-up-${ecmp_dst}.log"; then
+                    say_live "VPP-ECMP-PATH-UP-FLOW target=$ecmp_dst tx=5 rx=5 loss=0"
+                else
+                    ecmp_failover_ok=0
+                    say_live "VPP-ECMP-PATH-UP-FLOW-FAIL target=$ecmp_dst"
+                fi
+                say_live_file "/tmp/vpp-ecmp-up-${ecmp_dst}.log"
+            done
+            if test "$ecmp_failover_ok" = 1; then
+                say_live "VPP-ECMP-PATH-FAILOVER PASS interface=$vpp_if2 probes=20"
+                say_live "VPP-ECMP-PATH-RESTORE PASS interface=$vpp_if2 buckets=$ecmp_restored_buckets probes=20"
+            else
+                say_live "VPP-ECMP-PATH-FAILOVER FAIL interface=$vpp_if2"
+                say_live "VPP-ECMP-PATH-RESTORE FAIL interface=$vpp_if2 buckets=${ecmp_restored_buckets:-0}"
+            fi
             say_live "VPP-ECMP-COUNTERS-AFTER"
             /usr/bin/vppctl -s /run/vpp/cli.sock show interface > /tmp/vpp-if-after.log 2>&1 || true
             say_live_file /tmp/vpp-if-after.log
             say_live "VPP-ECMP-DISTRIBUTION PARTIAL (per-interface packet deltas captured; remote high-rate generator required)"
         fi
+            fi
     fi
     /usr/bin/vppctl -s /run/vpp/cli.sock show interface > /dev/console 2>&1 || true
     /usr/bin/vppctl -s /run/vpp/cli.sock show hardware-interfaces > /dev/console 2>&1 || true
     if test -e /danos-fib-bridge.enabled && test -x /bin/fib_live_bridge \
         && test -r /etc/danos/bridge.env; then
         . /etc/danos/bridge.env
-        # Give the persistent FRR zserv proxy a bounded startup window.
-        # The bridge still retains reconnect handling after this gate.
+        # Start the persistent bridge immediately. It reconnects on its own;
+        # waiting here would delay the local console when FRR is absent.
         bridge_host=${DANOS_ZEBRA_ENDPOINT#tcp://}
         bridge_host=${bridge_host%:*}
         bridge_port=${DANOS_ZEBRA_ENDPOINT##*:}
-        for bridge_try in $(seq 1 12); do
-            if /bin/busybox nc -w 1 "$bridge_host" "$bridge_port" \
-                </dev/null >/dev/null 2>&1; then
-                break
-            fi
-            sleep 2
-        done
+        if /bin/busybox nc -w 1 "$bridge_host" "$bridge_port" \
+            </dev/null >/dev/null 2>&1; then
+            say_live "FRR-ZAPI-ENDPOINT ready=$bridge_host:$bridge_port"
+        else
+            say_live "FRR-ZAPI-ENDPOINT unavailable=$bridge_host:$bridge_port reconnect=enabled"
+        fi
         echo "FRR bridge link state" > /dev/console
         ip addr show eth0 > /dev/console 2>&1 || true
         ip route show > /dev/console 2>&1 || true
@@ -411,7 +539,7 @@ if test -e /vpp-dpdk.enabled; then
                 echo "VPP-RESTART-TEST FAIL" | tee /dev/console /dev/ttyS0 >/dev/null
                 tail -n 80 /var/log/vpp/vpp-restart.log > /dev/console 2>&1 || true
             fi
-        )
+        ) &
     fi
 fi
 

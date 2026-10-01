@@ -5,7 +5,10 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 RESULT_FILE="${V016_GATE_RESULT_FILE:-$ROOT/build/v016-release-gate.env}"
 QEMU_TOPOLOGY_DIR="${QEMU_TOPOLOGY_DIR:-$ROOT/build/qemu-frr-vpp-topology-110}"
 VMWARE_MIN_PPS="${VMWARE_MIN_PPS:-50}"
-USB_KEYBOARD_ISO="${V016_USB_KEYBOARD_ISO:-$ROOT/build/danos-open-v0.16.0-rc1-i211-dpdk-usb-hid-final.iso}"
+# Exercise the console and mgrd without enabling a hardware-specific DPDK
+# profile.  The I211 image binds PCI NICs for the physical runner and is not a
+# suitable generic live-console smoke image.
+USB_KEYBOARD_ISO="${V016_USB_KEYBOARD_ISO:-$ROOT/build/danos-open-v0.16.0-rc1-live-console.iso}"
 failures=0
 run_gate() {
     local name="$1"; shift

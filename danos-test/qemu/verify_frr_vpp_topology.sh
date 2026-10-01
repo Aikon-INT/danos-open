@@ -32,7 +32,21 @@ for destination in 30.30.30.2 30.30.30.3 30.30.30.4 30.30.30.5; do
 done
 require 'VPP-ECMP-BUCKETS bucket0_packets=[1-9][0-9]* bucket1_packets=[1-9][0-9]*' \
     "$DANOS_LOG" 'traffic observed on both ECMP output interfaces'
-if rg -q "unknown input .*ping|VPP-DPDK-PING-[01] FAIL|VPP-TRAFFIC-PEER-READY FAIL|VPP-ECMP-FIB FAIL|VPP-ECMP-SOURCE FAIL|VPP-ECMP-FLOW FAIL|VPP-ECMP-MULTI-FLOW FAIL" "$DANOS_LOG"; then
+require 'VPP-ECMP-NH-WITHDRAW PASS nexthop=10\.20\.0\.2 interface=GigabitEthernet0/3/0' \
+    "$DANOS_LOG" 'second ECMP next hop withdrawn from VPP FIB'
+require 'VPP-ECMP-PATH-DOWN-BUCKETS buckets=1' "$DANOS_LOG" \
+    'FIB converged to the surviving ECMP bucket'
+for destination in 30.30.30.2 30.30.30.3 30.30.30.4 30.30.30.5; do
+    require "VPP-ECMP-PATH-DOWN-FLOW target=${destination} tx=5 rx=5 loss=0" "$DANOS_LOG" \
+        "surviving ECMP path forwards ${destination} during next-hop withdrawal"
+done
+require 'VPP-ECMP-PATH-UP-FLOW target=30\.30\.30\.[2345] tx=5 rx=5 loss=0' \
+    "$DANOS_LOG" 'restored ECMP paths forward sampled destinations'
+require 'VPP-ECMP-NH-RESTORE PASS nexthop=10\.20\.0\.2 interface=GigabitEthernet0/3/0' \
+    "$DANOS_LOG" 'second ECMP next hop restored into VPP FIB'
+require 'VPP-ECMP-PATH-RESTORE PASS interface=GigabitEthernet0/3/0 buckets=([2-9]|[1-9][0-9]+) probes=20' \
+    "$DANOS_LOG" 'restored path rejoins ECMP and sampled destinations recover'
+if rg -q "unknown input .*ping|VPP-DPDK-PING-[01] FAIL|VPP-TRAFFIC-PEER-READY FAIL|VPP-ECMP-FIB FAIL|VPP-ECMP-SOURCE FAIL|VPP-ECMP-FLOW FAIL|VPP-ECMP-MULTI-FLOW FAIL|VPP-ECMP-(NH-(WITHDRAW|RESTORE)|PATH-(DOWN|UP))-FAIL|VPP-ECMP-PATH-(DOWN|UP)-FLOW-FAIL|VPP-ECMP-PATH-(FAILOVER|RESTORE) FAIL" "$DANOS_LOG"; then
     echo '[FAIL] VPP ping/ECMP command failed despite any PASS markers'
     exit 1
 fi
