@@ -28,6 +28,9 @@ run_gate ctest ctest --test-dir "$ROOT/build" --output-on-failure
 run_gate qemu-live-console-and-mgrd-recovery \
     python3 "$ROOT/danos-test/live/verify_usb_keyboard_qemu.py" \
     "$USB_KEYBOARD_ISO" --mgrd-restart
+run_gate qemu-live-serial-root-shell \
+    python3 "$ROOT/danos-test/live/verify_serial_shell_qemu.py" \
+    "$USB_KEYBOARD_ISO" --serial-log "$ROOT/build/v016-serial-root-shell-qemu.log"
 run_gate qemu-frr-vpp env QEMU_TOPOLOGY_DIR="$QEMU_TOPOLOGY_DIR" \
     bash "$ROOT/danos-test/qemu/verify_frr_vpp_topology.sh"
 run_gate vmware-vmxnet3 env VMWARE_MIN_PPS="$VMWARE_MIN_PPS" \

@@ -598,6 +598,16 @@ sleep 1
 
 say_live "--- live system ready. shell:"
 say_live "LIVE-SHELL-READY"
+# The serial port is also an interactive recovery console for appliances where
+# firmware/USB keyboard enumeration prevents access to the VGA shell. This is a
+# root shell on the trusted physical UART, equivalent to physical VGA access.
+if test -c /dev/ttyS0; then
+    say_live "SERIAL-SHELL-READY ttyS0 115200 8N1 (physical-console root access)"
+    (
+        /bin/busybox setsid /bin/busybox cttyhack /bin/busybox sh \
+            </dev/ttyS0 >/dev/ttyS0 2>&1 || true
+    ) &
+fi
 # Bind the interactive shell to tty1 when a local VGA keyboard is present.
 # /dev/console is a valid output sink but may not provide a controlling tty,
 # which leaves a physical USB keyboard unable to deliver input.
