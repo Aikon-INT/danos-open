@@ -56,6 +56,10 @@ remain unresolved. The PCI
 preflight against the requested I211 BDF returns `SKIP` here because this host
 does not expose that device and has zero HugePages; no I211 performance result
 has been recorded.
+An additional 600-second passive `/dev/ttyUSB0` capture using r8 also received
+zero bytes and produced `SKIP` (no `DANOS-INIT-ENTER`); the physical target did
+not reboot/send serial output during the window. Local PCI inventory confirms
+only Intel Wi-Fi and RTL8168, not the remote I211 runner.
 
 ## Evidence snapshot
 
