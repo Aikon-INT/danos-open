@@ -608,8 +608,8 @@ if test -c /dev/ttyS0; then
         # line discipline explicitly before launching ash; otherwise some
         # firmware/USB-UART paths echo bytes but never submit a line to ash.
         /bin/busybox stty -F /dev/ttyS0 115200 sane clocal echo || true
-        /bin/busybox setsid /bin/busybox cttyhack /bin/busybox sh -i \
-            </dev/ttyS0 >/dev/ttyS0 2>&1 || true
+        /bin/busybox setsid /bin/busybox sh -c \
+            'exec /bin/busybox sh -i </dev/ttyS0 >/dev/ttyS0 2>&1' || true
     ) &
 fi
 # Bind the interactive shell to tty1 when a local VGA keyboard is present.
@@ -618,8 +618,8 @@ fi
 if test -c /dev/tty1; then
     # cttyhack makes tty1 the controlling terminal, which is required for
     # local USB keyboard input when PID 1 launches the shell.
-    /bin/busybox setsid /bin/busybox cttyhack /bin/busybox sh -i \
-        </dev/tty1 >/dev/tty1 2>&1 || true
+    /bin/busybox setsid /bin/busybox sh -c \
+        'exec /bin/busybox sh -i </dev/tty1 >/dev/tty1 2>&1' || true
 else
     /bin/busybox sh </dev/console >/dev/console 2>&1 || true
 fi
