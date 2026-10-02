@@ -22,10 +22,10 @@
 - QEMU e1000/DPDK integration ISO：`build/danos-vpp-dpdk-e1000-2port-frr-ecmp-ready-r23.iso`；
   SHA256 `4570819432a1ddc1f3d4d0cd15783a4ce45e3330c24ed5d5ac7e22e8181148a6`，build
   identity `source_dirty=0`。
-- VMware VMXNET3 `no-rx-interrupts` polling-only 历史双网段 packet baseline：
-  100/1000 包约 97–99 pps、0% 丢包；本轮 release gate 的 VMware 日志缺 clean
-  build identity（commit 为空、dirty unknown），VMware VM 未运行，故当前结果为
-  `ENVIRONMENT-OPEN`，不能作为本次 clean-source release-qualified 性能记录。
+- VMware VMXNET3 `no-rx-interrupts` polling-only 双网段 packet baseline：clean
+  commit `b9c4020` 冷启动；1000 包/路径、2000/2000 收发、0% 丢包，98.23 pps，
+  p50/p99 206/449 µs，ECMP bucket 计数 9/1003。此为低速 ICMP 回归数据，不是线速
+  或 ECMP 均衡性能结论。ISO SHA256 `1ba4a1516a005741fd691809450b25ef6433807449ccc2619345e28490672d1b`。
 - I211 live ISO 加入 USB host-controller 和 HID keyboard modules；QEMU xHCI
   验证键盘枚举，并通过 USB keyboard 输入命令至 tty1 shell；可用
   `danos-test/live/verify_usb_keyboard_qemu.py` 重复验收。
@@ -39,8 +39,8 @@
   通过的 DPDK lane。
 - 真实 PCI DPDK 性能为 `ENVIRONMENT-OPEN`，等待独立 VFIO/uio、HugePages、
   VPP DPDK 和流量发生器 runner。
-- 当前完整 gate 的总体功能状态为 PASS，但 PCI runner 与 VMware clean-commit
-  provenance 分别仍为 `ENVIRONMENT-OPEN`；这不构成 v0.16.0 正式发布性能资格。
+- 当前完整 gate 的总体功能状态为 PASS；PCI runner/线速性能仍为
+  `ENVIRONMENT-OPEN`，不构成 v0.16.0 真实硬件性能资格。
 - 实机 I211 USB 输入/冷启动在本环境尚无串口证据；QEMU HID 键盘测试不能代替实机验收。
 - 最新 I211 USB hybrid ISO：`build/danos-open-v0.16.0-rc1-i211-dpdk-usb-hid-final.iso`；
   SHA256 `ebb3fc3418d22c4db55e7c5b9114ca3754e685bf3c039e11fcfbb0f13b64006a`。

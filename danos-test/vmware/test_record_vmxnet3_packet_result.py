@@ -53,12 +53,13 @@ VPP-DPDK-PING-1 PASS
 192.168.45.3/24
 192.168.46.3/24
 dpo-load-balance: buckets:2
+VPP-ECMP-BUCKETS bucket0_packets=9 bucket1_packets=10
 VPP-ECMP-COUNTERS-AFTER
 """
         self.assertEqual(latest_danos_boot("old failed boot\n" + boot), boot)
 
     def test_newer_boot_failure_is_not_hidden_by_old_pass(self):
-        good = "VPP API socket: ready\nVPP-DPDK-INTERFACES PASS\nVPP-DPDK-PING-0 PASS\nVPP-DPDK-PING-1 PASS\n192.168.45.3/24\n192.168.46.3/24\ndpo-load-balance: buckets:2\nVPP-ECMP-COUNTERS-AFTER\n"
+        good = "VPP API socket: ready\nVPP-DPDK-INTERFACES PASS\nVPP-DPDK-PING-0 PASS\nVPP-DPDK-PING-1 PASS\n192.168.45.3/24\n192.168.46.3/24\ndpo-load-balance: buckets:2\nVPP-ECMP-BUCKETS bucket0_packets=9 bucket1_packets=10\nVPP-ECMP-COUNTERS-AFTER\n"
         with self.assertRaisesRegex(ResultError, "latest DANOS boot"):
             latest_danos_boot(good + "VPP API socket: ready\nboot failed")
 

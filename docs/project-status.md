@@ -112,9 +112,10 @@ in this workspace, so its reported physical keyboard failure is unresolved.
   under `build/qemu-frr-vpp-topology-110/`; the test ISO digest is recorded in
   that manifest.
 - VMware Workstation VMXNET3 polling-only packet baseline passes on two
-  independent subnets: 100 packets per path, approximately 99.01/98.04 pps,
-  zero loss, and real VPP RX/TX plus two ECMP buckets. This is a regression
-  packet baseline, not line-rate throughput.
+  independent subnets from clean source commit `b9c4020`: 1000 packets per path,
+  2000/2000 received, 0% loss, 98.23 pps, p50/p99 206/449 µs, and serial-captured
+  VPP ECMP bucket counters 9/1003. This is a low-rate two-flow regression
+  baseline, not a load-balance fairness, line-rate, or CPU-throughput claim.
 - Diagnostic QEMU topology-102/104/106/107 runs exposed readiness races,
   stale listeners on reused FRR disks, and asymmetric ECMP return paths. The
   harness now uses an isolated readiness port gated on the remote BGP prefix,

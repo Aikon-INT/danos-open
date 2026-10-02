@@ -116,6 +116,11 @@ def latest_danos_boot(text: str) -> str:
     fib = re.search(r"dpo-load-balance:.*?buckets:(\d+)", boot, re.S)
     if not fib or int(fib.group(1)) < 2:
         raise ResultError("latest DANOS boot has no resolved two-bucket ECMP FIB")
+    buckets = re.search(
+        r"VPP-ECMP-BUCKETS bucket0_packets=(\d+) bucket1_packets=(\d+)", boot
+    )
+    if not buckets or int(buckets.group(1)) < 1 or int(buckets.group(2)) < 1:
+        raise ResultError("latest DANOS boot has no packet counters for both ECMP buckets")
     return boot
 
 
@@ -153,7 +158,11 @@ def main() -> int:
     try:
         samples = latest_peer_run(args.peer_log.read_text(errors="replace"), args.min_pps)
         danos_text = args.danos_log.read_text(errors="replace")
-        latest_danos_boot(danos_text)
+        boot = latest_danos_boot(danos_text)
+        buckets = re.search(
+            r"VPP-ECMP-BUCKETS bucket0_packets=(\d+) bucket1_packets=(\d+)", boot
+        )
+        assert buckets is not None  # validated by latest_danos_boot
         commit, dirty, boot_iso, no_rx_interrupts = latest_build_identity(danos_text)
         if boot_iso and boot_iso != args.iso.name:
             raise ResultError(f"DANOS booted {boot_iso}, not requested ISO {args.iso.name}")
@@ -195,8 +204,8 @@ def main() -> int:
             "rtt_p50_us": f"{percentile(rtts, .50):.3f}",
             "rtt_p99_us": f"{percentile(rtts, .99):.3f}",
             "cpu_pct": "",
-            "ecmp_bucket_0": "",
-            "ecmp_bucket_1": "",
+            "ecmp_bucket_0": buckets.group(1),
+            "ecmp_bucket_1": buckets.group(2),
             "restart_replay": "SKIP",
             "performance_scope": "low-rate ICMP packet regression; not line-rate or ECMP throughput",
             "recorded_utc": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
