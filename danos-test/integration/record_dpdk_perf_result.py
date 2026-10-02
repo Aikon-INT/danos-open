@@ -79,8 +79,10 @@ def validate(preflight: dict[str, str], measured: dict[str, str], args) -> dict[
     cpu = decimal(measured, "cpu_pct")
     bucket0 = decimal(measured, "ecmp_bucket_0")
     bucket1 = decimal(measured, "ecmp_bucket_1")
-    if flows < 1 or tx < 1 or duration < 1 or pps <= 0 or mbps <= 0:
-        raise ResultError("flows, packets_tx, duration_ms, pps and mbps must be positive")
+    if flows < 2:
+        raise ResultError("single-core ECMP qualification requires at least two 5-tuple flows")
+    if tx < 1 or duration < 1 or pps <= 0 or mbps <= 0:
+        raise ResultError("packets_tx, duration_ms, pps and mbps must be positive")
     if rx < 0 or rx > tx:
         raise ResultError("packets_rx must be between zero and packets_tx")
     if not 0 <= loss <= 100 or abs(loss - (tx - rx) * 100 / tx) > Decimal("0.2"):

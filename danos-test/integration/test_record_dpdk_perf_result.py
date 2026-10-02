@@ -86,6 +86,12 @@ class RecordDpdkPerfResultTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 1)
         self.assertIn("missing: ecmp_bucket_1", output)
 
+    def test_single_flow_cannot_qualify_two_ecmp_buckets(self):
+        proc, output = self.run_case(measurement=MEASUREMENT.replace("flows=2\n", "flows=1\n"))
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("at least two 5-tuple flows", output)
+        self.assertIn("status=FAIL", output)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
