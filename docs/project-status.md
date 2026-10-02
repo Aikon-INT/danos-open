@@ -2,14 +2,16 @@
 
 ## Current assessment
 
-As of 2026-10-01, DANOS-Open v0.16 is in integration/release qualification. The
+As of 2026-10-02, DANOS-Open v0.16 is in integration/release qualification. The
 management-plane, frozen Route/NH/NHGroup contract, FRR 10.3 ZAPI path,
 VPP 26.10 API/FIB path, route lifecycle, ECMP, QEMU e1000 and VMware
 VMXNET3 polling-only lanes are covered by repeatable evidence. The remaining
 item is a host-dependent real PCI/line-rate DPDK performance lane; protocol
-extensions remain deliberately deferred. Clean-source QEMU topology-128 verifies explicit
-ECMP next-hop withdrawal from the VPP FIB: all four sampled flows continue over
-the surviving bucket, then return to two buckets after restore. An interface
+extensions remain deliberately deferred. The latest clean-source QEMU
+topology-134 verifies explicit ECMP next-hop withdrawal from the VPP FIB: all
+four sampled flows continue over the surviving bucket, then return to two
+buckets after restore. It also passes FRR/zserv and VPP restart/replay plus
+dynamic BGP add/withdraw. An interface
 admin-down alone does not withdraw a configured static route's next hop here;
 the tested failover action is route/NH withdrawal.
 
@@ -48,6 +50,19 @@ in this workspace, so its reported physical keyboard failure is unresolved.
 - The authoritative v0.16 status is maintained in
   `docs/v0.16-acceptance-matrix.md`; historical gaps below are retained only
   for traceability and do not override that matrix.
+- Latest strict FRR/VPP integration evidence: commit `9d1eb81`, ISO
+  `build/danos-vpp-dpdk-e1000-2port-frr-ecmp-ready-r28.iso`, SHA256
+  `245e97b922cb85646eac046a06c80fe432e715e231f61f7727bdebede01fc59a`, with
+  `source_dirty=0`; fresh-guest topology-134 manifest, serial logs and pcap are
+  under `build/qemu-frr-vpp-topology-134/`. The strict verifier passes direct
+  ping, ECMP two-bucket/multi-flow, next-hop withdraw/restore, ZAPI, dynamic BGP
+  add/withdraw, OSPF, FRR/zserv restart and VPP replay assertions.
+- Reproducible integration-image profile is
+  `danos-test/qemu/build_frr_ecmp_iso.sh`; it enables the trixie VPP runtime,
+  two-port e1000 DPDK, `ping_plugin`, traffic peer gate, FRR ZAPI bridge and VPP
+  restart test as one profile. Initial direct peer pings use five bounded
+  complete-probe attempts to tolerate guest dataplane convergence; ECMP and
+  path-failover packet-loss assertions remain strict.
 - Current mainline work includes v0.14 release automation, compatibility baselines, event-driven reconciliation and streaming telemetry.
 - The configured build registers 34 CTest cases. The restricted development environment initially blocked seven socket/network tests, but the same build passed all 34 cases when re-run with host network privileges. The restriction is therefore environmental, not a current test failure.
 - The programming pipeline and composite route tests pass in the current environment.
@@ -142,7 +157,7 @@ in this workspace, so its reported physical keyboard failure is unresolved.
 | gNMI/CLI/NETCONF | Strong prototype | Multi-stream edge cases, in-process TLS, long-term protocol maintenance |
 | Linux backend | Real backend verified | Broader topology and recovery acceptance |
 | VPP backend | Runtime/conformance/API ECMP and packet-forwarding verified | Traffic scale and recovery |
-| FRR integration | clean-source topology-128 verifies BGP route lifecycle, OSPF adjacency, ZAPI, FRR/zserv restart, VPP replay and ECMP NH withdraw/restore | Production hardening and BFD |
+| FRR integration | clean-source topology-134 verifies dynamic BGP lifecycle, OSPF adjacency, ZAPI, FRR/zserv restart, VPP replay and ECMP NH withdraw/restore | Production hardening and BFD |
 | Data model | Route/VRF/NH plus primary interface IPv4/IPv6 model | VLAN, multi-address, tunnel/EVPN models |
 | Observability/security | Initial implementation | Operational semantics, HA and upgrade evidence |
 | OVS/P4/platform | Intentionally deferred | Revisit after v0.16 release qualification; frozen contract is necessary but not sufficient |
