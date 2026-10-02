@@ -182,7 +182,9 @@ if test -e /vpp-dpdk.enabled; then
             /usr/bin/vppctl -s /run/vpp/cli.sock set ip neighbor "$vpp_if2" "${VPP_PEER_IP2:-10.20.0.2}" "${VPP_PEER_MAC2:-52:54:00:12:01:02}" > /dev/console 2>&1 || true
             /usr/bin/vppctl -s /run/vpp/cli.sock ip route add 30.30.30.0/24 via "${VPP_PEER_IP1:-10.10.0.2}" "$vpp_if1" via "${VPP_PEER_IP2:-10.20.0.2}" "$vpp_if2" > /dev/console 2>&1 || true
             echo "--- VPP DPDK interface addresses ---" > /dev/console
-            /usr/bin/vppctl -s /run/vpp/cli.sock show interface address > /dev/console 2>&1 || true
+            /usr/bin/vppctl -s /run/vpp/cli.sock show interface address > /tmp/vpp-dpdk-interface-addresses.log 2>&1 || true
+            cat /tmp/vpp-dpdk-interface-addresses.log > /dev/console
+            say_live_file /tmp/vpp-dpdk-interface-addresses.log
             echo "--- VPP ECMP FIB ---" > /dev/console
             /usr/bin/vppctl -s /run/vpp/cli.sock show ip fib 30.30.30.0/24 > /dev/console 2>&1 || true
         fi
