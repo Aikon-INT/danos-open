@@ -62,9 +62,9 @@ has been recorded.
   `docs/v0.16-acceptance-matrix.md`; historical gaps below are retained only
   for traceability and do not override that matrix.
 - Latest complete software/virtualization gate is
-  `build/v016-release-gate-clean-2ada084.env`: 35/35 CTest, backend contract,
-  QEMU topology-134 recovery, VMware two-path packet baseline, and all result
-  validators pass. PCI hardware status is explicitly `ENVIRONMENT-OPEN`.
+  `build/v016-release-gate-clean-14acbae.env`: 35/35 CTest, backend contract,
+  QEMU topology-134 recovery, VMware two-path packet baseline, result validators,
+  and serial-capture PTY test pass. PCI hardware status is explicitly `ENVIRONMENT-OPEN`.
 - Latest strict FRR/VPP integration evidence: commit `9d1eb81`, ISO
   `build/danos-vpp-dpdk-e1000-2port-frr-ecmp-ready-r28.iso`, SHA256
   `245e97b922cb85646eac046a06c80fe432e715e231f61f7727bdebede01fc59a`, with
