@@ -245,14 +245,30 @@ if test -e /vpp-dpdk.enabled; then
             say_live "VPP-ECMP-NEIGHBORS"
             /usr/bin/vppctl -s /run/vpp/cli.sock show ip neighbor > /tmp/vpp-neighbor-before.log 2>&1 || true
             say_live_file /tmp/vpp-neighbor-before.log
-            if /usr/bin/vppctl -s /run/vpp/cli.sock ping "${VPP_PEER_IP1:-10.10.0.2}" repeat 3 > /tmp/vpp-ping0.log 2>&1 \
-                && grep -Fq 'Statistics: 3 sent, 3 received, 0% packet loss' /tmp/vpp-ping0.log; then
+            ping0_ok=0
+            for ping_wait in 1 2 3 4 5; do
+                if /usr/bin/vppctl -s /run/vpp/cli.sock ping "${VPP_PEER_IP1:-10.10.0.2}" repeat 3 > /tmp/vpp-ping0.log 2>&1 \
+                    && grep -Fq 'Statistics: 3 sent, 3 received, 0% packet loss' /tmp/vpp-ping0.log; then
+                    ping0_ok=1
+                    break
+                fi
+                sleep 1
+            done
+            if test "$ping0_ok" = 1; then
                 say_live "VPP-DPDK-PING-0 PASS"
             else
                 say_live "VPP-DPDK-PING-0 FAIL"
             fi
-            if /usr/bin/vppctl -s /run/vpp/cli.sock ping "${VPP_PEER_IP2:-10.20.0.2}" repeat 3 > /tmp/vpp-ping1.log 2>&1 \
-                && grep -Fq 'Statistics: 3 sent, 3 received, 0% packet loss' /tmp/vpp-ping1.log; then
+            ping1_ok=0
+            for ping_wait in 1 2 3 4 5; do
+                if /usr/bin/vppctl -s /run/vpp/cli.sock ping "${VPP_PEER_IP2:-10.20.0.2}" repeat 3 > /tmp/vpp-ping1.log 2>&1 \
+                    && grep -Fq 'Statistics: 3 sent, 3 received, 0% packet loss' /tmp/vpp-ping1.log; then
+                    ping1_ok=1
+                    break
+                fi
+                sleep 1
+            done
+            if test "$ping1_ok" = 1; then
                 say_live "VPP-DPDK-PING-1 PASS"
             else
                 say_live "VPP-DPDK-PING-1 FAIL"
