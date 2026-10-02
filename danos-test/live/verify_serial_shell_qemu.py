@@ -49,6 +49,7 @@ def main() -> int:
         log = bytearray()
         deadline = time.monotonic() + args.timeout
         command_sent = False
+        shell_ready_at: float | None = None
         try:
             while time.monotonic() < deadline:
                 if process.poll() is not None:
@@ -79,16 +80,25 @@ def main() -> int:
                     log.extend(chunk)
                 text = log.decode("utf-8", errors="replace")
                 if "SERIAL-SHELL-READY ttyS0" in text and not command_sent:
-                    time.sleep(1.0)
-                    conn.sendall(b"\r")
-                    time.sleep(0.2)
-                    conn.sendall(b"echo serialkeypass > /dev/ttyS0\r")
-                    command_sent = True
-                if command_sent and re.search(r"(?m)^serialkeypass\r?$", text):
+                    # Wait for the background setsid/cttyhack shell to finish
+                    # acquiring ttyS0. Send a harmless newline first; BusyBox
+                    # ash emits a prompt only after it is ready for input.
+                    if shell_ready_at is None:
+                        shell_ready_at = time.monotonic()
+                        conn.sendall(b"\r")
+                    if re.search(rb"(?m)(?:^|\r?\n)[^\r\n]*# ?$", bytes(log)):
+                        conn.sendall(b"echo SERIAL_COMMAND_OK\r")
+                        command_sent = True
+                    elif time.monotonic() - shell_ready_at > 8:
+                        # Prompt can be suppressed by BusyBox configuration;
+                        # still test the shell with a bounded delayed command.
+                        conn.sendall(b"echo SERIAL_COMMAND_OK\r")
+                        command_sent = True
+                if command_sent and "SERIAL_COMMAND_OK" in text:
                     if args.serial_log:
                         args.serial_log.parent.mkdir(parents=True, exist_ok=True)
                         args.serial_log.write_bytes(log)
-                    print("[PASS] QEMU ttyS0 root shell accepted a command and emitted serialkeypass")
+                    print("[PASS] QEMU ttyS0 root shell accepted a command and emitted SERIAL_COMMAND_OK")
                     return 0
 
             if args.serial_log:

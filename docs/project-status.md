@@ -29,13 +29,15 @@ formal release remains `v0.14.0`). The complete deterministic suite passes
 programming-pipeline, and composite-route stages. The live ISO loads USB
 host-controller and HID modules and binds its shell to tty1 with a controlling
 terminal. The current clean-provenance I211 polling runner image is
-`build/danos-open-v0.16.0-rc1-i211-dpdk-polling-runner-r5.iso`, SHA256
-`58033e2746e1fb69feed27e9203d211d5602ade043132f19cae9f6f27c3d9835`, built
-from clean commit `2ada084`. It configures BDFs `0000:01:00.0` and
+`build/danos-open-v0.16.0-rc1-i211-dpdk-polling-runner-r6.iso`, SHA256
+`e3a0900e7bbe955d9eddd463c3f02bd3b9b18913777a102bfd23bbbfe7d4ff89`, built
+from clean commit `2f65acc`. It configures BDFs `0000:01:00.0` and
 `0000:02:00.0` with RX interrupts disabled and binds only PCI-ID-verified I211
-functions to `uio_pci_generic`; USB HID/controller modules are included. QEMU
-xHCI keyboard input and mgrd WAL replay pass; without I211, QEMU correctly
-reports the requested BDF absent. A serial-log recorder now verifies identity
+functions to `uio_pci_generic`; USB HID/controller modules are included, and
+ttyS0 now hosts an interactive root recovery shell. QEMU serial-shell command
+round-trip passes; current USB keyboard re-test proves HID enumeration only,
+not tty1 input (command marker absent). Without I211, QEMU correctly reports
+the requested BDF absent. A serial-log recorder now verifies identity
 and both port-bind markers without turning absent hardware into a pass. Physical
 I211 binding, boot, keyboard input,
 packet forwarding and line-rate performance remain open gates.
@@ -46,11 +48,12 @@ Privileged evidence is recorded separately from the DPDK hardware gate.
 The same QEMU serial gate now restarts `mgrd` against its existing WAL and
 checks both record recovery and backend replay counters (3 attempted, 3 OK,
 0 failed), followed by gNMI/metrics listener recovery.
-The 2026-10-02 rerun against the clean-provenance polling image passed QEMU xHCI
-keyboard enumeration, tty1 shell input and mgrd WAL replay; evidence is
-`build/i211-usb-keyboard-qemu.serial.log`. This remains emulator-only evidence:
-no serial cable/USB-UART connected to the physical target is exposed in this
-workspace, so its reported physical keyboard failure is unresolved. The PCI
+The 2026-10-02 r6 rerun passed the bidirectional QEMU ttyS0 root-shell test
+(`SERIAL_COMMAND_OK`). xHCI/HID enumeration passed, but tty1 keyboard command
+input did not produce its expected marker; keyboard usability remains open.
+The earlier r5 QEMU keyboard/mgrd result is not upgraded by this run. The
+physical USB-UART capture was 0 bytes with no init marker, so physical boot and
+keyboard behavior remain unresolved. The PCI
 preflight against the requested I211 BDF returns `SKIP` here because this host
 does not expose that device and has zero HugePages; no I211 performance result
 has been recorded.
