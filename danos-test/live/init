@@ -186,7 +186,9 @@ if test -e /vpp-dpdk.enabled; then
             cat /tmp/vpp-dpdk-interface-addresses.log > /dev/console
             say_live_file /tmp/vpp-dpdk-interface-addresses.log
             echo "--- VPP ECMP FIB ---" > /dev/console
-            /usr/bin/vppctl -s /run/vpp/cli.sock show ip fib 30.30.30.0/24 > /dev/console 2>&1 || true
+            /usr/bin/vppctl -s /run/vpp/cli.sock show ip fib 30.30.30.0/24 > /tmp/vpp-dpdk-ecmp-fib.log 2>&1 || true
+            cat /tmp/vpp-dpdk-ecmp-fib.log > /dev/console
+            say_live_file /tmp/vpp-dpdk-ecmp-fib.log
         fi
         if /usr/bin/vppctl -s /run/vpp/cli.sock show interface 2>/dev/null \
             | grep -Eq "^${vpp_if1}[[:space:]].*up" \
