@@ -63,10 +63,11 @@ has been recorded.
 - The authoritative v0.16 status is maintained in
   `docs/v0.16-acceptance-matrix.md`; historical gaps below are retained only
   for traceability and do not override that matrix.
-- Latest integrated gate is `build/v016-release-gate-r8.env`; its initial run
-  found stale VMware default ISO/log pairing after all QEMU, contract and CTest
-  stages passed. The gate now explicitly pairs the clean VMware ISO and serial
-  logs; rerun is in progress. PCI hardware remains `ENVIRONMENT-OPEN`.
+- Latest integrated gate: `build/v016-release-gate-297c190.env` is PASS with
+  backend contract, validators, PTY capture, CTest 35/35, r8 QEMU ttyS0/USB
+  keyboard/mgrd recovery, topology-134 and VMware 2000/2000 packet baseline.
+  PCI hardware is explicitly `ENVIRONMENT-OPEN`; no I211 traffic/performance
+  claim is made.
 - Latest strict FRR/VPP integration evidence: commit `9d1eb81`, ISO
   `build/danos-vpp-dpdk-e1000-2port-frr-ecmp-ready-r28.iso`, SHA256
   `245e97b922cb85646eac046a06c80fe432e715e231f61f7727bdebede01fc59a`, with
