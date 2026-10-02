@@ -29,13 +29,14 @@ formal release remains `v0.14.0`). The complete deterministic suite passes
 programming-pipeline, and composite-route stages. The live ISO loads USB
 host-controller and HID modules and binds its shell to tty1 with a controlling
 terminal. The current clean-provenance I211 polling runner image is
-`build/danos-open-v0.16.0-rc1-i211-dpdk-polling-runner-r3.iso`, SHA256
-`017e9ca96fa3222ac4f70084264ac796f23ca805d1132fdc7afc5b5da54eeaf0`, built
-from clean commit `d611730`. It configures BDFs `0000:01:00.0` and
+`build/danos-open-v0.16.0-rc1-i211-dpdk-polling-runner-r4.iso`, SHA256
+`7a9755776828e4006d7b25c0021cc3e57f479d788370b893230d375a896c7a6a`, built
+from clean commit `53bb09b`. It configures BDFs `0000:01:00.0` and
 `0000:02:00.0` with RX interrupts disabled and binds only PCI-ID-verified I211
 functions to `uio_pci_generic`; USB HID/controller modules are included. QEMU
 xHCI keyboard input and mgrd WAL replay pass; without I211, QEMU correctly
-reports the requested BDF absent. Physical I211 binding, boot, keyboard input,
+reports the requested BDF absent; a serial-log recorder now verifies identity and
+both port-bind markers without turning absent hardware into a pass. Physical I211 binding, boot, keyboard input,
 packet forwarding and line-rate performance remain open gates.
 Privileged evidence is recorded separately from the DPDK hardware gate.
 The same QEMU serial gate now restarts `mgrd` against its existing WAL and
@@ -56,6 +57,10 @@ has been recorded.
 - The authoritative v0.16 status is maintained in
   `docs/v0.16-acceptance-matrix.md`; historical gaps below are retained only
   for traceability and do not override that matrix.
+- Latest complete software/virtualization gate is
+  `build/v016-release-gate-clean-53bb09b.env`: 35/35 CTest, backend contract,
+  QEMU topology-134 recovery, VMware two-path packet baseline, and all result
+  validators pass. PCI hardware status is explicitly `ENVIRONMENT-OPEN`.
 - Latest strict FRR/VPP integration evidence: commit `9d1eb81`, ISO
   `build/danos-vpp-dpdk-e1000-2port-frr-ecmp-ready-r28.iso`, SHA256
   `245e97b922cb85646eac046a06c80fe432e715e231f61f7727bdebede01fc59a`, with
