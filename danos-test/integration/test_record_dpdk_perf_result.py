@@ -13,6 +13,9 @@ TOOL = Path(__file__).with_name("record_dpdk_perf_result.py")
 PREFLIGHT = """status=ENVIRONMENT-OPEN
 preflight_status=PASS
 commit=deadbeef
+iso_build_commit=deadbeef
+iso_source_dirty=0
+runner_commit=feedface
 iso_sha256=0123456789abcdef
 target_bdf=0000:01:00.0
 pci_vendor_id=0x8086
@@ -67,6 +70,8 @@ class RecordDpdkPerfResultTest(unittest.TestCase):
                                            "--max-cpu-pct", "50"))
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("status=PASS", output)
+        self.assertIn("iso_build_commit=deadbeef", output)
+        self.assertIn("runner_commit=feedface", output)
         self.assertIn("pci_vendor_id=0x8086", output)
 
     def test_threshold_failure_is_not_pass(self):
@@ -80,6 +85,38 @@ class RecordDpdkPerfResultTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 1)
         self.assertIn("measurement commit does not match preflight", output)
         self.assertIn("status=FAIL", output)
+
+    def test_preflight_commit_must_match_iso_identity(self):
+        with tempfile.TemporaryDirectory(prefix="dpdk-result-test-") as tmp:
+            root = Path(tmp)
+            preflight = root / "preflight.env"
+            measured = root / "measurement.env"
+            output_path = root / "result.env"
+            preflight.write_text(PREFLIGHT.replace("iso_build_commit=deadbeef", "iso_build_commit=cafebabe"))
+            measured.write_text(MEASUREMENT)
+            proc = subprocess.run([
+                sys.executable, str(TOOL), "--preflight", str(preflight),
+                "--measurement", str(measured), "--out", str(output_path),
+            ], text=True, capture_output=True, check=False)
+            output = output_path.read_text()
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("does not match embedded ISO build commit", output)
+
+    def test_dirty_iso_cannot_qualify(self):
+        with tempfile.TemporaryDirectory(prefix="dpdk-result-test-") as tmp:
+            root = Path(tmp)
+            preflight = root / "preflight.env"
+            measured = root / "measurement.env"
+            output_path = root / "result.env"
+            preflight.write_text(PREFLIGHT.replace("iso_source_dirty=0", "iso_source_dirty=1"))
+            measured.write_text(MEASUREMENT)
+            proc = subprocess.run([
+                sys.executable, str(TOOL), "--preflight", str(preflight),
+                "--measurement", str(measured), "--out", str(output_path),
+            ], text=True, capture_output=True, check=False)
+            output = output_path.read_text()
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("clean source tree", output)
 
     def test_missing_ecmp_bucket_is_rejected(self):
         proc, output = self.run_case(measurement=MEASUREMENT.replace("ecmp_bucket_1=5000\n", ""))

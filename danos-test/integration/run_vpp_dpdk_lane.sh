@@ -1,6 +1,7 @@
 #!/bin/bash
 # VPP+DPDK dedicated lane preflight. Missing PCI/user-space driver is an explicit SKIP.
 set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 RESULT_FILE="${DPDK_RESULT_FILE:-}"
 PCI_COUNT=0
 VMXNET3_COUNT=0
@@ -9,6 +10,9 @@ TARGET_VENDOR=""
 TARGET_DEVICE=""
 TARGET_BOUND_DRIVER=""
 ISO_SHA256=""
+ISO_BUILD_COMMIT=""
+ISO_SOURCE_DIRTY=""
+RUNNER_COMMIT="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)"
 PREFLIGHT_STATUS=NOT-RUN
 finish_result() {
     local rc=$?
@@ -21,7 +25,8 @@ finish_result() {
         printf 'status=%s\npreflight_status=%s\nperformance_status=ENVIRONMENT-OPEN\nstage=preflight\n' \
             "$result_status" "$preflight_status"
         printf 'lane=pci-dpdk\n'
-        printf 'commit=%s\n' "$(git rev-parse HEAD 2>/dev/null || true)"
+        printf 'commit=%s\niso_build_commit=%s\niso_source_dirty=%s\nrunner_commit=%s\n' \
+            "$ISO_BUILD_COMMIT" "$ISO_BUILD_COMMIT" "$ISO_SOURCE_DIRTY" "$RUNNER_COMMIT"
         printf 'iso_sha256=%s\npacket_size_bytes=64\nflows=\npackets_tx=\n' "$ISO_SHA256"
         printf 'packets_rx=\n'
         printf 'loss_pct=\nduration_ms=\npps=\nmbps=\nrtt_p50_us=\nrtt_p99_us=\ncpu_pct=\n'
@@ -67,6 +72,15 @@ case "$PCI_DRIVER" in
     vfio-pci|uio_pci_generic|igb_uio) ;;
     *) echo "[SKIP] unsupported DPDK PCI binding driver: $PCI_DRIVER"; exit 2 ;;
 esac
+test -n "$DPDK_ISO" && test -r "$DPDK_ISO" || {
+    echo '[SKIP] DPDK_ISO must identify the booted/qualified image'; exit 2;
+}
+ISO_IDENTITY=$(python3 "$ROOT/danos-test/integration/read_live_iso_identity.py" "$DPDK_ISO") || {
+    echo '[SKIP] ISO build provenance is unavailable; rebuild with embedded build-info.env'; exit 2;
+}
+ISO_BUILD_COMMIT=$(printf '%s\n' "$ISO_IDENTITY" | sed -n 's/^iso_build_commit=//p')
+ISO_SOURCE_DIRTY=$(printf '%s\n' "$ISO_IDENTITY" | sed -n 's/^iso_source_dirty=//p')
+test "$ISO_SOURCE_DIRTY" = 0 || { echo '[SKIP] ISO was built from a dirty source tree'; exit 2; }
 for d in /sys/bus/pci/devices/*; do
     test -e "$d/class" || continue
     test "$(cat "$d/class")" = "0x020000" || continue

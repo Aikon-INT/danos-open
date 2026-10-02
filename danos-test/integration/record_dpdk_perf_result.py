@@ -49,9 +49,14 @@ def encode(values: dict[str, str]) -> str:
 def validate(preflight: dict[str, str], measured: dict[str, str], args) -> dict[str, str]:
     if preflight.get("preflight_status") != "PASS":
         raise ResultError("PCI preflight_status is not PASS")
-    for key in ("target_bdf", "pci_vendor_id", "pci_device_id", "pci_bound_driver", "iso_sha256", "commit"):
+    for key in ("target_bdf", "pci_vendor_id", "pci_device_id", "pci_bound_driver",
+                "iso_sha256", "commit", "iso_build_commit", "iso_source_dirty"):
         if not preflight.get(key):
             raise ResultError(f"preflight is missing identity field: {key}")
+    if preflight["commit"] != preflight["iso_build_commit"]:
+        raise ResultError("preflight commit does not match embedded ISO build commit")
+    if preflight["iso_source_dirty"] != "0":
+        raise ResultError("qualified ISO must be built from a clean source tree")
     if preflight["pci_bound_driver"] != preflight.get("pci_driver"):
         raise ResultError("preflight target binding does not match requested PCI driver")
     if measured.get("lane", "pci-dpdk") != "pci-dpdk":
@@ -113,6 +118,9 @@ def validate(preflight: dict[str, str], measured: dict[str, str], args) -> dict[
         "stage": "single-core-64b",
         "lane": "pci-dpdk",
         "commit": preflight["commit"],
+        "iso_build_commit": preflight["iso_build_commit"],
+        "iso_source_dirty": preflight["iso_source_dirty"],
+        "runner_commit": preflight.get("runner_commit", ""),
         "iso_sha256": preflight["iso_sha256"],
         "packet_size_bytes": "64",
     }

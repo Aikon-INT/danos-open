@@ -1,6 +1,7 @@
 #!/bin/bash
 # Run the DPDK preflight inside a privileged Debian trixie VPP container.
 set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CONTAINER="${DPDK_CONTAINER:-danos-vpp-host-1789981447}"
 TARGET_BDF="${DPDK_PCI_BDF:-}"
 PCI_DRIVER="${DPDK_PCI_DRIVER:-vfio-pci}"
@@ -10,6 +11,9 @@ TARGET_VENDOR=""
 TARGET_DEVICE=""
 TARGET_BOUND_DRIVER=""
 ISO_SHA256=""
+ISO_BUILD_COMMIT=""
+ISO_SOURCE_DIRTY=""
+RUNNER_COMMIT="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)"
 DPDK_ISO="${DPDK_ISO:-}"
 if test -n "$DPDK_ISO" && test -r "$DPDK_ISO"; then
     ISO_SHA256=$(sha256sum "$DPDK_ISO" | awk '{print $1}')
@@ -24,7 +28,8 @@ finish_result() {
         printf 'preflight_status=%s\nperformance_status=ENVIRONMENT-OPEN\nstage=preflight\n' \
             "$preflight_status"
         printf 'lane=pci-dpdk\n'
-        printf 'commit=%s\n' "$(git rev-parse HEAD 2>/dev/null || true)"
+        printf 'commit=%s\niso_build_commit=%s\niso_source_dirty=%s\nrunner_commit=%s\n' \
+            "$ISO_BUILD_COMMIT" "$ISO_BUILD_COMMIT" "$ISO_SOURCE_DIRTY" "$RUNNER_COMMIT"
         printf 'iso_sha256=%s\npacket_size_bytes=64\nflows=\npackets_tx=\n' "$ISO_SHA256"
         printf 'packets_rx=\n'
         printf 'loss_pct=\nduration_ms=\npps=\nmbps=\nrtt_p50_us=\nrtt_p99_us=\ncpu_pct=\n'
@@ -49,6 +54,15 @@ case "$PCI_DRIVER" in
     vfio-pci|uio_pci_generic|igb_uio) ;;
     *) skip "[SKIP] unsupported DPDK PCI binding driver: $PCI_DRIVER" ;;
 esac
+test -n "$DPDK_ISO" && test -r "$DPDK_ISO" || {
+    skip '[SKIP] DPDK_ISO must identify the booted/qualified image'
+}
+ISO_IDENTITY=$(python3 "$ROOT/danos-test/integration/read_live_iso_identity.py" "$DPDK_ISO") || {
+    skip '[SKIP] ISO build provenance unavailable; rebuild with embedded build-info.env'
+}
+ISO_BUILD_COMMIT=$(printf '%s\n' "$ISO_IDENTITY" | sed -n 's/^iso_build_commit=//p')
+ISO_SOURCE_DIRTY=$(printf '%s\n' "$ISO_IDENTITY" | sed -n 's/^iso_source_dirty=//p')
+test "$ISO_SOURCE_DIRTY" = 0 || skip '[SKIP] ISO was built from a dirty source tree'
 docker inspect "$CONTAINER" >/dev/null 2>&1 || {
     skip "[SKIP] DPDK container unavailable: $CONTAINER"
 }
