@@ -5,6 +5,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 RESULT_FILE="${V016_GATE_RESULT_FILE:-$ROOT/build/v016-release-gate.env}"
 QEMU_TOPOLOGY_DIR="${QEMU_TOPOLOGY_DIR:-$ROOT/build/qemu-frr-vpp-topology-110}"
 VMWARE_MIN_PPS="${VMWARE_MIN_PPS:-50}"
+VMWARE_ISO="${V016_VMWARE_ISO:-$ROOT/build/danos-open-v0.16.0-rc1-vmware-vmxnet3-polling-clean.iso}"
+VMWARE_DANOS_LOG="${V016_VMWARE_DANOS_LOG:-$ROOT/build/vmware-vmxnet3-test/danos-clean.serial.log}"
+VMWARE_PEER_LOG="${V016_VMWARE_PEER_LOG:-$ROOT/build/vmware-vmxnet3-test/peer-clean.serial.log}"
 # Exercise the console and mgrd without enabling a hardware-specific DPDK
 # profile.  The I211 image binds PCI NICs for the physical runner and is not a
 # suitable generic live-console smoke image.
@@ -34,6 +37,8 @@ run_gate qemu-live-serial-root-shell \
 run_gate qemu-frr-vpp env QEMU_TOPOLOGY_DIR="$QEMU_TOPOLOGY_DIR" \
     bash "$ROOT/danos-test/qemu/verify_frr_vpp_topology.sh"
 run_gate vmware-vmxnet3 env VMWARE_MIN_PPS="$VMWARE_MIN_PPS" \
+    VMWARE_ISO="$VMWARE_ISO" VMWARE_DANOS_LOG="$VMWARE_DANOS_LOG" \
+    VMWARE_PEER_LOG="$VMWARE_PEER_LOG" \
     VMWARE_RESULT_FILE="$ROOT/build/v016-vmware-vmxnet3.env" \
     bash "$ROOT/danos-test/vmware/verify_vmxnet3_packet_baseline.sh"
 
@@ -67,6 +72,7 @@ if test "$failures" -eq 0; then overall=PASS; else overall=FAIL; fi
     printf 'dpdk_status=%s\n' "$dpdk_status"
     printf 'qemu_topology=%q\n' "$QEMU_TOPOLOGY_DIR"
     printf 'vmware_min_pps=%q\n' "$VMWARE_MIN_PPS"
+    printf 'vmware_iso=%q\n' "$VMWARE_ISO"
     printf 'vmware_result=%q\n' "$ROOT/build/v016-vmware-vmxnet3.env"
     printf 'dpdk_result=%q\n' "$ROOT/build/v016-dpdk-preflight.env"
     printf 'git_commit=%q\n' "$(git -C "$ROOT" rev-parse HEAD)"

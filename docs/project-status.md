@@ -29,14 +29,14 @@ formal release remains `v0.14.0`). The complete deterministic suite passes
 programming-pipeline, and composite-route stages. The live ISO loads USB
 host-controller and HID modules and binds its shell to tty1 with a controlling
 terminal. The current clean-provenance I211 polling runner image is
-`build/danos-open-v0.16.0-rc1-i211-dpdk-polling-runner-r6.iso`, SHA256
-`e3a0900e7bbe955d9eddd463c3f02bd3b9b18913777a102bfd23bbbfe7d4ff89`, built
-from clean commit `2f65acc`. It configures BDFs `0000:01:00.0` and
+`build/danos-open-v0.16.0-rc1-i211-dpdk-polling-runner-r8.iso`, SHA256
+`d0226d0c30c892502fcd9115d5827cdb010bbfd2c9702279cd669247dfbf067c`, built
+from clean commit `3691547`. It configures BDFs `0000:01:00.0` and
 `0000:02:00.0` with RX interrupts disabled and binds only PCI-ID-verified I211
 functions to `uio_pci_generic`; USB HID/controller modules are included, and
-ttyS0 now hosts an interactive root recovery shell. QEMU serial-shell command
-round-trip passes; current USB keyboard re-test proves HID enumeration only,
-not tty1 input (command marker absent). Without I211, QEMU correctly reports
+ttyS0 now hosts an interactive root recovery shell. Strict QEMU checks prove
+ttyS0 command execution (separate input echo/result) and USB keyboard command
+input to tty1; mgrd WAL replay/backend counters pass. Without I211, QEMU correctly reports
 the requested BDF absent. A serial-log recorder now verifies identity
 and both port-bind markers without turning absent hardware into a pass. Physical
 I211 binding, boot, keyboard input,
@@ -48,12 +48,11 @@ Privileged evidence is recorded separately from the DPDK hardware gate.
 The same QEMU serial gate now restarts `mgrd` against its existing WAL and
 checks both record recovery and backend replay counters (3 attempted, 3 OK,
 0 failed), followed by gNMI/metrics listener recovery.
-The 2026-10-02 r6 rerun passed the bidirectional QEMU ttyS0 root-shell test
-(`SERIAL_COMMAND_OK`). xHCI/HID enumeration passed, but tty1 keyboard command
-input did not produce its expected marker; keyboard usability remains open.
-The earlier r5 QEMU keyboard/mgrd result is not upgraded by this run. The
-physical USB-UART capture was 0 bytes with no init marker, so physical boot and
-keyboard behavior remain unresolved. The PCI
+An audit found the r6/r7 serial verifier counted echoed input as success. r8
+passes the corrected verifier requiring a separate command-result output; QEMU
+USB keyboard input and mgrd restart/replay also pass. The physical USB-UART
+capture was 0 bytes with no init marker, so physical boot and keyboard behavior
+remain unresolved. The PCI
 preflight against the requested I211 BDF returns `SKIP` here because this host
 does not expose that device and has zero HugePages; no I211 performance result
 has been recorded.
@@ -64,10 +63,10 @@ has been recorded.
 - The authoritative v0.16 status is maintained in
   `docs/v0.16-acceptance-matrix.md`; historical gaps below are retained only
   for traceability and do not override that matrix.
-- Latest complete software/virtualization gate is
-  `build/v016-release-gate-clean-14acbae.env`: 35/35 CTest, backend contract,
-  QEMU topology-134 recovery, VMware two-path packet baseline, result validators,
-  and serial-capture PTY test pass. PCI hardware status is explicitly `ENVIRONMENT-OPEN`.
+- Latest integrated gate is `build/v016-release-gate-r8.env`; its initial run
+  found stale VMware default ISO/log pairing after all QEMU, contract and CTest
+  stages passed. The gate now explicitly pairs the clean VMware ISO and serial
+  logs; rerun is in progress. PCI hardware remains `ENVIRONMENT-OPEN`.
 - Latest strict FRR/VPP integration evidence: commit `9d1eb81`, ISO
   `build/danos-vpp-dpdk-e1000-2port-frr-ecmp-ready-r28.iso`, SHA256
   `245e97b922cb85646eac046a06c80fe432e715e231f61f7727bdebede01fc59a`, with
