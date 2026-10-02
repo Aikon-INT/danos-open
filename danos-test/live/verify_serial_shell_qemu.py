@@ -85,20 +85,22 @@ def main() -> int:
                     # ash emits a prompt only after it is ready for input.
                     if shell_ready_at is None:
                         shell_ready_at = time.monotonic()
-                        conn.sendall(b"\r")
+                        conn.sendall(b"\n")
                     if re.search(rb"(?m)(?:^|\r?\n)[^\r\n]*# ?$", bytes(log)):
-                        conn.sendall(b"echo SERIAL_COMMAND_OK\r")
+                        conn.sendall(b"echo SERIAL_COMMAND_RESULT_7F3A\n")
                         command_sent = True
                     elif time.monotonic() - shell_ready_at > 8:
                         # Prompt can be suppressed by BusyBox configuration;
                         # still test the shell with a bounded delayed command.
-                        conn.sendall(b"echo SERIAL_COMMAND_OK\r")
+                        conn.sendall(b"echo SERIAL_COMMAND_RESULT_7F3A\n")
                         command_sent = True
-                if command_sent and "SERIAL_COMMAND_OK" in text:
+                # The tty echoes the input command. Require the unique result
+                # token twice: once in that input echo and once in ash output.
+                if command_sent and text.count("SERIAL_COMMAND_RESULT_7F3A") >= 2:
                     if args.serial_log:
                         args.serial_log.parent.mkdir(parents=True, exist_ok=True)
                         args.serial_log.write_bytes(log)
-                    print("[PASS] QEMU ttyS0 root shell accepted a command and emitted SERIAL_COMMAND_OK")
+                    print("[PASS] QEMU ttyS0 root shell executed a command and emitted its result")
                     return 0
 
             if args.serial_log:
