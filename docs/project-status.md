@@ -39,6 +39,9 @@ reports the requested BDF absent. A serial-log recorder now verifies identity
 and both port-bind markers without turning absent hardware into a pass. Physical
 I211 binding, boot, keyboard input,
 packet forwarding and line-rate performance remain open gates.
+`capture_i211_serial.sh` now captures a bounded 115200 8N1 USB-UART boot log and
+produces the identity-bound preflight result without overwriting prior evidence.
+Its end-to-end PTY test validates file/result plumbing only, not physical hardware.
 Privileged evidence is recorded separately from the DPDK hardware gate.
 The same QEMU serial gate now restarts `mgrd` against its existing WAL and
 checks both record recovery and backend replay counters (3 attempted, 3 OK,
