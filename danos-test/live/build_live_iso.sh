@@ -35,6 +35,8 @@ VPP_DPDK_PORTS="${VPP_DPDK_PORTS:-0000:00:02.0}"
 VPP_VMXNET3_NATIVE="${VPP_VMXNET3_NATIVE:-0}"
 VPP_DPDK_TRAFFIC_TEST="${VPP_DPDK_TRAFFIC_TEST:-0}"
 VPP_DPDK_NO_RX_INTERRUPTS="${VPP_DPDK_NO_RX_INTERRUPTS:-0}"
+VPP_DPDK_BIND_DRIVER="${VPP_DPDK_BIND_DRIVER:-none}"
+VPP_DPDK_EXPECTED_PCI_ID="${VPP_DPDK_EXPECTED_PCI_ID:-8086:1539}"
 VPP_AUTOSTART="${VPP_AUTOSTART:-1}"
 VPP_PING_ENABLE="${VPP_PING_ENABLE:-0}"
 VPP_TRAFFIC_TEST_DELAY="${VPP_TRAFFIC_TEST_DELAY:-0}"
@@ -64,6 +66,15 @@ DANOS_ZAPI_PACE_US="${DANOS_ZAPI_PACE_US:-0}"
 DANOS_SKIP_VPP_RECOVERY="${DANOS_SKIP_VPP_RECOVERY:-0}"
 DANOS_VPP_HEALTH_PROBE="${DANOS_VPP_HEALTH_PROBE:-0}"
 DANOS_VPP_RESTART_TEST="${DANOS_VPP_RESTART_TEST:-${DANOS_VPP_HEALTH_PROBE:-0}}"
+
+case "$VPP_DPDK_BIND_DRIVER" in
+  none|uio_pci_generic) ;;
+  *) echo "ERROR: unsupported VPP_DPDK_BIND_DRIVER=$VPP_DPDK_BIND_DRIVER" >&2; exit 2 ;;
+esac
+if test "$VPP_DPDK_BIND_DRIVER" != none; then
+  test "$VPP_DPDK_ENABLE" = 1 || { echo 'ERROR: PCI binding requires VPP_DPDK_ENABLE=1' >&2; exit 2; }
+  test -n "$VPP_DPDK_PORTS" || { echo 'ERROR: PCI binding requires explicit VPP_DPDK_PORTS' >&2; exit 2; }
+fi
 
 mkdir -p "$WORK" "$PROJECT_ROOT/build"
 
@@ -157,6 +168,8 @@ mkdir -p "$WORK/initramfs/etc/danos"
   printf 'DANOS_BUILD_VPP_IMAGE=%q\n' "$VPP_IMAGE"
   printf 'DANOS_BUILD_DPDK_PORTS=%q\n' "$VPP_DPDK_PORTS"
   printf 'DANOS_BUILD_DPDK_NO_RX_INTERRUPTS=%q\n' "$VPP_DPDK_NO_RX_INTERRUPTS"
+  printf 'DANOS_BUILD_DPDK_BIND_DRIVER=%q\n' "$VPP_DPDK_BIND_DRIVER"
+  printf 'DANOS_BUILD_DPDK_EXPECTED_PCI_ID=%q\n' "$VPP_DPDK_EXPECTED_PCI_ID"
 } > "$WORK/initramfs/etc/danos/build-info.env"
 if test -n "$VPP_IMAGE"; then
   # Keep the image container alive so readlink can resolve SONAME targets.
@@ -326,6 +339,8 @@ if test "$DANOS_FIB_BRIDGE_ENABLE" = 1 && test -n "$DANOS_ZEBRA_ENDPOINT"; then
   printf 'VPP_IF2_ADDR=%q\n' "$VPP_IF2_ADDR" >> "$WORK/initramfs/etc/danos/bridge.env"
 fi
 cp "$PROJECT_ROOT/danos-test/live/init" "$WORK/initramfs/init"
+cp "$PROJECT_ROOT/danos-test/live/bind_dpdk_pci.sh" "$WORK/initramfs/bin/bind_dpdk_pci.sh"
+chmod +x "$WORK/initramfs/bin/bind_dpdk_pci.sh"
 chmod +x "$WORK/initramfs/init"
 if test -x "$WORK/gnmic"; then
     cp "$WORK/gnmic" "$WORK/initramfs/bin/gnmic"

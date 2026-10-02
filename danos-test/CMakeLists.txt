@@ -87,3 +87,6 @@ add_executable(route_composite_test integration_test/route_composite_test.c)
 target_link_libraries(route_composite_test PRIVATE danos-netlink danos-vpp danos-mgmt danos-core danos-dpa pthread)
 target_compile_options(route_composite_test PRIVATE -UNDEBUG)
 add_test(NAME route_composite COMMAND route_composite_test)
+
+add_test(NAME dpdk_pci_bind_safety
+  COMMAND bash ${CMAKE_SOURCE_DIR}/danos-test/live/test_bind_dpdk_pci.sh)
