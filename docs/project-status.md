@@ -28,21 +28,26 @@ formal release remains `v0.14.0`). The complete deterministic suite passes
 34/34. The backend contract gate also passes its capability/transaction,
 programming-pipeline, and composite-route stages. The live ISO loads USB
 host-controller and HID modules and binds its shell to tty1 with a controlling
-terminal. QEMU xHCI enumerated a USB keyboard; a typed shell command reached
-tty1 and emitted the expected serial marker, recorded in
-`build/i211-usb-keyboard-qemu.serial.log`. The current I211-DPDK image is
-`build/danos-open-v0.16.0-rc1-i211-dpdk-usb-hid-final.iso`, SHA256
-`ebb3fc3418d22c4db55e7c5b9114ca3754e685bf3c039e11fcfbb0f13b64006a`;
-physical I211 boot and line-rate performance remain open gates.
+terminal. The current clean-provenance I211 polling runner image is
+`build/danos-open-v0.16.0-rc1-i211-dpdk-polling-runner.iso`, SHA256
+`dad861f250d46d725fec9c31c8f35e44a1d88a373078280d547a613b0cca7369`, built
+from clean commit `55673cb`. It configures BDFs `0000:01:00.0` and
+`0000:02:00.0` with RX interrupts disabled and includes USB HID/controller
+modules. QEMU xHCI keyboard input and mgrd WAL replay pass on this exact image;
+physical I211 boot, keyboard input, packet forwarding and line-rate performance
+remain open gates.
 Privileged evidence is recorded separately from the DPDK hardware gate.
 The same QEMU serial gate now restarts `mgrd` against its existing WAL and
 checks both record recovery and backend replay counters (3 attempted, 3 OK,
 0 failed), followed by gNMI/metrics listener recovery.
-The latest 2026-09-29 rerun against that exact I211 ISO again passed QEMU xHCI
+The 2026-10-02 rerun against the clean-provenance polling image passed QEMU xHCI
 keyboard enumeration, tty1 shell input and mgrd WAL replay; evidence is
-`build/latest-i211-usb-keyboard.serial.log`. This remains emulator-only
-evidence: no serial cable/USB-UART connected to the physical target is exposed
-in this workspace, so its reported physical keyboard failure is unresolved.
+`build/i211-usb-keyboard-qemu.serial.log`. This remains emulator-only evidence:
+no serial cable/USB-UART connected to the physical target is exposed in this
+workspace, so its reported physical keyboard failure is unresolved. The PCI
+preflight against the requested I211 BDF returns `SKIP` here because this host
+does not expose that device and has zero HugePages; no I211 performance result
+has been recorded.
 
 ## Evidence snapshot
 
