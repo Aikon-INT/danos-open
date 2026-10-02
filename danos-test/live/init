@@ -43,6 +43,7 @@ say_live_file() {
         say_live "$live_line"
     done < "$1"
 }
+say_live "DANOS-INIT-ENTER"
 for pci_dev in /sys/bus/pci/devices/*; do
     test -r "$pci_dev/class" || continue
     test "$(cat "$pci_dev/class" 2>/dev/null)" = 0x020000 || continue

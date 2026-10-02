@@ -15,9 +15,10 @@ IDENTITY = {"iso_build_commit": "0123456789abcdef", "iso_source_dirty": "0"}
 
 
 def serial_log() -> str:
-    return f"""DANOS-BUILD commit=0123456789abcdef source_dirty=0 iso=runner.iso no_rx_interrupts=1 utc=2026-10-02T00:00:00Z
+    return f"""DANOS-INIT-ENTER
 PCI-NIC {BDF0} vendor=0x8086 device=0x1539
 PCI-NIC {BDF1} vendor=0x8086 device=0x1539
+	DANOS-BUILD commit=0123456789abcdef source_dirty=0 iso=runner.iso no_rx_interrupts=1 utc=2026-10-02T00:00:00Z
 DPDK-PCI-BIND PASS bdf={BDF0} pci_id=8086:1539 driver=uio_pci_generic
 DPDK-PCI-BIND PASS bdf={BDF1} pci_id=8086:1539 driver=uio_pci_generic
 VPP API socket: ready
@@ -49,6 +50,16 @@ class RecordI211BootResultTest(unittest.TestCase):
         result = self.qualify(text)
         self.assertEqual(result["preflight_status"], "SKIP")
         self.assertEqual(result["status"], "SKIP")
+
+    def test_previous_boot_pass_cannot_qualify_latest_incomplete_boot(self):
+        latest = "DANOS-INIT-ENTER\nDANOS-BUILD commit=0123456789abcdef source_dirty=0 iso=runner.iso no_rx_interrupts=1\nDPDK-PCI-BIND FAIL device-absent=0000:01:00.0\n"
+        result = self.qualify(serial_log() + latest)
+        self.assertEqual(result["preflight_status"], "SKIP")
+        self.assertEqual(result["bind_failure_kind"], "device-absent")
+
+    def test_missing_boot_start_marker_is_skip(self):
+        result = self.qualify(serial_log().replace("DANOS-INIT-ENTER\n", ""))
+        self.assertEqual(result["preflight_status"], "SKIP")
 
     def test_iso_identity_mismatch_is_rejected(self):
         with self.assertRaisesRegex(QualificationError, "identity"):

@@ -36,7 +36,12 @@ class QualificationError(Exception):
 def result_from_log(text: str, *, identity: dict[str, str], iso_name: str,
                     iso_sha256: str, bdfs: list[str], driver: str,
                     runner_commit: str) -> dict[str, str]:
-    builds = list(BUILD.finditer(text))
+    boot_start = text.rfind("DANOS-INIT-ENTER")
+    if boot_start < 0:
+        return {"status": "SKIP", "preflight_status": "SKIP",
+                "failure_reason": "serial log has no live-init boot-start marker"}
+    boot_text = text[boot_start:]
+    builds = list(BUILD.finditer(boot_text))
     if not builds:
         return {"status": "SKIP", "preflight_status": "SKIP",
                 "failure_reason": "serial log has no DANOS-BUILD identity marker"}
@@ -48,10 +53,10 @@ def result_from_log(text: str, *, identity: dict[str, str], iso_name: str,
         raise QualificationError("serial boot identity does not match the clean polling ISO")
 
     inventory = {m["bdf"]: (m["vendor"].lower(), m["device"].lower())
-                 for m in PCI_NIC.finditer(text)}
+                 for m in PCI_NIC.finditer(boot_text)}
     passes = {bdf: (pci_id.lower(), bound_driver)
-              for bdf, pci_id, bound_driver in BIND_PASS.findall(text)}
-    failures = re.findall(r"DPDK-PCI-BIND FAIL ([^\r\n]+)", text)
+              for bdf, pci_id, bound_driver in BIND_PASS.findall(boot_text)}
+    failures = re.findall(r"DPDK-PCI-BIND FAIL ([^\r\n]+)", boot_text)
     relevant_failures = [failure for failure in failures
                          if any(bdf in failure for bdf in bdfs)]
     if any("device-absent=" in failure for failure in relevant_failures):
@@ -74,10 +79,10 @@ def result_from_log(text: str, *, identity: dict[str, str], iso_name: str,
         if pci_id != "8086:1539" or bound_driver != driver:
             raise QualificationError(f"{bdf} binding marker does not match requested I211/driver")
 
-    if "VPP API socket: ready" not in text or "VPP stats socket: ready" not in text:
+    if "VPP API socket: ready" not in boot_text or "VPP stats socket: ready" not in boot_text:
         return {"status": "SKIP", "preflight_status": "SKIP",
                 "failure_reason": "serial evidence lacks VPP API/stats readiness"}
-    if "VPP-DPDK-INTERFACES PASS" not in text:
+    if "VPP-DPDK-INTERFACES PASS" not in boot_text:
         raise QualificationError("serial evidence lacks VPP-DPDK-INTERFACES PASS")
 
     return {
