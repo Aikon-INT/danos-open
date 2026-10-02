@@ -49,7 +49,8 @@ for bdf in $ports; do
                 echo "DPDK-PCI-BIND FAIL unbind=$bdf driver=$current_driver"; exit 1;
             }
         fi
-        printf '%s %s' "$expected_vendor" "$expected_device" > "$driver_dir/new_id" 2>/dev/null || true
+        printf '%s %s' "${expected_vendor#0x}" "${expected_device#0x}" \
+            > "$driver_dir/new_id" 2>/dev/null || true
         printf '%s' "$bdf" > "$driver_dir/bind" || {
             echo "DPDK-PCI-BIND FAIL bind=$bdf driver=$driver"; exit 1;
         }

@@ -19,6 +19,7 @@ run_gate() {
 
 run_gate backend-contract bash "$ROOT/danos-test/integration/run_backend_contract.sh"
 run_gate pci-result-validator python3 "$ROOT/danos-test/integration/test_record_dpdk_perf_result.py"
+run_gate i211-boot-result-validator python3 "$ROOT/danos-test/integration/test_record_i211_boot_result.py"
 run_gate vmware-result-validator python3 "$ROOT/danos-test/vmware/test_record_vmxnet3_packet_result.py"
 run_gate ctest ctest --test-dir "$ROOT/build" --output-on-failure
 run_gate qemu-live-console-and-mgrd-recovery \

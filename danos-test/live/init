@@ -22,11 +22,6 @@ if test -f /etc/danos/network.env; then
     . /etc/danos/network.env
 fi
 echo "DANOS VPP health_probe=${DANOS_VPP_HEALTH_PROBE:-0} restart_test=${DANOS_VPP_RESTART_TEST:-0}" > /dev/console
-for pci_dev in /sys/bus/pci/devices/*; do
-    test -r "$pci_dev/class" || continue
-    test "$(cat "$pci_dev/class" 2>/dev/null)" = 0x020000 || continue
-    echo "PCI-NIC $(basename "$pci_dev") vendor=$(cat "$pci_dev/vendor" 2>/dev/null) device=$(cat "$pci_dev/device" 2>/dev/null)" > /dev/console
-done
 
 echo "" > /dev/console
 echo "===============================================" > /dev/console
@@ -48,6 +43,11 @@ say_live_file() {
         say_live "$live_line"
     done < "$1"
 }
+for pci_dev in /sys/bus/pci/devices/*; do
+    test -r "$pci_dev/class" || continue
+    test "$(cat "$pci_dev/class" 2>/dev/null)" = 0x020000 || continue
+    say_live "PCI-NIC $(basename "$pci_dev") vendor=$(cat "$pci_dev/vendor" 2>/dev/null) device=$(cat "$pci_dev/device" 2>/dev/null)"
+done
 if test -n "${DANOS_BUILD_COMMIT:-}"; then
     say_live "DANOS-BUILD commit=${DANOS_BUILD_COMMIT} source_dirty=${DANOS_BUILD_SOURCE_DIRTY:-unknown} iso=${DANOS_BUILD_ISO:-unknown} no_rx_interrupts=${DANOS_BUILD_DPDK_NO_RX_INTERRUPTS:-unknown} utc=${DANOS_BUILD_UTC:-unknown}"
 fi
