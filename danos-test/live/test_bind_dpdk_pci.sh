@@ -38,4 +38,8 @@ if DANOS_DPDK_SYSFS_ROOT="$tmp/sys" \
     exit 1
 fi
 grep -q 'unsupported-driver=unknown' "$tmp/out"
+grep -Fq 'DANOS_BUILD_DPDK_BIND_DRIVER="$DANOS_BUILD_DPDK_BIND_DRIVER"' \
+    "$ROOT/danos-test/live/init"
+grep -Fq 'DANOS_BUILD_DPDK_EXPECTED_PCI_ID="$DANOS_BUILD_DPDK_EXPECTED_PCI_ID"' \
+    "$ROOT/danos-test/live/init"
 echo 'PASS: DPDK PCI binding fails closed on wrong device, malformed BDF and unsupported driver'

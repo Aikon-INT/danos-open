@@ -78,7 +78,10 @@ insmod /modules/virtio_net.ko 2>/dev/null || echo "virtio-net insmod failed"
 if test -f /modules/uio.ko; then insmod /modules/uio.ko 2>/dev/null || echo "uio insmod failed"; else echo "uio module absent"; fi
 if test -f /modules/uio_pci_generic.ko; then insmod /modules/uio_pci_generic.ko 2>/dev/null || echo "uio-pci-generic insmod failed"; else echo "uio-pci-generic module absent"; fi
 if test "${DANOS_BUILD_DPDK_BIND_DRIVER:-none}" != none; then
-    /bin/sh /bin/bind_dpdk_pci.sh > /tmp/dpdk-pci-bind.log 2>&1
+    DANOS_BUILD_DPDK_BIND_DRIVER="$DANOS_BUILD_DPDK_BIND_DRIVER" \
+    DANOS_BUILD_DPDK_EXPECTED_PCI_ID="$DANOS_BUILD_DPDK_EXPECTED_PCI_ID" \
+    DANOS_BUILD_DPDK_PORTS="$DANOS_BUILD_DPDK_PORTS" \
+        /bin/sh /bin/bind_dpdk_pci.sh > /tmp/dpdk-pci-bind.log 2>&1
     dpdk_bind_rc=$?
     say_live_file /tmp/dpdk-pci-bind.log
     test "$dpdk_bind_rc" -eq 0 || say_live "DPDK-PCI-BIND-RESULT FAIL rc=$dpdk_bind_rc"
