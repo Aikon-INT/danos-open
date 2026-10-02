@@ -25,17 +25,18 @@ environment gate and is not conflated with software dataplane acceptance.
 The current mainline is clean and synchronized with `origin/main`; `v0.16.0-rc1`
 is the current release-candidate tag (the latest
 formal release remains `v0.14.0`). The complete deterministic suite passes
-34/34. The backend contract gate also passes its capability/transaction,
+35/35, including fail-closed I211 PCI binding checks. The backend contract gate also passes its capability/transaction,
 programming-pipeline, and composite-route stages. The live ISO loads USB
 host-controller and HID modules and binds its shell to tty1 with a controlling
 terminal. The current clean-provenance I211 polling runner image is
-`build/danos-open-v0.16.0-rc1-i211-dpdk-polling-runner.iso`, SHA256
-`dad861f250d46d725fec9c31c8f35e44a1d88a373078280d547a613b0cca7369`, built
-from clean commit `55673cb`. It configures BDFs `0000:01:00.0` and
-`0000:02:00.0` with RX interrupts disabled and includes USB HID/controller
-modules. QEMU xHCI keyboard input and mgrd WAL replay pass on this exact image;
-physical I211 boot, keyboard input, packet forwarding and line-rate performance
-remain open gates.
+`build/danos-open-v0.16.0-rc1-i211-dpdk-polling-runner-r3.iso`, SHA256
+`017e9ca96fa3222ac4f70084264ac796f23ca805d1132fdc7afc5b5da54eeaf0`, built
+from clean commit `d611730`. It configures BDFs `0000:01:00.0` and
+`0000:02:00.0` with RX interrupts disabled and binds only PCI-ID-verified I211
+functions to `uio_pci_generic`; USB HID/controller modules are included. QEMU
+xHCI keyboard input and mgrd WAL replay pass; without I211, QEMU correctly
+reports the requested BDF absent. Physical I211 binding, boot, keyboard input,
+packet forwarding and line-rate performance remain open gates.
 Privileged evidence is recorded separately from the DPDK hardware gate.
 The same QEMU serial gate now restarts `mgrd` against its existing WAL and
 checks both record recovery and backend replay counters (3 attempted, 3 OK,
@@ -69,7 +70,7 @@ has been recorded.
   complete-probe attempts to tolerate guest dataplane convergence; ECMP and
   path-failover packet-loss assertions remain strict.
 - Current mainline work includes v0.14 release automation, compatibility baselines, event-driven reconciliation and streaming telemetry.
-- The configured build registers 34 CTest cases. The restricted development environment initially blocked seven socket/network tests, but the same build passed all 34 cases when re-run with host network privileges. The restriction is therefore environmental, not a current test failure.
+- The current configured build registers 35 CTest cases. The restricted development environment initially blocked seven socket/network tests, but the same build passed all 34 original cases when re-run with host network privileges; the added PCI binding safety test also passes. The restriction is therefore environmental, not a current test failure.
 - The programming pipeline and composite route tests pass in the current environment.
 - K4/K5 was closed in a privileged Docker validation container: K4a/K4b,
   standard gNMI-to-mgrd K5a, and real raw-ICMP forwarding all pass. The
