@@ -7,7 +7,7 @@ management-plane, frozen Route/NH/NHGroup contract, FRR 10.3 ZAPI path,
 VPP 26.10 API/FIB path, route lifecycle, ECMP, QEMU e1000 and VMware
 VMXNET3 polling-only lanes are covered by repeatable evidence. The remaining
 item is a host-dependent real PCI/line-rate DPDK performance lane; protocol
-extensions remain deliberately deferred. QEMU topology-126 verifies explicit
+extensions remain deliberately deferred. Clean-source QEMU topology-128 verifies explicit
 ECMP next-hop withdrawal from the VPP FIB: all four sampled flows continue over
 the surviving bucket, then return to two buckets after restore. An interface
 admin-down alone does not withdraw a configured static route's next hop here;
@@ -141,7 +141,7 @@ in this workspace, so its reported physical keyboard failure is unresolved.
 | gNMI/CLI/NETCONF | Strong prototype | Multi-stream edge cases, in-process TLS, long-term protocol maintenance |
 | Linux backend | Real backend verified | Broader topology and recovery acceptance |
 | VPP backend | Runtime/conformance/API ECMP and packet-forwarding verified | Traffic scale and recovery |
-| FRR integration | topology-126 verifies BGP route lifecycle, OSPF adjacency, ZAPI, FRR/zserv restart, VPP replay and ECMP NH withdraw/restore | Production hardening and BFD |
+| FRR integration | clean-source topology-128 verifies BGP route lifecycle, OSPF adjacency, ZAPI, FRR/zserv restart, VPP replay and ECMP NH withdraw/restore | Production hardening and BFD |
 | Data model | Route/VRF/NH plus primary interface IPv4/IPv6 model | VLAN, multi-address, tunnel/EVPN models |
 | Observability/security | Initial implementation | Operational semantics, HA and upgrade evidence |
 | OVS/P4/platform | Intentionally deferred | Revisit after v0.16 release qualification; frozen contract is necessary but not sufficient |

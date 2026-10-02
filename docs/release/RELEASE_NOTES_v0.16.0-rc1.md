@@ -12,15 +12,20 @@
 
 - CTest 34/34 PASS。
 - Route/NH/NHGroup backend contract、删除、回滚和 replay conformance PASS。
-- topology-126：FRR/VPP/BGP/OSPF/ZAPI add、withdraw、restore、zserv 与 daemon
+- topology-128（clean source commit `c632429`）：FRR/VPP/BGP/OSPF/ZAPI add、withdraw、restore、zserv 与 daemon
   重启恢复通过；VPP restart/replay 通过。
 - QEMU e1000 双端口基础报文、4 目的多流 ECMP 和双 bucket 计数通过；显式撤销一条
   ECMP 下一跳后四个探测目的均经存活 bucket 5/5 转发，恢复下一跳后双 bucket 重建，
   四个目的均 5/5 恢复。
 - 边界：仅将接口 admin-down 而保留静态 route/NH 时，VPP 26.10 仍保持该路由 bucket；
   验收使用实际 route/NH withdrawal，不把单独的接口状态变化误报为路由撤销。
-- VMware VMXNET3 `no-rx-interrupts` polling-only 双网段报文基线 PASS：
-  100/1000 包约 97–99 pps、0% 丢包。
+- QEMU e1000/DPDK integration ISO：`build/danos-vpp-dpdk-e1000-2port-frr-ecmp-ready-r23.iso`；
+  SHA256 `4570819432a1ddc1f3d4d0cd15783a4ce45e3330c24ed5d5ac7e22e8181148a6`，build
+  identity `source_dirty=0`。
+- VMware VMXNET3 `no-rx-interrupts` polling-only 历史双网段 packet baseline：
+  100/1000 包约 97–99 pps、0% 丢包；本轮 release gate 的 VMware 日志缺 clean
+  build identity（commit 为空、dirty unknown），VMware VM 未运行，故当前结果为
+  `ENVIRONMENT-OPEN`，不能作为本次 clean-source release-qualified 性能记录。
 - I211 live ISO 加入 USB host-controller 和 HID keyboard modules；QEMU xHCI
   验证键盘枚举，并通过 USB keyboard 输入命令至 tty1 shell；可用
   `danos-test/live/verify_usb_keyboard_qemu.py` 重复验收。
@@ -34,6 +39,8 @@
   通过的 DPDK lane。
 - 真实 PCI DPDK 性能为 `ENVIRONMENT-OPEN`，等待独立 VFIO/uio、HugePages、
   VPP DPDK 和流量发生器 runner。
+- 当前完整 gate 的总体功能状态为 PASS，但 PCI runner 与 VMware clean-commit
+  provenance 分别仍为 `ENVIRONMENT-OPEN`；这不构成 v0.16.0 正式发布性能资格。
 - 实机 I211 USB 输入/冷启动在本环境尚无串口证据；QEMU HID 键盘测试不能代替实机验收。
 - 最新 I211 USB hybrid ISO：`build/danos-open-v0.16.0-rc1-i211-dpdk-usb-hid-final.iso`；
   SHA256 `ebb3fc3418d22c4db55e7c5b9114ca3754e685bf3c039e11fcfbb0f13b64006a`。
