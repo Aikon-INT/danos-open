@@ -39,14 +39,21 @@ ttyS0 command execution (separate input echo/result) and USB keyboard command
 input to tty1; mgrd WAL replay/backend counters pass. Without I211, QEMU correctly reports
 the requested BDF absent; r9 identity-bound QEMU preflight is `SKIP`, as expected.
 A serial-log recorder now verifies identity
-and both port-bind markers without turning absent hardware into a pass. Physical
-I211 binding, boot, keyboard input,
-packet forwarding and line-rate performance remain open gates.
+and both port-bind markers without turning absent hardware into a pass. On
+2026-10-03 the user confirmed successful physical boot, and an interactive
+USB-UART read-only snapshot independently verified r9 identity, both I211 BDFs
+bound to `uio_pci_generic`, VPP 26.10/mgrd running, all three VPP sockets, and
+polling queue initialization. Port 1 carrier is up at 1 Gbps; port 2 has no
+carrier. The configured route has two next hops but only one active forwarding
+bucket while port 2 is down. Incidental broadcast/multicast RX is not an
+end-to-end forwarding test; physical packet forwarding, ECMP distribution,
+keyboard input and line-rate performance remain open gates.
 The r9 image uses the user-provided PCI ID `8086:1539`, both explicit BDFs,
-`uio_pci_generic`, and polling-only RX. Its physical binding and traffic
-qualification remain pending. A newly available USB-UART `/dev/ttyUSB0` was
-used for a 60-second r9 capture, but it received 0 bytes and no live-init marker;
-the recorder correctly returned `SKIP`.
+`uio_pci_generic`, and polling-only RX. A 60-second passive USB-UART capture
+received 0 bytes and correctly returned `SKIP` because the machine was already
+booted. A later interactive read-only UART session verified the live runtime;
+see the acceptance matrix for the saved snapshot and exact scope. Physical
+traffic/performance qualification remains pending.
 `capture_i211_serial.sh` now captures a bounded 115200 8N1 USB-UART boot log and
 produces the identity-bound preflight result without overwriting prior evidence.
 Its end-to-end PTY test validates file/result plumbing only, not physical hardware.
