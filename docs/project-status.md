@@ -60,8 +60,9 @@ see the acceptance matrix for the saved snapshot and exact scope. Physical
 traffic/performance qualification remains pending. The r9 image lacked
 `ping_plugin.so`, so it could not run VPP CLI ICMP tests; r10 fixes that gap and
 passed QEMU plugin loading. Physical r10 traffic/performance qualification is
-pending; no USB block device is currently present on this development host, so
-no disk was overwritten.
+pending. Writing r10 to the original runner USB failed with kernel medium/write
+errors at LBA 0 and unrecovered read errors; the media contents are unverified.
+No further write was attempted; a healthy replacement USB is required.
 `capture_i211_serial.sh` now captures a bounded 115200 8N1 USB-UART boot log and
 produces the identity-bound preflight result without overwriting prior evidence.
 Its end-to-end PTY test validates file/result plumbing only, not physical hardware.
