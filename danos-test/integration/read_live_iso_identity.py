@@ -58,14 +58,29 @@ def read_identity(iso: Path) -> dict[str, str]:
     for raw in listing.stdout.decode("utf-8", errors="strict").splitlines():
         key, sep, value = raw.partition("=")
         if sep:
-            values[key] = value
+            try:
+                parsed = shlex.split(value, posix=True)
+            except ValueError as exc:
+                raise IdentityError(f"malformed shell-escaped build metadata for {key}") from exc
+            values[key] = parsed[0] if len(parsed) == 1 else " ".join(parsed)
     commit = values.get("DANOS_BUILD_COMMIT", "")
     dirty = values.get("DANOS_BUILD_SOURCE_DIRTY", "")
     if not re.fullmatch(r"[0-9a-fA-F]{7,40}", commit):
         raise IdentityError("ISO build commit is missing or malformed")
     if dirty not in ("0", "1"):
         raise IdentityError("ISO source dirty marker is missing or malformed")
-    return {"iso_build_commit": commit.lower(), "iso_source_dirty": dirty}
+    result = {"iso_build_commit": commit.lower(), "iso_source_dirty": dirty}
+    for key in (
+        "DANOS_BUILD_ISO", "DANOS_BUILD_VPP_IMAGE", "DANOS_BUILD_DPDK_PORTS",
+        "DANOS_BUILD_DPDK_NO_RX_INTERRUPTS", "DANOS_BUILD_DPDK_BIND_DRIVER",
+        "DANOS_BUILD_DPDK_EXPECTED_PCI_ID", "DANOS_BUILD_DPDK_DEVICE",
+        "DANOS_BUILD_DPDK_ENABLE", "DANOS_BUILD_DPDK_AUTOSTART",
+        "DANOS_BUILD_PING_ENABLE", "DANOS_BUILD_DPDK_TRAFFIC_TEST",
+        "DANOS_BUILD_DPDK_PORT_COUNT",
+    ):
+        if key in values:
+            result[key.lower()] = values[key]
+    return result
 
 
 def main() -> int:

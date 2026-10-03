@@ -25,7 +25,7 @@ VMWARE_PEER_LOG="${V016_VMWARE_PEER_LOG:-$ROOT/build/vmware-vmxnet3-test/peer-cl
 # Exercise the console and mgrd without enabling a hardware-specific DPDK
 # profile.  The I211 image binds PCI NICs for the physical runner and is not a
 # suitable generic live-console smoke image.
-USB_KEYBOARD_ISO="${V016_USB_KEYBOARD_ISO:-$ROOT/build/danos-open-v0.16.0-rc1-i211-dpdk-polling-runner-r9.iso}"
+USB_KEYBOARD_ISO="${V016_USB_KEYBOARD_ISO:-$ROOT/build/danos-open-v0.16.0-rc1-i211-dpdk-polling-runner-r10.iso}"
 failures=0
 run_gate() {
     local name="$1"; shift
@@ -43,6 +43,8 @@ run_gate pci-result-validator python3 "$ROOT/danos-test/integration/test_record_
 run_gate dpdk-preflight-result-schema python3 \
     "$ROOT/danos-test/integration/test_dpdk_preflight_result.py"
 run_gate i211-boot-result-validator python3 "$ROOT/danos-test/integration/test_record_i211_boot_result.py"
+run_gate i211-runner-iso-profile python3 \
+    "$ROOT/danos-test/integration/verify_i211_iso_profile.py" "$USB_KEYBOARD_ISO"
 run_gate i211-serial-capture-syntax bash -n "$ROOT/danos-test/integration/capture_i211_serial.sh"
 run_gate i211-serial-capture-pty python3 "$ROOT/danos-test/integration/test_capture_i211_serial.py" \
     --iso "$USB_KEYBOARD_ISO"

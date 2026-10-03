@@ -181,6 +181,12 @@ mkdir -p "$WORK/initramfs/etc/danos"
   printf 'DANOS_BUILD_DPDK_NO_RX_INTERRUPTS=%q\n' "$VPP_DPDK_NO_RX_INTERRUPTS"
   printf 'DANOS_BUILD_DPDK_BIND_DRIVER=%q\n' "$VPP_DPDK_BIND_DRIVER"
   printf 'DANOS_BUILD_DPDK_EXPECTED_PCI_ID=%q\n' "$VPP_DPDK_EXPECTED_PCI_ID"
+  printf 'DANOS_BUILD_DPDK_DEVICE=%q\n' "$VPP_DPDK_DEVICE"
+  printf 'DANOS_BUILD_DPDK_ENABLE=%q\n' "$VPP_DPDK_ENABLE"
+  printf 'DANOS_BUILD_DPDK_AUTOSTART=%q\n' "$VPP_AUTOSTART"
+  printf 'DANOS_BUILD_PING_ENABLE=%q\n' "$VPP_PING_ENABLE"
+  printf 'DANOS_BUILD_DPDK_TRAFFIC_TEST=%q\n' "$VPP_DPDK_TRAFFIC_TEST"
+  printf 'DANOS_BUILD_DPDK_PORT_COUNT=%q\n' "$(printf '%s\n' $VPP_DPDK_PORTS | wc -l | tr -d ' ')"
 } > "$WORK/initramfs/etc/danos/build-info.env"
 if test -n "$VPP_IMAGE"; then
   # Keep the image container alive so readlink can resolve SONAME targets.
