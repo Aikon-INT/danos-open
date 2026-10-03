@@ -21,7 +21,15 @@ def main() -> int:
     parser.add_argument("--qemu", default=os.environ.get("QEMU", "qemu-system-x86_64"))
     parser.add_argument("--timeout", type=float, default=120)
     parser.add_argument("--serial-log", type=Path)
+    parser.add_argument("--shell-command", default="true",
+                        help="single-line shell command to run after ttyS0 is ready")
+    parser.add_argument("--expect-output",
+                        help="require this command-output substring before passing")
     args = parser.parse_args()
+    if not args.shell_command.strip() or "\n" in args.shell_command or "\r" in args.shell_command:
+        parser.error("--shell-command must be a non-empty single line")
+    if args.expect_output and "\n" in args.expect_output:
+        parser.error("--expect-output must be a single line")
     iso = args.iso.resolve()
     if not iso.is_file():
         parser.error(f"ISO not found: {iso}")
@@ -87,27 +95,38 @@ def main() -> int:
                         shell_ready_at = time.monotonic()
                         conn.sendall(b"\n")
                     if re.search(rb"(?m)(?:^|\r?\n)[^\r\n]*# ?$", bytes(log)):
-                        conn.sendall(b"echo SERIAL_COMMAND_RESULT_7F3A\n")
+                        command = f"{args.shell_command}; echo SERIAL_COMMAND_RESULT_7F3A\n"
+                        conn.sendall(command.encode())
                         command_sent = True
                     elif time.monotonic() - shell_ready_at > 8:
                         # Prompt can be suppressed by BusyBox configuration;
                         # still test the shell with a bounded delayed command.
-                        conn.sendall(b"echo SERIAL_COMMAND_RESULT_7F3A\n")
+                        command = f"{args.shell_command}; echo SERIAL_COMMAND_RESULT_7F3A\n"
+                        conn.sendall(command.encode())
                         command_sent = True
                 # The tty echoes the input command. Require the unique result
                 # token twice: once in that input echo and once in ash output.
-                if command_sent and text.count("SERIAL_COMMAND_RESULT_7F3A") >= 2:
+                expected_seen = not args.expect_output or args.expect_output in text
+                # Terminal echo may wrap a long command at the column limit,
+                # splitting the marker across CR/LF. Count on a newline-free
+                # view while still requiring the distinct shell result.
+                marker_count = text.replace("\r", "").replace("\n", "").count(
+                    "SERIAL_COMMAND_RESULT_7F3A"
+                )
+                if (command_sent
+                        and marker_count >= 2
+                        and expected_seen):
                     if args.serial_log:
                         args.serial_log.parent.mkdir(parents=True, exist_ok=True)
                         args.serial_log.write_bytes(log)
-                    print("[PASS] QEMU ttyS0 root shell executed a command and emitted its result")
+                    print("[PASS] QEMU ttyS0 root shell executed the command and emitted its result")
                     return 0
 
             if args.serial_log:
                 args.serial_log.parent.mkdir(parents=True, exist_ok=True)
                 args.serial_log.write_bytes(log)
             raise TimeoutError(
-                "ttyS0 shell command marker not observed; serial tail:\n"
+                "ttyS0 shell command/result or expected output not observed; serial tail:\n"
                 + log.decode("utf-8", errors="replace")[-4000:]
             )
         finally:

@@ -28,16 +28,17 @@ formal release remains `v0.14.0`). The complete deterministic suite passes
 35/35, including fail-closed I211 PCI binding checks. The backend contract gate also passes its capability/transaction,
 programming-pipeline, and composite-route stages. The live ISO loads USB
 host-controller and HID modules and binds its shell to tty1 with a controlling
-terminal. The current clean-provenance I211 polling runner image is
-`build/danos-open-v0.16.0-rc1-i211-dpdk-polling-runner-r9.iso`, SHA256
-`b5cd906087886e22161fe2df31df447f5135aa65ddcb71c4c16294f234f28d97`, built
-from clean commit `53bd169`. It configures BDFs `0000:01:00.0` and
+terminal. The latest generated clean-provenance I211 polling runner image is
+`build/danos-open-v0.16.0-rc1-i211-dpdk-polling-runner-r10.iso`, SHA256
+`3ca6864ddf82a122703e9eb32a894ba23800f15cd96cf7a58f24f0707abe48ce`, built
+from clean commit `eee79ce`. It configures BDFs `0000:01:00.0` and
 `0000:02:00.0` with RX interrupts disabled and binds only PCI-ID-verified I211
 functions to `uio_pci_generic`; USB HID/controller modules are included, and
 ttyS0 now hosts an interactive root recovery shell. Strict QEMU checks prove
 ttyS0 command execution (separate input echo/result) and USB keyboard command
-input to tty1; mgrd WAL replay/backend counters pass. Without I211, QEMU correctly reports
-the requested BDF absent; r9 identity-bound QEMU preflight is `SKIP`, as expected.
+input to tty1; mgrd WAL replay/backend counters pass. A targeted QEMU shell command
+also verified `show plugins` lists `ping_plugin.so`. Without I211, QEMU correctly reports
+the requested BDF absent; identity-bound QEMU preflight is `SKIP`, as expected.
 A serial-log recorder now verifies identity
 and both port-bind markers without turning absent hardware into a pass. On
 2026-10-03 the user confirmed successful physical boot, and an interactive
@@ -48,12 +49,17 @@ carrier. The configured route has two next hops but only one active forwarding
 bucket while port 2 is down. Incidental broadcast/multicast RX is not an
 end-to-end forwarding test; physical packet forwarding, ECMP distribution,
 keyboard input and line-rate performance remain open gates.
-The r9 image uses the user-provided PCI ID `8086:1539`, both explicit BDFs,
+The r10 image has not yet been booted on the physical runner. Its predecessor r9
+used PCI ID `8086:1539`, both explicit BDFs,
 `uio_pci_generic`, and polling-only RX. A 60-second passive USB-UART capture
 received 0 bytes and correctly returned `SKIP` because the machine was already
 booted. A later interactive read-only UART session verified the live runtime;
 see the acceptance matrix for the saved snapshot and exact scope. Physical
-traffic/performance qualification remains pending.
+traffic/performance qualification remains pending. The r9 image lacked
+`ping_plugin.so`, so it could not run VPP CLI ICMP tests; r10 fixes that gap and
+passed QEMU plugin loading. Physical r10 traffic/performance qualification is
+pending; no USB block device is currently present on this development host, so
+no disk was overwritten.
 `capture_i211_serial.sh` now captures a bounded 115200 8N1 USB-UART boot log and
 produces the identity-bound preflight result without overwriting prior evidence.
 Its end-to-end PTY test validates file/result plumbing only, not physical hardware.
