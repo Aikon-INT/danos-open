@@ -47,6 +47,14 @@ vendor/device `10ec:8168`, bound driver `r8169` rather than the requested
 `vfio-pci`, and zero HugePages. This confirms the local RTL8168 cannot stand in
 for the remote I211 qualification lane; no driver unbind/rebind was attempted.
 
+After tightening the PCI performance recorder, a fresh full gate on clean commit
+`997fa25` passed: `build/v016-release-gate-997fa25.env` (PCI sub-result
+`build/v016-dpdk-997fa25.env` remains structured `SKIP`/`ENVIRONMENT-OPEN`). The
+recorder now cross-checks PPS against packet count and duration, Mbps against
+64-byte frame rate, and rejects out-of-range acceptance thresholds; its 11 unit
+tests pass. Backend contract, CTest 35/35, QEMU/FRR/VPP recovery/ECMP and VMware
+packet baseline were rerun by the same gate and passed.
+
 As of 2026-10-04, DANOS-Open v0.16 is in integration/release qualification. The
 management-plane, frozen Route/NH/NHGroup contract, FRR 10.3 ZAPI path,
 VPP 26.10 API/FIB path, route lifecycle, ECMP, QEMU e1000 and VMware
@@ -134,8 +142,8 @@ only Intel Wi-Fi and RTL8168, not the remote I211 runner.
 - The authoritative v0.16 status is maintained in
   `docs/v0.16-acceptance-matrix.md`; historical gaps below are retained only
   for traceability and do not override that matrix.
-- Latest integrated gate: `build/v016-release-gate-bac716e.env` is PASS on
-  commit `bac716e`. It includes backend contract, validators, PTY capture, CTest
+- Latest integrated gate: `build/v016-release-gate-997fa25.env` is PASS on
+  commit `997fa25`. It includes backend contract, validators, PTY capture, CTest
   35/35, QEMU ttyS0/USB keyboard/mgrd replay, strict topology-140 FRR/VPP and
   mandatory 4×1000 ECMP soak, plus VMware 2000/2000 packet baseline (98.23 pps,
   0% loss). QEMU measured 4000/4000, 82.08 pps, bucket deltas 3000/1000.
