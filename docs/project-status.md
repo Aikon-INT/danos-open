@@ -40,6 +40,13 @@ the previously faulty serial `121220160204`; it was not written. Traffic-r1 ISO
 profile/hash and the serial PTY/recorder path pass, but there is no new physical
 boot or dataplane evidence.
 
+A targeted local PCI preflight was also run with `DPDK_PCI_BDF=0000:04:00.0`
+against the traffic-runner ISO. Its machine-readable result is
+`build/v016-dpdk-22f9f96-local-rtl8168.env`: `SKIP`, correctly identifying
+vendor/device `10ec:8168`, bound driver `r8169` rather than the requested
+`vfio-pci`, and zero HugePages. This confirms the local RTL8168 cannot stand in
+for the remote I211 qualification lane; no driver unbind/rebind was attempted.
+
 As of 2026-10-04, DANOS-Open v0.16 is in integration/release qualification. The
 management-plane, frozen Route/NH/NHGroup contract, FRR 10.3 ZAPI path,
 VPP 26.10 API/FIB path, route lifecycle, ECMP, QEMU e1000 and VMware
