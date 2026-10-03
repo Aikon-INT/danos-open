@@ -6,7 +6,7 @@ import re
 import sys
 from pathlib import Path
 
-from read_live_iso_identity import IdentityError, read_identity
+from read_live_iso_identity import IdentityError, read_identity, read_initramfs_members
 
 
 EXPECTED = {
@@ -65,7 +65,40 @@ def main() -> int:
                 f"required {args.minimum_soak_count}", file=sys.stderr,
             )
             return 1
-    print("PASS: clean two-port I211 polling runner profile and ping plugin metadata")
+        try:
+            members, contents = read_initramfs_members(
+                args.iso,
+                ["etc/danos/vpp-traffic.env", "etc/vpp/startup.conf", "init"],
+            )
+        except (IdentityError, OSError, ValueError) as exc:
+            print(f"FAIL: cannot inspect traffic ISO payload: {exc}", file=sys.stderr)
+            return 1
+        required_members = {
+            "vpp-dpdk-traffic-test.enabled",
+            "usr/lib/x86_64-linux-gnu/vpp_plugins/dpdk_plugin.so",
+            "usr/lib/x86_64-linux-gnu/vpp_plugins/ping_plugin.so",
+            "etc/danos/vpp-traffic.env", "etc/vpp/startup.conf", "init",
+        }
+        absent = sorted(required_members - members)
+        if absent:
+            print(f"FAIL: traffic ISO payload is missing: {', '.join(absent)}", file=sys.stderr)
+            return 1
+        traffic_env = contents["etc/danos/vpp-traffic.env"]
+        startup = contents["etc/vpp/startup.conf"]
+        init = contents["init"]
+        required_config = [
+            ("VPP_STATIC_NEIGHBORS=0", traffic_env),
+            (f"VPP_ECMP_SOAK_COUNT={soak_count}", traffic_env),
+            ("plugin dpdk_plugin.so { enable }", startup),
+            ("plugin ping_plugin.so { enable }", startup),
+            ("VPP-DPDK-NEIGHBORS dynamic-arp", init),
+        ]
+        missing_config = [value for value, source in required_config if value not in source]
+        if missing_config:
+            print("FAIL: traffic ISO embedded config mismatch: " + ", ".join(missing_config),
+                  file=sys.stderr)
+            return 1
+    print("PASS: I211 runner profile, provenance, and required initramfs payload")
     for key in ("iso_build_commit", "danos_build_iso", "danos_build_vpp_image"):
         if key in identity:
             print(f"{key}={identity[key]}")

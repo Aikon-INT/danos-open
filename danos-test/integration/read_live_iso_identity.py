@@ -87,6 +87,57 @@ def read_identity(iso: Path) -> dict[str, str]:
     return result
 
 
+def read_initramfs_members(iso: Path, members: list[str]) -> tuple[set[str], dict[str, str]]:
+    """List initramfs members and return selected small text files."""
+    if not iso.is_file():
+        raise IdentityError(f"ISO is not a readable file: {iso}")
+    for command in ("xorriso", "gzip", "cpio"):
+        if not shutil.which(command):
+            raise IdentityError(f"required command unavailable: {command}")
+    with tempfile.TemporaryDirectory(prefix="danos-iso-members-") as work:
+        archive = Path(work) / "initramfs.cpio.gz"
+        extract = subprocess.run(
+            ["xorriso", "-osirrox", "on", "-indev", str(iso),
+             "-extract", "/initramfs.cpio.gz", str(archive)],
+            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
+            timeout=90, check=False,
+        )
+        if extract.returncode or not archive.is_file():
+            raise IdentityError("cannot extract /initramfs.cpio.gz from ISO")
+
+        def cpio_output(arguments: list[str]) -> bytes:
+            decompressor = subprocess.Popen(
+                ["gzip", "-dc", str(archive)], stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            try:
+                result = subprocess.run(
+                    ["cpio", *arguments], stdin=decompressor.stdout,
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    timeout=90, check=False,
+                )
+                if decompressor.stdout:
+                    decompressor.stdout.close()
+                gzip_rc = decompressor.wait(timeout=30)
+            except Exception:
+                decompressor.kill()
+                decompressor.wait()
+                raise
+            if result.returncode or gzip_rc:
+                raise IdentityError("cannot read selected initramfs members")
+            return result.stdout
+
+        listed = cpio_output(["-it"]).decode("utf-8", errors="strict")
+        names = {line.removeprefix("./") for line in listed.splitlines()}
+        contents: dict[str, str] = {}
+        for member in members:
+            if member not in names:
+                continue
+            data = cpio_output(["-i", "--to-stdout", member])
+            contents[member] = data.decode("utf-8", errors="strict")
+        return names, contents
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("iso", type=Path)
