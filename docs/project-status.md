@@ -73,11 +73,11 @@ only Intel Wi-Fi and RTL8168, not the remote I211 runner.
 - The authoritative v0.16 status is maintained in
   `docs/v0.16-acceptance-matrix.md`; historical gaps below are retained only
   for traceability and do not override that matrix.
-- Latest integrated gate: `build/v016-release-gate-297c190.env` is PASS with
-  backend contract, validators, PTY capture, CTest 35/35, r8 QEMU ttyS0/USB
-  keyboard/mgrd recovery, topology-134 and VMware 2000/2000 packet baseline.
-  PCI hardware is explicitly `ENVIRONMENT-OPEN`; no I211 traffic/performance
-  claim is made.
+- Latest integrated gate: `build/v016-release-gate-29022a1.env` is PASS on clean
+  mainline `29022a1` with backend contract, validators, PTY capture, CTest 35/35,
+  r9 QEMU ttyS0/USB keyboard/mgrd recovery, topology-140 and VMware 2000/2000
+  packet baseline (98.23 pps, 0% loss). PCI hardware is explicitly
+  `ENVIRONMENT-OPEN`; no I211 traffic/performance claim is made.
 - Latest strict FRR/VPP integration evidence: commit `b5ce9f9`, ISO
   `build/danos-vpp-dpdk-e1000-2port-ecmp-soak-r4.iso`, SHA256
   `e164149ea4ce7e7b78f1c783c24412e24c11a8af896c406c67c4d865d1273097`, with
