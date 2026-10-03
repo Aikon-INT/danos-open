@@ -11,8 +11,8 @@ previous USB media had LBA 0 write and unrecovered-read errors; it must not be r
 No physical r13 or traffic-r1 run has yet been measured; use healthy media and a two-port peer
 topology before claiming physical forwarding/ECMP or performance.
 
-The full unified gate on clean commit `6da4c30` passed and is recorded in
-`build/v016-release-gate-6da4c30.env`: CTest 35/35, backend contract, r13 and traffic ISO
+The full unified gate on clean commit `ed8b4b5` passed and is recorded in
+`build/v016-release-gate-ed8b4b5.env`: CTest 35/35, backend contract, r13 and traffic ISO
 profiles, traffic UART PTY pipeline, runtime plugin, QEMU console/recovery, strict
 topology-140 4000/4000 ECMP, and VMware 2000/2000 packet regression. PCI remains
 schema-v1 `SKIP`/`ENVIRONMENT-OPEN` (no target BDF; HugePages=0).
