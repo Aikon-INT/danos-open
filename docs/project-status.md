@@ -73,11 +73,12 @@ only Intel Wi-Fi and RTL8168, not the remote I211 runner.
 - The authoritative v0.16 status is maintained in
   `docs/v0.16-acceptance-matrix.md`; historical gaps below are retained only
   for traceability and do not override that matrix.
-- Latest integrated gate: `build/v016-release-gate-ad4ba49.env` is PASS on
-  commit `ad4ba49`. It includes backend contract, validators, PTY capture, CTest
+- Latest integrated gate: `build/v016-release-gate-7df9ee3.env` is PASS on
+  commit `7df9ee3`. It includes backend contract, validators, PTY capture, CTest
   35/35, r9 QEMU ttyS0/USB keyboard/mgrd replay, strict topology-140 FRR/VPP and
-  mandatory 4×1000 ECMP soak, plus VMware 2000/2000 packet baseline (98.23 pps,
-  0% loss). PCI remains `ENVIRONMENT-OPEN`; this host has no I211 device.
+  mandatory 4×1000 ECMP soak, QEMU schema result recording, plus VMware
+  2000/2000 packet baseline (98.23 pps, 0% loss). PCI remains
+  `ENVIRONMENT-OPEN`; this host has no I211 device.
   `run_v016_release_gate.sh` refuses `QEMU_ECMP_SOAK_REQUIRED` other than `1`
   and refuses a per-flow soak below 1000 packets, preventing environment
   overrides from silently weakening release acceptance. Both rejection cases
