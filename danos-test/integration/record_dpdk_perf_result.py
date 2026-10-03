@@ -88,6 +88,12 @@ def validate(preflight: dict[str, str], measured: dict[str, str], args) -> dict[
         raise ResultError("single-core ECMP qualification requires at least two 5-tuple flows")
     if tx < 1 or duration < 1 or pps <= 0 or mbps <= 0:
         raise ResultError("packets_tx, duration_ms, pps and mbps must be positive")
+    measured_pps = tx * 1000 / duration
+    if abs(pps - measured_pps) > max(1, measured_pps * Decimal("0.05")):
+        raise ResultError("pps disagrees with transmitted packets and duration_ms")
+    measured_mbps = pps * 64 * 8 / 1_000_000
+    if abs(mbps - measured_mbps) > max(Decimal("0.001"), measured_mbps * Decimal("0.02")):
+        raise ResultError("mbps disagrees with pps and 64-byte packet size")
     if rx < 0 or rx > tx:
         raise ResultError("packets_rx must be between zero and packets_tx")
     if not 0 <= loss <= 100 or abs(loss - (tx - rx) * 100 / tx) > Decimal("0.2"):
@@ -104,6 +110,13 @@ def validate(preflight: dict[str, str], measured: dict[str, str], args) -> dict[
     thresholds = (args.min_pps, args.max_loss_pct, args.max_cpu_pct)
     if any(value is not None for value in thresholds) and any(value is None for value in thresholds):
         raise ResultError("provide all three acceptance thresholds or none")
+    if all(value is not None for value in thresholds):
+        if args.min_pps <= 0:
+            raise ResultError("min_pps must be positive")
+        if not 0 <= args.max_loss_pct <= 100:
+            raise ResultError("max_loss_pct must be in [0,100]")
+        if not 0 <= args.max_cpu_pct <= 100:
+            raise ResultError("max_cpu_pct must be in [0,100]")
     performance_status = "ENVIRONMENT-OPEN"
     if all(value is not None for value in thresholds):
         if pps < Decimal(str(args.min_pps)) or loss > Decimal(str(args.max_loss_pct)) or cpu > Decimal(str(args.max_cpu_pct)):

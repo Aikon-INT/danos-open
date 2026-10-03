@@ -80,6 +80,24 @@ class RecordDpdkPerfResultTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 1)
         self.assertIn("status=FAIL", output)
 
+    def test_reported_pps_must_match_packet_count_and_duration(self):
+        measurement = MEASUREMENT.replace("pps=1000\n", "pps=500\n")
+        proc, output = self.run_case(measurement=measurement)
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("pps disagrees with transmitted packets and duration_ms", output)
+
+    def test_reported_mbps_must_match_64_byte_packet_rate(self):
+        measurement = MEASUREMENT.replace("mbps=0.512\n", "mbps=1.024\n")
+        proc, output = self.run_case(measurement=measurement)
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("mbps disagrees with pps and 64-byte packet size", output)
+
+    def test_performance_thresholds_must_be_in_valid_ranges(self):
+        proc, output = self.run_case(extra=("--min-pps", "900", "--max-loss-pct", "101",
+                                           "--max-cpu-pct", "50"))
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("max_loss_pct must be in [0,100]", output)
+
     def test_identity_mismatch_is_rejected(self):
         proc, output = self.run_case(measurement=MEASUREMENT.replace("deadbeef", "cafebabe"))
         self.assertEqual(proc.returncode, 1)
