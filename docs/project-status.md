@@ -78,6 +78,14 @@ only Intel Wi-Fi and RTL8168, not the remote I211 runner.
   r9 QEMU ttyS0/USB keyboard/mgrd recovery, topology-140 and VMware 2000/2000
   packet baseline (98.23 pps, 0% loss). PCI hardware is explicitly
   `ENVIRONMENT-OPEN`; no I211 traffic/performance claim is made.
+- Latest gate after making the QEMU soak mandatory by default:
+  `build/v016-release-gate-d4dfcff.env` on commit `d4dfcff` is PASS. The unified
+  entry point now defaults to topology-140 and requires four 1000-packet ECMP
+  flows; it records the QEMU ISO digest, topology, soak settings, and a separate
+  `qemu_gate_status`. This run passed backend contract, validators, PTY capture,
+  CTest 35/35, QEMU USB keyboard/tty1 + mgrd replay (3/3), ttyS0 command smoke,
+  topology-140 FRR/VPP/ECMP and VMware 2000/2000 lossless packet baseline
+  (98.23 pps). PCI remains `ENVIRONMENT-OPEN`; no physical device was present.
 - Latest strict FRR/VPP integration evidence: commit `b5ce9f9`, ISO
   `build/danos-vpp-dpdk-e1000-2port-ecmp-soak-r4.iso`, SHA256
   `e164149ea4ce7e7b78f1c783c24412e24c11a8af896c406c67c4d865d1273097`, with
