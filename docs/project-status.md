@@ -8,23 +8,26 @@ Latest hardware-runner artifact (2026-10-04) is r13:
 commit `88f4bed22f2490e8aaeb081d015243636f538cb6`. Embedded I211 profile validation,
 QEMU runtime ping-plugin query, USB keyboard/mgrd replay, ttyS0 shell and serial-capture PTY tests pass. The
 previous USB media had LBA 0 write and unrecovered-read errors; it must not be reused.
-No physical r13 traffic has yet been measured; use healthy media and a two-port peer
+No physical r13 or traffic-r1 run has yet been measured; use healthy media and a two-port peer
 topology before claiming physical forwarding/ECMP or performance.
 
-The full unified gate on clean commit `05471f3` passed and is recorded in
-`build/v016-release-gate-05471f3.env`: CTest 35/35, backend contract, r13 profile and runtime plugin,
-QEMU console/recovery, strict topology-140 4000/4000 ECMP, and VMware 2000/2000
-packet regression. PCI remains `SKIP`/`ENVIRONMENT-OPEN` because this execution host
-does not expose the I211 BDF.
-The gate additionally starts the actual r13 VPP profile under QEMU and queries
-`vppctl show plugins` over ttyS0, requiring `ping_plugin.so` in runtime output. Its
-PCI result is schema-v1 `SKIP` (no target BDF; HugePages=0); performance remains open.
+The full unified gate on clean commit `6da4c30` passed and is recorded in
+`build/v016-release-gate-6da4c30.env`: CTest 35/35, backend contract, r13 and traffic ISO
+profiles, traffic UART PTY pipeline, runtime plugin, QEMU console/recovery, strict
+topology-140 4000/4000 ECMP, and VMware 2000/2000 packet regression. PCI remains
+schema-v1 `SKIP`/`ENVIRONMENT-OPEN` (no target BDF; HugePages=0).
+The gate starts the r13 VPP profile under QEMU and queries `vppctl show plugins` over
+ttyS0, requiring `ping_plugin.so` in runtime output. Traffic ISO r1 is built from clean
+`72dcd8b`, SHA256 `21df44a26e0b7c92d89a58e705329c0c2e6f1dad821a43d348ae1d70c2097aab`;
+its physical traffic remains untested pending a healthy USB and peer topology. The
+gate now extracts the ISO initramfs and verifies both VPP plugins, traffic flag,
+dynamic-ARP configuration, soak settings and startup.conf, not just build metadata.
 An independent I211 traffic-runner builder and UART result recorder are available
 for physical two-link ping, ECMP soak, and path withdraw/restore functional evidence;
 the qualification profile uses dynamic ARP instead of fixture MACs. Those ICMP rates
 are explicitly not line-rate qualification, and no physical run is claimed yet.
 
-As of 2026-10-03, DANOS-Open v0.16 is in integration/release qualification. The
+As of 2026-10-04, DANOS-Open v0.16 is in integration/release qualification. The
 management-plane, frozen Route/NH/NHGroup contract, FRR 10.3 ZAPI path,
 VPP 26.10 API/FIB path, route lifecycle, ECMP, QEMU e1000 and VMware
 VMXNET3 polling-only lanes are covered by repeatable evidence. The remaining
