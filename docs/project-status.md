@@ -2,16 +2,16 @@
 
 ## Current assessment
 
-As of 2026-10-02, DANOS-Open v0.16 is in integration/release qualification. The
+As of 2026-10-03, DANOS-Open v0.16 is in integration/release qualification. The
 management-plane, frozen Route/NH/NHGroup contract, FRR 10.3 ZAPI path,
 VPP 26.10 API/FIB path, route lifecycle, ECMP, QEMU e1000 and VMware
 VMXNET3 polling-only lanes are covered by repeatable evidence. The remaining
 item is a host-dependent real PCI/line-rate DPDK performance lane; protocol
 extensions remain deliberately deferred. The latest clean-source QEMU
-topology-134 verifies explicit ECMP next-hop withdrawal from the VPP FIB: all
-four sampled flows continue over the surviving bucket, then return to two
-buckets after restore. It also passes FRR/zserv and VPP restart/replay plus
-dynamic BGP add/withdraw. An interface
+topology-140 additionally passes a four-flow 4000-packet ECMP soak (0% loss),
+both bucket counter deltas, explicit next-hop withdraw/restore, dynamic BGP
+add/withdraw, FRR/zserv restart, and VPP restart/replay. CTest is 35/35 and
+the backend contract gate passes all three stages. An interface
 admin-down alone does not withdraw a configured static route's next hop here;
 the tested failover action is route/NH withdrawal.
 
@@ -72,7 +72,15 @@ only Intel Wi-Fi and RTL8168, not the remote I211 runner.
   keyboard/mgrd recovery, topology-134 and VMware 2000/2000 packet baseline.
   PCI hardware is explicitly `ENVIRONMENT-OPEN`; no I211 traffic/performance
   claim is made.
-- Latest strict FRR/VPP integration evidence: commit `9d1eb81`, ISO
+- Latest strict FRR/VPP integration evidence: commit `b5ce9f9`, ISO
+  `build/danos-vpp-dpdk-e1000-2port-ecmp-soak-r4.iso`, SHA256
+  `e164149ea4ce7e7b78f1c783c24412e24c11a8af896c406c67c4d865d1273097`, with
+  `source_dirty=0`; fresh-guest topology-140 manifest and serial logs are under
+  `build/qemu-frr-vpp-topology-140-soak-serialized/`. The strict verifier passes
+  4000/4000 ECMP soak packets, bucket deltas 3000/1000, next-hop withdrawal and
+  restore, BGP ZAPI add/withdraw, OSPF, FRR/zserv restart and VPP restart/replay.
+  Aggregate QEMU soak rate is 82.08 pps and is a functional baseline, not line rate.
+- Earlier strict FRR/VPP integration evidence: commit `9d1eb81`, ISO
   `build/danos-vpp-dpdk-e1000-2port-frr-ecmp-ready-r28.iso`, SHA256
   `245e97b922cb85646eac046a06c80fe432e715e231f61f7727bdebede01fc59a`, with
   `source_dirty=0`; fresh-guest topology-134 manifest, serial logs and pcap are
@@ -178,8 +186,8 @@ only Intel Wi-Fi and RTL8168, not the remote I211 runner.
 | Desired/programmed reconciliation | Route/NH/NHGroup add/delete, tombstone sweep and replay verified | Extend the frozen semantics to additional object families |
 | gNMI/CLI/NETCONF | Strong prototype | Multi-stream edge cases, in-process TLS, long-term protocol maintenance |
 | Linux backend | Real backend verified | Broader topology and recovery acceptance |
-| VPP backend | Runtime/conformance/API ECMP and packet-forwarding verified | Traffic scale and recovery |
-| FRR integration | clean-source topology-134 verifies dynamic BGP lifecycle, OSPF adjacency, ZAPI, FRR/zserv restart, VPP replay and ECMP NH withdraw/restore | Production hardening and BFD |
+| VPP backend | Runtime/conformance, ECMP packet forwarding, 4000-packet QEMU soak and VPP restart/replay verified | Real PCI/DPDK performance and longer-duration soak |
+| FRR integration | clean-source topology-140 verifies dynamic BGP add/withdraw, OSPF adjacency, ZAPI, FRR/zserv restart, VPP replay and ECMP NH withdraw/restore | Production hardening and BFD |
 | Data model | Route/VRF/NH plus primary interface IPv4/IPv6 model | VLAN, multi-address, tunnel/EVPN models |
 | Observability/security | Initial implementation | Operational semantics, HA and upgrade evidence |
 | OVS/P4/platform | Intentionally deferred | Revisit after v0.16 release qualification; frozen contract is necessary but not sufficient |
