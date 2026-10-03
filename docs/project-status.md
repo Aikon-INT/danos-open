@@ -2,21 +2,21 @@
 
 ## Current assessment
 
-Latest hardware-runner artifact (2026-10-03) is r12:
-`build/danos-open-v0.16.0-rc1-i211-dpdk-polling-runner-r12.iso`, SHA256
-`b1e287e4156609e30537c32383c9d8c2549f9dce9c49fcd99cc98b0a6bd0b83a`, clean source
-commit `a07359f2dd2707e2e3fcc63e2f8a3f030f0c6122`. Embedded I211 profile validation,
-QEMU USB keyboard/mgrd replay, ttyS0 shell and serial-capture PTY tests pass. The
+Latest hardware-runner artifact (2026-10-04) is r13:
+`build/danos-open-v0.16.0-rc1-i211-dpdk-polling-runner-r13.iso`, SHA256
+`2e19f2a26314222251bbd2a01545837207407e4d1190f594199007fd03e9720e`, clean source
+commit `88f4bed22f2490e8aaeb081d015243636f538cb6`. Embedded I211 profile validation,
+QEMU runtime ping-plugin query, USB keyboard/mgrd replay, ttyS0 shell and serial-capture PTY tests pass. The
 previous USB media had LBA 0 write and unrecovered-read errors; it must not be reused.
-No physical r12 traffic has yet been measured; use healthy media and a two-port peer
+No physical r13 traffic has yet been measured; use healthy media and a two-port peer
 topology before claiming physical forwarding/ECMP or performance.
 
-The full unified gate on clean commit `a07359f` passed and is recorded in
-`build/v016-release-gate-a07359f.env`: CTest 35/35, backend contract, r12 profile,
+The full unified gate on clean commit `88f4bed` passed and is recorded in
+`build/v016-release-gate-88f4bed.env`: CTest 35/35, backend contract, r13 profile and runtime plugin,
 QEMU console/recovery, strict topology-140 4000/4000 ECMP, and VMware 2000/2000
 packet regression. PCI remains `SKIP`/`ENVIRONMENT-OPEN` because this execution host
 does not expose the I211 BDF.
-The gate additionally starts the actual r12 VPP profile under QEMU and queries
+The gate additionally starts the actual r13 VPP profile under QEMU and queries
 `vppctl show plugins` over ttyS0, requiring `ping_plugin.so` in runtime output.
 
 As of 2026-10-03, DANOS-Open v0.16 is in integration/release qualification. The
