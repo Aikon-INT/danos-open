@@ -161,7 +161,7 @@ only Intel Wi-Fi and RTL8168, not the remote I211 runner.
   verifier. Rechecking its retained serial log with the strict verifier exposed
   path-0 packet loss and incomplete ECMP responses; it is no longer the packet
   acceptance source of truth.
-- Fresh Debian trixie topology-110, running source commit `4c658d7`, passes the strict QEMU verifier end to end:
+- Historical clean Debian trixie topology-110, running source commit `4c658d7`, passed the strict QEMU verifier end to end:
   two direct pings; four ECMP targets at 3/3 replies and 0% loss; both bucket
   counters; BGP add/withdraw; OSPF Full/DR; FRR route add/withdraw/restore;
   FRR/zserv restart; VPP restart/replay. Its manifest and serial evidence are
@@ -181,12 +181,14 @@ only Intel Wi-Fi and RTL8168, not the remote I211 runner.
 - QEMU VMXNET3 DPDK and native VMXNET3 interrupt-mode results remain explicit
   FAIL boundaries: DPDK initialization SIGSEGV and native `No sufficient
   interrupt lines (0)`. The only accepted VMXNET3 path is VMware polling-only.
-- Current host/container DPDK preflight is structured `SKIP`: no privileged
-  VPP/DPDK PCI runner is available. No QEMU or packet baseline result is
-  counted as real PCI line-rate performance.
-- The planned common output contract for QEMU, VMware and PCI performance
-  lanes is `docs/v0.16-performance-result-schema.md`; it separates packet
-  regression evidence from line-rate qualification.
+- Current host DPDK preflight is structured `SKIP`: VPP binary/plugin are
+  present, but this host exposes no target PCI Ethernet BDF and has zero
+  HugePages. No QEMU or VMware packet baseline is counted as real PCI line-rate
+  performance.
+- The common output schema for QEMU, VMware and PCI lanes is implemented in
+  `docs/v0.16-performance-result-schema.md`; the unified gate emits an
+  identity-bound QEMU soak result and preserves missing PCI qualification as
+  `ENVIRONMENT-OPEN`.
 
 ## Capability maturity
 
