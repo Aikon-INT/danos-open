@@ -29,18 +29,24 @@ formal release remains `v0.14.0`). The complete deterministic suite passes
 programming-pipeline, and composite-route stages. The live ISO loads USB
 host-controller and HID modules and binds its shell to tty1 with a controlling
 terminal. The current clean-provenance I211 polling runner image is
-`build/danos-open-v0.16.0-rc1-i211-dpdk-polling-runner-r8.iso`, SHA256
-`d0226d0c30c892502fcd9115d5827cdb010bbfd2c9702279cd669247dfbf067c`, built
-from clean commit `3691547`. It configures BDFs `0000:01:00.0` and
+`build/danos-open-v0.16.0-rc1-i211-dpdk-polling-runner-r9.iso`, SHA256
+`b5cd906087886e22161fe2df31df447f5135aa65ddcb71c4c16294f234f28d97`, built
+from clean commit `53bd169`. It configures BDFs `0000:01:00.0` and
 `0000:02:00.0` with RX interrupts disabled and binds only PCI-ID-verified I211
 functions to `uio_pci_generic`; USB HID/controller modules are included, and
 ttyS0 now hosts an interactive root recovery shell. Strict QEMU checks prove
 ttyS0 command execution (separate input echo/result) and USB keyboard command
 input to tty1; mgrd WAL replay/backend counters pass. Without I211, QEMU correctly reports
-the requested BDF absent. A serial-log recorder now verifies identity
+the requested BDF absent; r9 identity-bound QEMU preflight is `SKIP`, as expected.
+A serial-log recorder now verifies identity
 and both port-bind markers without turning absent hardware into a pass. Physical
 I211 binding, boot, keyboard input,
 packet forwarding and line-rate performance remain open gates.
+The r9 image uses the user-provided PCI ID `8086:1539`, both explicit BDFs,
+`uio_pci_generic`, and polling-only RX. Its physical binding and traffic
+qualification remain pending. A newly available USB-UART `/dev/ttyUSB0` was
+used for a 60-second r9 capture, but it received 0 bytes and no live-init marker;
+the recorder correctly returned `SKIP`.
 `capture_i211_serial.sh` now captures a bounded 115200 8N1 USB-UART boot log and
 produces the identity-bound preflight result without overwriting prior evidence.
 Its end-to-end PTY test validates file/result plumbing only, not physical hardware.
