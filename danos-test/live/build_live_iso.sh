@@ -63,6 +63,15 @@ DANOS_PEER_NEIGH2_MAC="${DANOS_PEER_NEIGH2_MAC:-}"
 DANOS_FIB_BRIDGE_ENABLE="${DANOS_FIB_BRIDGE_ENABLE:-0}"
 DANOS_ZEBRA_ENDPOINT="${DANOS_ZEBRA_ENDPOINT:-}"
 DANOS_ZAPI_HELLO_ONLY="${DANOS_ZAPI_HELLO_ONLY:-0}"
+
+# The live traffic/ECMP acceptance path invokes VPP's CLI `ping` command.
+# That command is provided by ping_plugin.so, not by the base VPP runtime or
+# dpdk_plugin. Keep the image self-consistent whenever those tests are enabled.
+if test "$VPP_DPDK_TRAFFIC_TEST" = 1 || {
+  [[ "$VPP_ECMP_SOAK_COUNT" =~ ^[0-9]+$ ]] && test "$VPP_ECMP_SOAK_COUNT" -gt 0;
+}; then
+  VPP_PING_ENABLE=1
+fi
 DANOS_ZAPI_REG_STAGE="${DANOS_ZAPI_REG_STAGE:-0}"
 DANOS_ZAPI_PACE_US="${DANOS_ZAPI_PACE_US:-0}"
 DANOS_SKIP_VPP_RECOVERY="${DANOS_SKIP_VPP_RECOVERY:-0}"
