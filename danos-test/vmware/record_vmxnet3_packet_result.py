@@ -31,6 +31,11 @@ def percentile(values: list[float], percent: float) -> float:
     return values[max(0, math.ceil(percent * len(values)) - 1)]
 
 
+def frame_mbps(pps: float, frame_bytes: int) -> float:
+    """Return decimal Mbps from MAC-frame bytes, excluding PHY overhead."""
+    return pps * frame_bytes * 8 / 1_000_000
+
+
 def latest_peer_run(text: str, min_pps: float) -> list[dict[str, object]]:
     lines = text.splitlines()
     pass_positions = [i for i, line in enumerate(lines) if line.strip() == "PEER-TRAFFIC PASS"]
@@ -212,7 +217,7 @@ def main() -> int:
             "loss_pct": f"{(tx-rx)*100/tx:.3f}",
             "duration_ms": elapsed_ms,
             "pps": f"{pps:.2f}",
-            "mbps": f"{pps*frame_bytes*8/1_000_000:.6f}",
+            "mbps": f"{frame_mbps(pps, frame_bytes):.6f}",
             "rtt_p50_us": f"{percentile(rtts, .50):.3f}",
             "rtt_p99_us": f"{percentile(rtts, .99):.3f}",
             "cpu_pct": "",

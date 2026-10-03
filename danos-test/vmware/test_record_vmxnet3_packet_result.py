@@ -8,6 +8,7 @@ from record_vmxnet3_packet_result import (
     latest_build_identity,
     latest_danos_boot,
     latest_peer_run,
+    frame_mbps,
 )
 
 
@@ -29,6 +30,9 @@ def peer_block(loss: str = "0", rx: int = 10, suffix: str = "") -> str:
 
 
 class Vmxnet3PacketResultTest(unittest.TestCase):
+    def test_mbps_uses_measured_mac_frame_length(self):
+        self.assertAlmostEqual(frame_mbps(1000, 98), 0.784)
+
     def test_latest_lossless_two_path_cycle_passes(self):
         samples = latest_peer_run(peer_block(), min_pps=50)
         self.assertEqual([s["target"] for s in samples], ["192.168.45.3", "192.168.46.3"])
