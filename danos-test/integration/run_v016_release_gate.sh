@@ -58,7 +58,8 @@ run_gate i211-traffic-iso-profile python3 \
     "$ROOT/danos-test/integration/verify_i211_iso_profile.py" "$I211_TRAFFIC_ISO" \
     --traffic-test --minimum-soak-count 1000 --expected-commit "$I211_TRAFFIC_ISO_COMMIT"
 run_gate i211-traffic-serial-capture-pty python3 \
-    "$ROOT/danos-test/integration/test_capture_i211_traffic_serial.py" --iso "$I211_TRAFFIC_ISO"
+    "$ROOT/danos-test/integration/test_capture_i211_traffic_serial.py" \
+    --iso "$I211_TRAFFIC_ISO" --non-traffic-iso "$USB_KEYBOARD_ISO"
 run_gate i211-runner-iso-profile python3 \
     "$ROOT/danos-test/integration/verify_i211_iso_profile.py" "$USB_KEYBOARD_ISO" \
     --expected-commit "$I211_ISO_COMMIT"

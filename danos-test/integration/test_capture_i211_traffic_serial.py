@@ -15,6 +15,8 @@ from read_live_iso_identity import read_identity
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--iso", type=Path, required=True)
+    parser.add_argument("--non-traffic-iso", type=Path,
+                        help="ordinary boot profile that must be rejected before capture")
     args = parser.parse_args()
     iso = args.iso.resolve()
     identity = read_identity(iso)
@@ -77,6 +79,24 @@ VPP-ECMP-PATH-RESTORE PASS interface=GigabitEthernet0/3/0 buckets=2 probes=20
             raise RuntimeError("functional ICMP qualification was incorrectly labeled as line-rate performance")
         if f"iso_sha256=" not in result or f"iso_build_commit={commit}" not in result:
             raise RuntimeError("traffic result does not bind back to the exact ISO identity")
+
+        if args.non_traffic_iso:
+            wrong_log = tempdir / "wrong-profile.serial.log"
+            wrong_master, wrong_slave = pty.openpty()
+            wrong = subprocess.run(
+                ["bash", str(root / "danos-test/integration/capture_i211_serial.sh"),
+                 os.ttyname(wrong_slave), str(args.non_traffic_iso.resolve()),
+                 str(wrong_log), "180", "--traffic"],
+                capture_output=True, text=True, timeout=30, check=False,
+            )
+            os.close(wrong_master)
+            os.close(wrong_slave)
+            if wrong.returncode != 2 or wrong_log.exists() or \
+               "refusing UART traffic capture with an invalid traffic ISO" not in wrong.stderr:
+                raise RuntimeError(
+                    "capture did not reject the ordinary ISO before opening serial/logging:\n"
+                    + wrong.stdout + wrong.stderr
+                )
     print("PASS: traffic UART PTY capture produced ISO-bound functional PASS and performance OPEN")
     return 0
 

@@ -49,6 +49,13 @@ test ! -e "$result_file" || {
 command -v stty >/dev/null && command -v timeout >/dev/null || {
     echo 'ERROR: GNU stty and timeout are required' >&2; exit 2;
 }
+if test "$mode" = traffic; then
+    python3 "$root/danos-test/integration/verify_i211_iso_profile.py" \
+        "$iso" --traffic-test --minimum-soak-count 1000 || {
+        echo 'ERROR: refusing UART traffic capture with an invalid traffic ISO' >&2
+        exit 2
+    }
+fi
 
 mkdir -p "$(dirname "$serial_log")"
 stty -F "$serial_device" 115200 cs8 -cstopb -parenb -ixon -ixoff raw -echo
