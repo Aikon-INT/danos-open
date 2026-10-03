@@ -361,6 +361,52 @@ if test -e /vpp-dpdk.enabled; then
             else
                 say_live "VPP-ECMP-MULTI-FLOW FAIL"
             fi
+            if test "${VPP_ECMP_SOAK_COUNT:-0}" -gt 0; then
+                soak_count=$VPP_ECMP_SOAK_COUNT
+                soak_interval=${VPP_ECMP_SOAK_INTERVAL:-0.01}
+                say_live "VPP-ECMP-SOAK BEGIN packets_per_flow=$soak_count interval=$soak_interval"
+                /usr/bin/vppctl -s /run/vpp/cli.sock show interface "$vpp_if1" > /tmp/vpp-soak-if0-before.log 2>&1 || true
+                /usr/bin/vppctl -s /run/vpp/cli.sock show interface "$vpp_if2" > /tmp/vpp-soak-if1-before.log 2>&1 || true
+                soak_if0_before=$(awk '$1 == "rx" && $2 == "packets" {rx=$3} $1 == "tx" && $2 == "packets" {tx=$3} END {printf "%d %d", rx, tx}' /tmp/vpp-soak-if0-before.log)
+                soak_if1_before=$(awk '$1 == "rx" && $2 == "packets" {rx=$3} $1 == "tx" && $2 == "packets" {tx=$3} END {printf "%d %d", rx, tx}' /tmp/vpp-soak-if1-before.log)
+                set -- $soak_if0_before; soak_if0_rx_before=$1; soak_if0_tx_before=$2
+                set -- $soak_if1_before; soak_if1_rx_before=$1; soak_if1_tx_before=$2
+                soak_start_cs=$(awk '{printf "%d", $1 * 100}' /proc/uptime 2>/dev/null || echo 0)
+                soak_ok=1
+                for soak_dst in 30.30.30.2 30.30.30.3 30.30.30.4 30.30.30.5; do
+                    if /usr/bin/vppctl -s /run/vpp/cli.sock ping "$soak_dst" \
+                        source "$ecmp_source_if" repeat "$soak_count" interval "$soak_interval" \
+                        > "/tmp/vpp-soak-${soak_dst}.log" 2>&1 \
+                        && grep -Fq "Statistics: $soak_count sent, $soak_count received, 0% packet loss" \
+                            "/tmp/vpp-soak-${soak_dst}.log"; then
+                        say_live "VPP-ECMP-SOAK-FLOW target=$soak_dst tx=$soak_count rx=$soak_count loss=0"
+                    else
+                        soak_ok=0
+                        say_live "VPP-ECMP-SOAK-FLOW-FAIL target=$soak_dst"
+                    fi
+                    say_live_file "/tmp/vpp-soak-${soak_dst}.log"
+                done
+                soak_end_cs=$(awk '{printf "%d", $1 * 100}' /proc/uptime 2>/dev/null || echo "$soak_start_cs")
+                soak_elapsed_cs=$((soak_end_cs - soak_start_cs))
+                test "$soak_elapsed_cs" -gt 0 || soak_elapsed_cs=1
+                /usr/bin/vppctl -s /run/vpp/cli.sock show interface "$vpp_if1" > /tmp/vpp-soak-if0-after.log 2>&1 || true
+                /usr/bin/vppctl -s /run/vpp/cli.sock show interface "$vpp_if2" > /tmp/vpp-soak-if1-after.log 2>&1 || true
+                soak_if0_after=$(awk '$1 == "rx" && $2 == "packets" {rx=$3} $1 == "tx" && $2 == "packets" {tx=$3} END {printf "%d %d", rx, tx}' /tmp/vpp-soak-if0-after.log)
+                soak_if1_after=$(awk '$1 == "rx" && $2 == "packets" {rx=$3} $1 == "tx" && $2 == "packets" {tx=$3} END {printf "%d %d", rx, tx}' /tmp/vpp-soak-if1-after.log)
+                set -- $soak_if0_after; soak_if0_rx_after=$1; soak_if0_tx_after=$2
+                set -- $soak_if1_after; soak_if1_rx_after=$1; soak_if1_tx_after=$2
+                soak_bucket0=$((soak_if0_rx_after - soak_if0_rx_before + soak_if0_tx_after - soak_if0_tx_before))
+                soak_bucket1=$((soak_if1_rx_after - soak_if1_rx_before + soak_if1_tx_after - soak_if1_tx_before))
+                soak_total=$((soak_count * 4))
+                soak_pps=$(awk -v n="$soak_total" -v cs="$soak_elapsed_cs" 'BEGIN { printf "%.2f", n * 100 / cs }')
+                say_live "VPP-ECMP-SOAK-COUNTERS bucket0_packets=$soak_bucket0 bucket1_packets=$soak_bucket1"
+                if test "$soak_bucket0" -le 0 || test "$soak_bucket1" -le 0; then soak_ok=0; fi
+                if test "$soak_ok" = 1; then
+                    say_live "VPP-ECMP-SOAK PASS flows=4 packets_per_flow=$soak_count total_tx=$soak_total total_rx=$soak_total loss=0 elapsed_ms=$((soak_elapsed_cs * 10)) pps=$soak_pps bucket0_packets=$soak_bucket0 bucket1_packets=$soak_bucket1"
+                else
+                    say_live "VPP-ECMP-SOAK FAIL flows=4 packets_per_flow=$soak_count elapsed_ms=$((soak_elapsed_cs * 10)) bucket0_packets=$soak_bucket0 bucket1_packets=$soak_bucket1"
+                fi
+            fi
             ecmp_failover_ok=1
             say_live "VPP-ECMP-PATH-DOWN BEGIN interface=$vpp_if2"
             if /usr/bin/vppctl -s /run/vpp/cli.sock set interface state "$vpp_if2" down \

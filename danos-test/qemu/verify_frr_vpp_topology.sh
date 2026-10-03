@@ -18,6 +18,20 @@ require() {
     echo "[PASS] $label"
 }
 
+if test "${QEMU_ECMP_SOAK_REQUIRED:-0}" = 1; then
+    soak_count="${QEMU_ECMP_SOAK_COUNT:-1000}"
+    require "VPP-ECMP-SOAK PASS flows=4 packets_per_flow=${soak_count} total_tx=$((soak_count * 4)) total_rx=$((soak_count * 4)) loss=0 elapsed_ms=[1-9][0-9]* pps=[1-9][0-9]*\\.[0-9][0-9] bucket0_packets=[1-9][0-9]* bucket1_packets=[1-9][0-9]*" \
+        "$DANOS_LOG" 'four-flow lossless ECMP soak with timing, rate and both bucket deltas'
+    for destination in 30.30.30.2 30.30.30.3 30.30.30.4 30.30.30.5; do
+        require "VPP-ECMP-SOAK-FLOW target=${destination} tx=${soak_count} rx=${soak_count} loss=0" \
+            "$DANOS_LOG" "ECMP soak flow ${destination} loss-free"
+    done
+    if rg -q 'VPP-ECMP-SOAK-(FLOW-FAIL|FAIL)' "$DANOS_LOG"; then
+        echo '[FAIL] ECMP soak failure marker present'
+        exit 1
+    fi
+fi
+
 require 'VPP API socket: ready' "$DANOS_LOG" 'VPP API socket'
 require 'VPP stats socket: ready' "$DANOS_LOG" 'VPP stats socket'
 require 'VPP-DPDK-PING-0 PASS' "$DANOS_LOG" 'packet reachability path 0'
