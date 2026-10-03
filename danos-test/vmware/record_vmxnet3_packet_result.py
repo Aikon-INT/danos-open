@@ -9,6 +9,7 @@ import hashlib
 import math
 import re
 import shlex
+import subprocess
 from pathlib import Path
 
 
@@ -179,18 +180,29 @@ def main() -> int:
         # 8-byte ICMP + 56-byte payload. This is the MAC frame without FCS.
         frame_bytes = 98
         iso_sha = hashlib.sha256(args.iso.read_bytes()).hexdigest()
+        try:
+            runner_commit = subprocess.run(
+                ["git", "-C", str(Path(__file__).resolve().parents[2]), "rev-parse", "HEAD"],
+                check=True, capture_output=True, text=True, timeout=5,
+            ).stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            runner_commit = ""
         result_status = "PASS" if commit and dirty == "0" else "ENVIRONMENT-OPEN"
         if result_status == "PASS" and boot_iso != args.iso.name:
             result_status = "ENVIRONMENT-OPEN"
         if result_status == "PASS" and no_rx_interrupts != "1":
             result_status = "ENVIRONMENT-OPEN"
         values: dict[str, object] = {
+            "schema_version": 1,
             "status": result_status,
             "preflight_status": "PASS",
             "performance_status": result_status,
             "stage": "packet-baseline",
             "lane": "vmware-vmxnet3-polling",
             "commit": commit,
+            "iso_build_commit": commit,
+            "iso_source_dirty": dirty,
+            "runner_commit": runner_commit,
             "source_tree_dirty": dirty,
             "iso_sha256": iso_sha,
             "packet_size_bytes": frame_bytes,

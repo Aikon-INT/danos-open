@@ -112,6 +112,7 @@ def validate(preflight: dict[str, str], measured: dict[str, str], args) -> dict[
             performance_status = "PASS"
 
     result = {
+        "schema_version": 1,
         "status": performance_status,
         "preflight_status": "PASS",
         "performance_status": performance_status,

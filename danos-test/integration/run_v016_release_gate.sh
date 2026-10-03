@@ -2,10 +2,12 @@
 # Unified v0.16.0-rc1 gate. DPDK hardware absence is recorded as OPEN/SKIP.
 set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+GIT_COMMIT="$(git -C "$ROOT" rev-parse HEAD)"
 RESULT_FILE="${V016_GATE_RESULT_FILE:-$ROOT/build/v016-release-gate.env}"
 QEMU_TOPOLOGY_DIR="${QEMU_TOPOLOGY_DIR:-$ROOT/build/qemu-frr-vpp-topology-140-soak-serialized}"
 QEMU_ECMP_SOAK_REQUIRED="${QEMU_ECMP_SOAK_REQUIRED:-1}"
 QEMU_ECMP_SOAK_COUNT="${QEMU_ECMP_SOAK_COUNT:-1000}"
+QEMU_RESULT_FILE="${V016_QEMU_RESULT_FILE:-$ROOT/build/v016-qemu-ecmp-soak-${GIT_COMMIT:0:7}.env}"
 if test "$QEMU_ECMP_SOAK_REQUIRED" != 1; then
     echo '[FAIL] release gate requires QEMU_ECMP_SOAK_REQUIRED=1' >&2
     exit 2
@@ -34,6 +36,8 @@ run_gate() {
 run_gate backend-contract bash "$ROOT/danos-test/integration/run_backend_contract.sh"
 run_gate release-gate-soak-config python3 \
     "$ROOT/danos-test/integration/test_v016_release_gate_config.py"
+run_gate qemu-soak-result-validator python3 \
+    "$ROOT/danos-test/qemu/test_record_qemu_ecmp_soak_result.py"
 run_gate pci-result-validator python3 "$ROOT/danos-test/integration/test_record_dpdk_perf_result.py"
 run_gate i211-boot-result-validator python3 "$ROOT/danos-test/integration/test_record_i211_boot_result.py"
 run_gate i211-serial-capture-syntax bash -n "$ROOT/danos-test/integration/capture_i211_serial.sh"
@@ -52,6 +56,20 @@ run_gate qemu-frr-vpp env QEMU_TOPOLOGY_DIR="$QEMU_TOPOLOGY_DIR" \
     QEMU_ECMP_SOAK_REQUIRED="$QEMU_ECMP_SOAK_REQUIRED" \
     QEMU_ECMP_SOAK_COUNT="$QEMU_ECMP_SOAK_COUNT" \
     bash "$ROOT/danos-test/qemu/verify_frr_vpp_topology.sh"
+if test "$failures" -eq "$qemu_gate_failures_before"; then
+    qemu_result_failures_before=$failures
+    run_gate qemu-ecmp-soak-result python3 \
+        "$ROOT/danos-test/qemu/record_qemu_ecmp_soak_result.py" \
+        --topology "$QEMU_TOPOLOGY_DIR" --out "$QEMU_RESULT_FILE" \
+        --required-count "$QEMU_ECMP_SOAK_COUNT"
+    if test "$failures" -eq "$qemu_result_failures_before"; then
+        qemu_result_status=PASS
+    else
+        qemu_result_status=FAIL
+    fi
+else
+    qemu_result_status=SKIP
+fi
 if test "$failures" -eq "$qemu_gate_failures_before"; then
     qemu_gate_status=PASS
 else
@@ -93,14 +111,16 @@ if test "$failures" -eq 0; then overall=PASS; else overall=FAIL; fi
     printf 'dpdk_status=%s\n' "$dpdk_status"
     printf 'qemu_gate_status=%s\nqemu_ecmp_soak_required=%q\nqemu_ecmp_soak_count=%q\n' \
         "$qemu_gate_status" "$QEMU_ECMP_SOAK_REQUIRED" "$QEMU_ECMP_SOAK_COUNT"
+    printf 'qemu_result_status=%s\n' "$qemu_result_status"
     printf 'qemu_topology=%q\n' "$QEMU_TOPOLOGY_DIR"
+    printf 'qemu_result=%q\n' "$QEMU_RESULT_FILE"
     printf 'qemu_iso=%q\n' "$(sed -n 's/^danos_iso=//p' "$QEMU_TOPOLOGY_DIR/run-manifest.env" | head -1)"
     printf 'qemu_iso_sha256=%q\n' "$(sed -n 's/^danos_iso_sha256=//p' "$QEMU_TOPOLOGY_DIR/run-manifest.env" | head -1)"
     printf 'vmware_min_pps=%q\n' "$VMWARE_MIN_PPS"
     printf 'vmware_iso=%q\n' "$VMWARE_ISO"
     printf 'vmware_result=%q\n' "$ROOT/build/v016-vmware-vmxnet3.env"
     printf 'dpdk_result=%q\n' "$ROOT/build/v016-dpdk-preflight.env"
-    printf 'git_commit=%q\n' "$(git -C "$ROOT" rev-parse HEAD)"
+    printf 'git_commit=%q\n' "$GIT_COMMIT"
     printf 'utc=%q\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 } > "$RESULT_FILE"
 echo "[${overall}] v0.16.0-rc1 gate; result=$RESULT_FILE"
