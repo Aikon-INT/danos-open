@@ -37,7 +37,9 @@ functions to `uio_pci_generic`; USB HID/controller modules are included, and
 ttyS0 now hosts an interactive root recovery shell. Strict QEMU checks prove
 ttyS0 command execution (separate input echo/result) and USB keyboard command
 input to tty1; mgrd WAL replay/backend counters pass. A targeted QEMU shell command
-also verified `show plugins` lists `ping_plugin.so`. Without I211, QEMU correctly reports
+also verified `show plugins` lists `ping_plugin.so` and `vppctl ping` is recognized;
+QEMU had no VPP dataplane interface, so its ping result was `0 sent` and is not a
+connectivity PASS. Without I211, QEMU correctly reports
 the requested BDF absent; identity-bound QEMU preflight is `SKIP`, as expected.
 A serial-log recorder now verifies identity
 and both port-bind markers without turning absent hardware into a pass. On
