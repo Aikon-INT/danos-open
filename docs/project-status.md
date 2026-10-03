@@ -16,6 +16,8 @@ The full unified gate on clean commit `a07359f` passed and is recorded in
 QEMU console/recovery, strict topology-140 4000/4000 ECMP, and VMware 2000/2000
 packet regression. PCI remains `SKIP`/`ENVIRONMENT-OPEN` because this execution host
 does not expose the I211 BDF.
+The gate additionally starts the actual r12 VPP profile under QEMU and queries
+`vppctl show plugins` over ttyS0, requiring `ping_plugin.so` in runtime output.
 
 As of 2026-10-03, DANOS-Open v0.16 is in integration/release qualification. The
 management-plane, frozen Route/NH/NHGroup contract, FRR 10.3 ZAPI path,

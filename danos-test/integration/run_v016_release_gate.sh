@@ -44,7 +44,8 @@ run_gate dpdk-preflight-result-schema python3 \
     "$ROOT/danos-test/integration/test_dpdk_preflight_result.py"
 run_gate i211-boot-result-validator python3 "$ROOT/danos-test/integration/test_record_i211_boot_result.py"
 run_gate i211-runner-iso-profile python3 \
-    "$ROOT/danos-test/integration/verify_i211_iso_profile.py" "$USB_KEYBOARD_ISO"
+    "$ROOT/danos-test/integration/verify_i211_iso_profile.py" "$USB_KEYBOARD_ISO" \
+    --expected-commit "$GIT_COMMIT"
 run_gate i211-serial-capture-syntax bash -n "$ROOT/danos-test/integration/capture_i211_serial.sh"
 run_gate i211-serial-capture-pty python3 "$ROOT/danos-test/integration/test_capture_i211_serial.py" \
     --iso "$USB_KEYBOARD_ISO"
@@ -56,6 +57,12 @@ run_gate qemu-live-console-and-mgrd-recovery \
 run_gate qemu-live-serial-root-shell \
     python3 "$ROOT/danos-test/live/verify_serial_shell_qemu.py" \
     "$USB_KEYBOARD_ISO" --serial-log "$ROOT/build/v016-serial-root-shell-qemu.log"
+run_gate qemu-i211-vpp-ping-plugin-runtime \
+    python3 "$ROOT/danos-test/live/verify_serial_shell_qemu.py" \
+    "$USB_KEYBOARD_ISO" \
+    --shell-command "if /usr/bin/vppctl -s /run/vpp/cli.sock show plugins | grep -q ping_plugin.so; then printf 'RUNTIME_PLUGIN_OK'; else printf 'RUNTIME_PLUGIN_MISSING'; fi" \
+    --expect-output RUNTIME_PLUGIN_OK \
+    --serial-log "$ROOT/build/v016-i211-runtime-plugin-qemu.log"
 qemu_gate_failures_before=$failures
 run_gate qemu-frr-vpp env QEMU_TOPOLOGY_DIR="$QEMU_TOPOLOGY_DIR" \
     QEMU_ECMP_SOAK_REQUIRED="$QEMU_ECMP_SOAK_REQUIRED" \
