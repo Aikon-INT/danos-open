@@ -6,6 +6,15 @@ RESULT_FILE="${V016_GATE_RESULT_FILE:-$ROOT/build/v016-release-gate.env}"
 QEMU_TOPOLOGY_DIR="${QEMU_TOPOLOGY_DIR:-$ROOT/build/qemu-frr-vpp-topology-140-soak-serialized}"
 QEMU_ECMP_SOAK_REQUIRED="${QEMU_ECMP_SOAK_REQUIRED:-1}"
 QEMU_ECMP_SOAK_COUNT="${QEMU_ECMP_SOAK_COUNT:-1000}"
+if test "$QEMU_ECMP_SOAK_REQUIRED" != 1; then
+    echo '[FAIL] release gate requires QEMU_ECMP_SOAK_REQUIRED=1' >&2
+    exit 2
+fi
+if ! [[ "$QEMU_ECMP_SOAK_COUNT" =~ ^[0-9]+$ ]] ||
+   (( 10#$QEMU_ECMP_SOAK_COUNT < 1000 )); then
+    echo '[FAIL] release gate requires at least 1000 packets per ECMP flow' >&2
+    exit 2
+fi
 VMWARE_MIN_PPS="${VMWARE_MIN_PPS:-50}"
 VMWARE_ISO="${V016_VMWARE_ISO:-$ROOT/build/danos-open-v0.16.0-rc1-vmware-vmxnet3-polling-clean.iso}"
 VMWARE_DANOS_LOG="${V016_VMWARE_DANOS_LOG:-$ROOT/build/vmware-vmxnet3-test/danos-clean.serial.log}"
