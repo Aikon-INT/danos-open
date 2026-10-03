@@ -2,6 +2,21 @@
 
 ## Current assessment
 
+Latest hardware-runner artifact (2026-10-03) is r12:
+`build/danos-open-v0.16.0-rc1-i211-dpdk-polling-runner-r12.iso`, SHA256
+`b1e287e4156609e30537c32383c9d8c2549f9dce9c49fcd99cc98b0a6bd0b83a`, clean source
+commit `a07359f2dd2707e2e3fcc63e2f8a3f030f0c6122`. Embedded I211 profile validation,
+QEMU USB keyboard/mgrd replay, ttyS0 shell and serial-capture PTY tests pass. The
+previous USB media had LBA 0 write and unrecovered-read errors; it must not be reused.
+No physical r12 traffic has yet been measured; use healthy media and a two-port peer
+topology before claiming physical forwarding/ECMP or performance.
+
+The full unified gate on clean commit `a07359f` passed and is recorded in
+`build/v016-release-gate-a07359f.env`: CTest 35/35, backend contract, r12 profile,
+QEMU console/recovery, strict topology-140 4000/4000 ECMP, and VMware 2000/2000
+packet regression. PCI remains `SKIP`/`ENVIRONMENT-OPEN` because this execution host
+does not expose the I211 BDF.
+
 As of 2026-10-03, DANOS-Open v0.16 is in integration/release qualification. The
 management-plane, frozen Route/NH/NHGroup contract, FRR 10.3 ZAPI path,
 VPP 26.10 API/FIB path, route lifecycle, ECMP, QEMU e1000 and VMware

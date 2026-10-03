@@ -25,7 +25,7 @@ VMWARE_PEER_LOG="${V016_VMWARE_PEER_LOG:-$ROOT/build/vmware-vmxnet3-test/peer-cl
 # Exercise the console and mgrd without enabling a hardware-specific DPDK
 # profile.  The I211 image binds PCI NICs for the physical runner and is not a
 # suitable generic live-console smoke image.
-USB_KEYBOARD_ISO="${V016_USB_KEYBOARD_ISO:-$ROOT/build/danos-open-v0.16.0-rc1-i211-dpdk-polling-runner-r10.iso}"
+USB_KEYBOARD_ISO="${V016_USB_KEYBOARD_ISO:-$ROOT/build/danos-open-v0.16.0-rc1-i211-dpdk-polling-runner-r12.iso}"
 failures=0
 run_gate() {
     local name="$1"; shift
