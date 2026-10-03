@@ -61,6 +61,14 @@ VMware recorder suite and its explicit 98-byte MAC-frame Mbps formula check.
 QEMU remains a functional-only 4000/4000 result; PCI remains structured
 `SKIP`/`ENVIRONMENT-OPEN` because no physical target BDF is attached here.
 
+Passive USB-UART diagnosis on the development host found `/dev/ttyUSB0` is a
+CH340 (`1a86:7523`) at 115200 8N1 with no competing process, but receives only
+the repeating byte pair `0x07 0xc0` (0% printable bytes). Sampling at 115200,
+57600, 38400, 19200 and 9600 baud produced the same pattern. No shell commands
+were sent and no valid DANOS serial marker was observed; this is not physical
+boot evidence. The UART cable/target port/RX-TX-GND path must be checked before
+the automated recorder can qualify a physical boot.
+
 As of 2026-10-04, DANOS-Open v0.16 is in integration/release qualification. The
 management-plane, frozen Route/NH/NHGroup contract, FRR 10.3 ZAPI path,
 VPP 26.10 API/FIB path, route lifecycle, ECMP, QEMU e1000 and VMware
