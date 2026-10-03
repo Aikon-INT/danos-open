@@ -27,6 +27,19 @@ for physical two-link ping, ECMP soak, and path withdraw/restore functional evid
 the qualification profile uses dynamic ARP instead of fixture MACs. Those ICMP rates
 are explicitly not line-rate qualification, and no physical run is claimed yet.
 
+Fresh unified gate rerun on 2026-10-04 against current HEAD
+`bac716ee1cd497cd02daa644788852b0e6fba9f3` is recorded in
+`build/v016-release-gate-bac716e.env` (overall PASS) and
+`build/v016-dpdk-bac716e.env` (structured SKIP). It reconfirms backend contract,
+CTest 35/35, QEMU USB keyboard/mgrd WAL replay 3/3, ttyS0 shell and runtime
+`ping_plugin.so`, topology-140 FRR/VPP add/withdraw/restart/replay, 4000/4000
+QEMU ECMP packets with 0% loss (82.08 pps; bucket deltas 3000/1000), and VMware
+2000/2000 with 0% loss (98.23 pps). PCI remains ENVIRONMENT-OPEN: no target BDF
+or HugePages and this host only has RTL8168. The currently attached USB is still
+the previously faulty serial `121220160204`; it was not written. Traffic-r1 ISO
+profile/hash and the serial PTY/recorder path pass, but there is no new physical
+boot or dataplane evidence.
+
 As of 2026-10-04, DANOS-Open v0.16 is in integration/release qualification. The
 management-plane, frozen Route/NH/NHGroup contract, FRR 10.3 ZAPI path,
 VPP 26.10 API/FIB path, route lifecycle, ECMP, QEMU e1000 and VMware
@@ -114,8 +127,8 @@ only Intel Wi-Fi and RTL8168, not the remote I211 runner.
 - The authoritative v0.16 status is maintained in
   `docs/v0.16-acceptance-matrix.md`; historical gaps below are retained only
   for traceability and do not override that matrix.
-- Latest integrated gate: `build/v016-release-gate-837d4fb.env` is PASS on
-  commit `837d4fb`. It includes backend contract, validators, PTY capture, CTest
+- Latest integrated gate: `build/v016-release-gate-bac716e.env` is PASS on
+  commit `bac716e`. It includes backend contract, validators, PTY capture, CTest
   35/35, QEMU ttyS0/USB keyboard/mgrd replay, strict topology-140 FRR/VPP and
   mandatory 4×1000 ECMP soak, plus VMware 2000/2000 packet baseline (98.23 pps,
   0% loss). QEMU measured 4000/4000, 82.08 pps, bucket deltas 3000/1000.
