@@ -11,13 +11,14 @@ previous USB media had LBA 0 write and unrecovered-read errors; it must not be r
 No physical r13 traffic has yet been measured; use healthy media and a two-port peer
 topology before claiming physical forwarding/ECMP or performance.
 
-The full unified gate on clean commit `88f4bed` passed and is recorded in
-`build/v016-release-gate-88f4bed.env`: CTest 35/35, backend contract, r13 profile and runtime plugin,
+The full unified gate on clean commit `05471f3` passed and is recorded in
+`build/v016-release-gate-05471f3.env`: CTest 35/35, backend contract, r13 profile and runtime plugin,
 QEMU console/recovery, strict topology-140 4000/4000 ECMP, and VMware 2000/2000
 packet regression. PCI remains `SKIP`/`ENVIRONMENT-OPEN` because this execution host
 does not expose the I211 BDF.
 The gate additionally starts the actual r13 VPP profile under QEMU and queries
-`vppctl show plugins` over ttyS0, requiring `ping_plugin.so` in runtime output.
+`vppctl show plugins` over ttyS0, requiring `ping_plugin.so` in runtime output. Its
+PCI result is schema-v1 `SKIP` (no target BDF; HugePages=0); performance remains open.
 
 As of 2026-10-03, DANOS-Open v0.16 is in integration/release qualification. The
 management-plane, frozen Route/NH/NHGroup contract, FRR 10.3 ZAPI path,
