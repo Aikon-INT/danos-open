@@ -32,6 +32,8 @@ run_gate() {
 }
 
 run_gate backend-contract bash "$ROOT/danos-test/integration/run_backend_contract.sh"
+run_gate release-gate-soak-config python3 \
+    "$ROOT/danos-test/integration/test_v016_release_gate_config.py"
 run_gate pci-result-validator python3 "$ROOT/danos-test/integration/test_record_dpdk_perf_result.py"
 run_gate i211-boot-result-validator python3 "$ROOT/danos-test/integration/test_record_i211_boot_result.py"
 run_gate i211-serial-capture-syntax bash -n "$ROOT/danos-test/integration/capture_i211_serial.sh"
