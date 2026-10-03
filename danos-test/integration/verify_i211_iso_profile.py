@@ -2,6 +2,7 @@
 """Fail closed unless an ISO contains the intended two-port I211 runner profile."""
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -27,6 +28,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("iso", type=Path)
     parser.add_argument("--expected-commit")
+    parser.add_argument("--traffic-test", action="store_true",
+                        help="require the dedicated physical traffic qualification profile")
+    parser.add_argument("--minimum-soak-count", type=int, default=1000)
     args = parser.parse_args()
     try:
         identity = read_identity(args.iso)
@@ -35,6 +39,9 @@ def main() -> int:
         return 1
 
     expected = dict(EXPECTED)
+    if args.traffic_test:
+        expected["danos_build_dpdk_traffic_test"] = "1"
+        expected["danos_build_static_neighbors"] = "0"
     if args.expected_commit:
         expected["iso_build_commit"] = args.expected_commit.lower()
     failures = [
@@ -47,6 +54,17 @@ def main() -> int:
         for failure in failures:
             print(f"  {failure}", file=sys.stderr)
         return 1
+    if args.traffic_test:
+        try:
+            soak_count = int(identity.get("danos_build_ecmp_soak_count", ""))
+        except ValueError:
+            soak_count = 0
+        if soak_count < args.minimum_soak_count:
+            print(
+                f"FAIL: traffic ISO soak count {soak_count} is below "
+                f"required {args.minimum_soak_count}", file=sys.stderr,
+            )
+            return 1
     print("PASS: clean two-port I211 polling runner profile and ping plugin metadata")
     for key in ("iso_build_commit", "danos_build_iso", "danos_build_vpp_image"):
         if key in identity:

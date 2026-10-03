@@ -44,6 +44,14 @@ run_gate pci-result-validator python3 "$ROOT/danos-test/integration/test_record_
 run_gate dpdk-preflight-result-schema python3 \
     "$ROOT/danos-test/integration/test_dpdk_preflight_result.py"
 run_gate i211-boot-result-validator python3 "$ROOT/danos-test/integration/test_record_i211_boot_result.py"
+run_gate i211-traffic-result-validator python3 \
+    "$ROOT/danos-test/integration/test_record_i211_traffic_result.py"
+run_gate i211-iso-profile-validator python3 \
+    "$ROOT/danos-test/integration/test_verify_i211_iso_profile.py"
+run_gate i211-traffic-runner-config python3 \
+    "$ROOT/danos-test/integration/test_i211_traffic_runner_builder.py"
+run_gate i211-traffic-runner-builder-config bash -n \
+    "$ROOT/danos-test/live/build_i211_traffic_runner_iso.sh"
 run_gate i211-runner-iso-profile python3 \
     "$ROOT/danos-test/integration/verify_i211_iso_profile.py" "$USB_KEYBOARD_ISO" \
     --expected-commit "$I211_ISO_COMMIT"

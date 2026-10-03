@@ -35,6 +35,24 @@ class VerifyI211ISOProfileTest(unittest.TestCase):
             with patch("sys.argv", [str(MODULE), "runner.iso", "--expected-commit", "1234567"]):
                 self.assertEqual(PROFILE.main(), 1)
 
+    def test_traffic_mode_requires_traffic_and_soak_profile(self):
+        identity = dict(PROFILE.EXPECTED, iso_build_commit="abcdef0",
+                        danos_build_ecmp_soak_count="1000",
+                        danos_build_static_neighbors="0")
+        identity["danos_build_dpdk_traffic_test"] = "1"
+        with patch.object(PROFILE, "read_identity", return_value=identity):
+            with patch("sys.argv", [str(MODULE), "runner.iso", "--traffic-test"]):
+                self.assertEqual(PROFILE.main(), 0)
+        identity["danos_build_ecmp_soak_count"] = "999"
+        with patch.object(PROFILE, "read_identity", return_value=identity):
+            with patch("sys.argv", [str(MODULE), "runner.iso", "--traffic-test"]):
+                self.assertEqual(PROFILE.main(), 1)
+        identity["danos_build_ecmp_soak_count"] = "1000"
+        identity["danos_build_static_neighbors"] = "1"
+        with patch.object(PROFILE, "read_identity", return_value=identity):
+            with patch("sys.argv", [str(MODULE), "runner.iso", "--traffic-test"]):
+                self.assertEqual(PROFILE.main(), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

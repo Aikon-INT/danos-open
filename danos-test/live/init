@@ -104,17 +104,18 @@ if ip link show eth0 >/dev/null 2>&1; then
         ip link set eth1 up 2>/dev/null || true
         echo "eth1: $DANOS_PEER_ADDR2 up" > /dev/console
     fi
-    # BusyBox ip in the minimal peer image may not implement `neigh replace`.
-    # Try replace first, then add, and expose the resulting table for the
-    # serial verifier; normal ARP remains the fallback when both are absent.
-    for neigh_spec in \
-        "${DANOS_PEER_NEIGH1_IP:-} ${DANOS_PEER_NEIGH1_MAC:-}" \
-        "${DANOS_PEER_NEIGH2_IP:-} ${DANOS_PEER_NEIGH2_MAC:-}"; do
-        set -- $neigh_spec
-        test -n "${1:-}" && test -n "${2:-}" || continue
-        ip neigh replace "$1" lladdr "$2" nud permanent dev eth0 2>/dev/null || \
-            ip neigh add "$1" lladdr "$2" nud permanent dev eth0 2>/dev/null || true
-    done
+    # Physical I211 acceptance must learn the real peer MACs via ARP.  Keep
+    # deterministic static neighbors only for virtualized fixtures.
+    if test "${VPP_STATIC_NEIGHBORS:-1}" = 1; then
+        for neigh_spec in \
+            "${DANOS_PEER_NEIGH1_IP:-} ${DANOS_PEER_NEIGH1_MAC:-}" \
+            "${DANOS_PEER_NEIGH2_IP:-} ${DANOS_PEER_NEIGH2_MAC:-}"; do
+            set -- $neigh_spec
+            test -n "${1:-}" && test -n "${2:-}" || continue
+            ip neigh replace "$1" lladdr "$2" nud permanent dev eth0 2>/dev/null || \
+                ip neigh add "$1" lladdr "$2" nud permanent dev eth0 2>/dev/null || true
+        done
+    fi
     ip addr show dev eth0 > /dev/console 2>&1 || true
     ip route show > /dev/console 2>&1 || true
     ip neigh show > /dev/console 2>&1 || true
@@ -188,8 +189,13 @@ if test -e /vpp-dpdk.enabled; then
             # The QEMU e1000 lane has deterministic peer MACs.  Install
             # static neighbors so the two-path FIB resolves to two buckets
             # without depending on an external ARP generator.
-            /usr/bin/vppctl -s /run/vpp/cli.sock set ip neighbor "$vpp_if1" "${VPP_PEER_IP1:-10.10.0.2}" "${VPP_PEER_MAC1:-52:54:00:11:01:02}" > /dev/console 2>&1 || true
-            /usr/bin/vppctl -s /run/vpp/cli.sock set ip neighbor "$vpp_if2" "${VPP_PEER_IP2:-10.20.0.2}" "${VPP_PEER_MAC2:-52:54:00:12:01:02}" > /dev/console 2>&1 || true
+            if test "${VPP_STATIC_NEIGHBORS:-1}" = 1; then
+                /usr/bin/vppctl -s /run/vpp/cli.sock set ip neighbor "$vpp_if1" "${VPP_PEER_IP1:-10.10.0.2}" "${VPP_PEER_MAC1:-52:54:00:11:01:02}" > /dev/console 2>&1 || true
+                /usr/bin/vppctl -s /run/vpp/cli.sock set ip neighbor "$vpp_if2" "${VPP_PEER_IP2:-10.20.0.2}" "${VPP_PEER_MAC2:-52:54:00:12:01:02}" > /dev/console 2>&1 || true
+                say_live "VPP-DPDK-NEIGHBORS static"
+            else
+                say_live "VPP-DPDK-NEIGHBORS dynamic-arp"
+            fi
             /usr/bin/vppctl -s /run/vpp/cli.sock ip route add 30.30.30.0/24 via "${VPP_PEER_IP1:-10.10.0.2}" "$vpp_if1" via "${VPP_PEER_IP2:-10.20.0.2}" "$vpp_if2" > /dev/console 2>&1 || true
             echo "--- VPP DPDK interface addresses ---" > /dev/console
             /usr/bin/vppctl -s /run/vpp/cli.sock show interface address > /tmp/vpp-dpdk-interface-addresses.log 2>&1 || true

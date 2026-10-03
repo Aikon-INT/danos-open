@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Capture one I211 live-ISO boot over a USB-UART and qualify its preflight log.
+# Capture one I211 live-ISO boot over USB-UART and qualify preflight or traffic evidence.
 set -euo pipefail
 
 usage() {
-    echo "Usage: $0 /dev/ttyUSB0 <i211-runner.iso> <new-serial-log> [capture-seconds]" >&2
+    echo "Usage: $0 /dev/ttyUSB0 <i211-runner.iso> <new-serial-log> [capture-seconds] [--traffic]" >&2
 }
 
-if test "$#" -lt 3 || test "$#" -gt 4; then
+if test "$#" -lt 3 || test "$#" -gt 5; then
     usage
     exit 2
 fi
@@ -15,8 +15,22 @@ serial_device="$1"
 iso="$2"
 serial_log="$3"
 capture_seconds="${4:-180}"
+mode="preflight"
+if test "$#" -eq 5; then
+    test "$5" = --traffic || { usage; exit 2; }
+    mode=traffic
+elif test "$#" -eq 4 && test "$4" = --traffic; then
+    mode=traffic
+    capture_seconds=180
+fi
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-recorder="$root/danos-test/integration/record_i211_boot_result.py"
+if test "$mode" = traffic; then
+    recorder="$root/danos-test/integration/record_i211_traffic_result.py"
+    result_file="${serial_log}.traffic.env"
+else
+    recorder="$root/danos-test/integration/record_i211_boot_result.py"
+    result_file="${serial_log}.preflight.env"
+fi
 
 test -c "$serial_device" || { echo "ERROR: not a character device: $serial_device" >&2; exit 2; }
 test -r "$serial_device" && test -w "$serial_device" || {
@@ -25,8 +39,8 @@ test -r "$serial_device" && test -w "$serial_device" || {
 }
 test -r "$iso" || { echo "ERROR: ISO is not readable: $iso" >&2; exit 2; }
 test ! -e "$serial_log" || { echo "ERROR: refusing to overwrite existing log: $serial_log" >&2; exit 2; }
-test ! -e "${serial_log}.preflight.env" || {
-    echo "ERROR: refusing to overwrite existing preflight: ${serial_log}.preflight.env" >&2
+test ! -e "$result_file" || {
+    echo "ERROR: refusing to overwrite existing qualification result: $result_file" >&2
     exit 2
 }
 [[ "$capture_seconds" =~ ^[1-9][0-9]*$ ]] || {
@@ -57,14 +71,20 @@ if test "$capture_rc" -ne 0 && test "$capture_rc" -ne 124 && test "$capture_rc" 
     exit "$capture_rc"
 fi
 
-result_file="${serial_log}.preflight.env"
-set +e
-python3 "$recorder" \
-    --iso "$iso" --serial "$serial_log" \
-    --bdf 0000:01:00.0 --bdf 0000:02:00.0 \
-    --driver uio_pci_generic --out "$result_file"
-recorder_rc=$?
-set -e
+if test "$mode" = traffic; then
+    set +e
+    python3 "$recorder" --iso "$iso" --serial "$serial_log" --out "$result_file"
+    recorder_rc=$?
+    set -e
+else
+    set +e
+    python3 "$recorder" \
+        --iso "$iso" --serial "$serial_log" \
+        --bdf 0000:01:00.0 --bdf 0000:02:00.0 \
+        --driver uio_pci_generic --out "$result_file"
+    recorder_rc=$?
+    set -e
+fi
 echo "[INFO] serial_log=$serial_log"
-echo "[INFO] preflight_result=$result_file"
+echo "[INFO] qualification_result=$result_file"
 exit "$recorder_rc"

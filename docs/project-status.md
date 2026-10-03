@@ -19,6 +19,10 @@ does not expose the I211 BDF.
 The gate additionally starts the actual r13 VPP profile under QEMU and queries
 `vppctl show plugins` over ttyS0, requiring `ping_plugin.so` in runtime output. Its
 PCI result is schema-v1 `SKIP` (no target BDF; HugePages=0); performance remains open.
+An independent I211 traffic-runner builder and UART result recorder are available
+for physical two-link ping, ECMP soak, and path withdraw/restore functional evidence;
+the qualification profile uses dynamic ARP instead of fixture MACs. Those ICMP rates
+are explicitly not line-rate qualification, and no physical run is claimed yet.
 
 As of 2026-10-03, DANOS-Open v0.16 is in integration/release qualification. The
 management-plane, frozen Route/NH/NHGroup contract, FRR 10.3 ZAPI path,
