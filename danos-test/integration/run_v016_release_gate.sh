@@ -3,7 +3,9 @@
 set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 RESULT_FILE="${V016_GATE_RESULT_FILE:-$ROOT/build/v016-release-gate.env}"
-QEMU_TOPOLOGY_DIR="${QEMU_TOPOLOGY_DIR:-$ROOT/build/qemu-frr-vpp-topology-110}"
+QEMU_TOPOLOGY_DIR="${QEMU_TOPOLOGY_DIR:-$ROOT/build/qemu-frr-vpp-topology-140-soak-serialized}"
+QEMU_ECMP_SOAK_REQUIRED="${QEMU_ECMP_SOAK_REQUIRED:-1}"
+QEMU_ECMP_SOAK_COUNT="${QEMU_ECMP_SOAK_COUNT:-1000}"
 VMWARE_MIN_PPS="${VMWARE_MIN_PPS:-50}"
 VMWARE_ISO="${V016_VMWARE_ISO:-$ROOT/build/danos-open-v0.16.0-rc1-vmware-vmxnet3-polling-clean.iso}"
 VMWARE_DANOS_LOG="${V016_VMWARE_DANOS_LOG:-$ROOT/build/vmware-vmxnet3-test/danos-clean.serial.log}"
@@ -11,7 +13,7 @@ VMWARE_PEER_LOG="${V016_VMWARE_PEER_LOG:-$ROOT/build/vmware-vmxnet3-test/peer-cl
 # Exercise the console and mgrd without enabling a hardware-specific DPDK
 # profile.  The I211 image binds PCI NICs for the physical runner and is not a
 # suitable generic live-console smoke image.
-USB_KEYBOARD_ISO="${V016_USB_KEYBOARD_ISO:-$ROOT/build/danos-open-v0.16.0-rc1-live-console.iso}"
+USB_KEYBOARD_ISO="${V016_USB_KEYBOARD_ISO:-$ROOT/build/danos-open-v0.16.0-rc1-i211-dpdk-polling-runner-r9.iso}"
 failures=0
 run_gate() {
     local name="$1"; shift
@@ -34,8 +36,16 @@ run_gate qemu-live-console-and-mgrd-recovery \
 run_gate qemu-live-serial-root-shell \
     python3 "$ROOT/danos-test/live/verify_serial_shell_qemu.py" \
     "$USB_KEYBOARD_ISO" --serial-log "$ROOT/build/v016-serial-root-shell-qemu.log"
+qemu_gate_failures_before=$failures
 run_gate qemu-frr-vpp env QEMU_TOPOLOGY_DIR="$QEMU_TOPOLOGY_DIR" \
+    QEMU_ECMP_SOAK_REQUIRED="$QEMU_ECMP_SOAK_REQUIRED" \
+    QEMU_ECMP_SOAK_COUNT="$QEMU_ECMP_SOAK_COUNT" \
     bash "$ROOT/danos-test/qemu/verify_frr_vpp_topology.sh"
+if test "$failures" -eq "$qemu_gate_failures_before"; then
+    qemu_gate_status=PASS
+else
+    qemu_gate_status=FAIL
+fi
 run_gate vmware-vmxnet3 env VMWARE_MIN_PPS="$VMWARE_MIN_PPS" \
     VMWARE_ISO="$VMWARE_ISO" VMWARE_DANOS_LOG="$VMWARE_DANOS_LOG" \
     VMWARE_PEER_LOG="$VMWARE_PEER_LOG" \
@@ -70,7 +80,11 @@ if test "$failures" -eq 0; then overall=PASS; else overall=FAIL; fi
 {
     printf 'status=%s\n' "$overall"
     printf 'dpdk_status=%s\n' "$dpdk_status"
+    printf 'qemu_gate_status=%s\nqemu_ecmp_soak_required=%q\nqemu_ecmp_soak_count=%q\n' \
+        "$qemu_gate_status" "$QEMU_ECMP_SOAK_REQUIRED" "$QEMU_ECMP_SOAK_COUNT"
     printf 'qemu_topology=%q\n' "$QEMU_TOPOLOGY_DIR"
+    printf 'qemu_iso=%q\n' "$(sed -n 's/^danos_iso=//p' "$QEMU_TOPOLOGY_DIR/run-manifest.env" | head -1)"
+    printf 'qemu_iso_sha256=%q\n' "$(sed -n 's/^danos_iso_sha256=//p' "$QEMU_TOPOLOGY_DIR/run-manifest.env" | head -1)"
     printf 'vmware_min_pps=%q\n' "$VMWARE_MIN_PPS"
     printf 'vmware_iso=%q\n' "$VMWARE_ISO"
     printf 'vmware_result=%q\n' "$ROOT/build/v016-vmware-vmxnet3.env"
