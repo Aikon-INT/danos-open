@@ -58,8 +58,10 @@ packet baseline were rerun by the same gate and passed.
 The subsequent shared-Mbps-schema change was verified on clean commit `94c98e0`:
 `build/v016-release-gate-94c98e0.env` passes in full, including the now-8-test
 VMware recorder suite and its explicit 98-byte MAC-frame Mbps formula check.
-QEMU remains a functional-only 4000/4000 result; PCI remains structured
-`SKIP`/`ENVIRONMENT-OPEN` because no physical target BDF is attached here.
+The latest full gate was rerun against clean docs HEAD `ac196ce` and is recorded
+in `build/v016-release-gate-ac196ce.env`; it also passes in full, with QEMU
+4000/4000 (82.08 pps, bucket delta 3000/1000), VMware 2000/2000 (98.23 pps),
+CTest 35/35, and PCI explicitly `SKIP`/`ENVIRONMENT-OPEN`.
 
 Passive USB-UART diagnosis on the development host found `/dev/ttyUSB0` is a
 CH340 (`1a86:7523`) at 115200 8N1 with no competing process, but receives only
@@ -156,8 +158,8 @@ only Intel Wi-Fi and RTL8168, not the remote I211 runner.
 - The authoritative v0.16 status is maintained in
   `docs/v0.16-acceptance-matrix.md`; historical gaps below are retained only
   for traceability and do not override that matrix.
-- Latest integrated gate: `build/v016-release-gate-94c98e0.env` is PASS on
-  commit `94c98e0`. It includes backend contract, validators, PTY capture, CTest
+- Latest integrated gate: `build/v016-release-gate-ac196ce.env` is PASS on
+  commit `ac196ce`. It includes backend contract, validators, PTY capture, CTest
   35/35, QEMU ttyS0/USB keyboard/mgrd replay, strict topology-140 FRR/VPP and
   mandatory 4×1000 ECMP soak, plus VMware 2000/2000 packet baseline (98.23 pps,
   0% loss). QEMU measured 4000/4000, 82.08 pps, bucket deltas 3000/1000.
