@@ -22,7 +22,7 @@ finish_result() {
         test "$PREFLIGHT_STATUS" != PASS || result_status=ENVIRONMENT-OPEN
         preflight_status="$PREFLIGHT_STATUS"
         test "$preflight_status" != NOT-RUN || preflight_status="$([ "$rc" -eq 2 ] && echo SKIP || echo FAIL)"
-        printf 'status=%s\npreflight_status=%s\nperformance_status=ENVIRONMENT-OPEN\nstage=preflight\n' \
+        printf 'schema_version=1\nstatus=%s\npreflight_status=%s\nperformance_status=ENVIRONMENT-OPEN\nstage=preflight\n' \
             "$result_status" "$preflight_status"
         printf 'lane=pci-dpdk\n'
         printf 'commit=%s\niso_build_commit=%s\niso_source_dirty=%s\nrunner_commit=%s\n' \

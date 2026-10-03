@@ -4,6 +4,7 @@ set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 GIT_COMMIT="$(git -C "$ROOT" rev-parse HEAD)"
 RESULT_FILE="${V016_GATE_RESULT_FILE:-$ROOT/build/v016-release-gate.env}"
+DPDK_RESULT_FILE="${DPDK_RESULT_FILE:-$ROOT/build/v016-dpdk-preflight.env}"
 QEMU_TOPOLOGY_DIR="${QEMU_TOPOLOGY_DIR:-$ROOT/build/qemu-frr-vpp-topology-140-soak-serialized}"
 QEMU_ECMP_SOAK_REQUIRED="${QEMU_ECMP_SOAK_REQUIRED:-1}"
 QEMU_ECMP_SOAK_COUNT="${QEMU_ECMP_SOAK_COUNT:-1000}"
@@ -39,6 +40,8 @@ run_gate release-gate-soak-config python3 \
 run_gate qemu-soak-result-validator python3 \
     "$ROOT/danos-test/qemu/test_record_qemu_ecmp_soak_result.py"
 run_gate pci-result-validator python3 "$ROOT/danos-test/integration/test_record_dpdk_perf_result.py"
+run_gate dpdk-preflight-result-schema python3 \
+    "$ROOT/danos-test/integration/test_dpdk_preflight_result.py"
 run_gate i211-boot-result-validator python3 "$ROOT/danos-test/integration/test_record_i211_boot_result.py"
 run_gate i211-serial-capture-syntax bash -n "$ROOT/danos-test/integration/capture_i211_serial.sh"
 run_gate i211-serial-capture-pty python3 "$ROOT/danos-test/integration/test_capture_i211_serial.py" \
@@ -83,7 +86,7 @@ run_gate vmware-vmxnet3 env VMWARE_MIN_PPS="$VMWARE_MIN_PPS" \
 
 echo '=== pci-dpdk-preflight ==='
 set +e
-DPDK_RESULT_FILE="$ROOT/build/v016-dpdk-preflight.env" \
+DPDK_RESULT_FILE="$DPDK_RESULT_FILE" \
     bash "$ROOT/danos-test/integration/run_vpp_dpdk_lane.sh"
 dpdk_rc=$?
 set -e
@@ -92,8 +95,8 @@ if test "$dpdk_rc" -eq 0; then
     echo '[PASS] pci-dpdk-preflight'
 elif test "$dpdk_rc" -eq 2; then
     dpdk_status=ENVIRONMENT-OPEN
-    dpdk_result_status=$(sed -n 's/^status=//p' "$ROOT/build/v016-dpdk-preflight.env" | head -1)
-    dpdk_preflight_status=$(sed -n 's/^preflight_status=//p' "$ROOT/build/v016-dpdk-preflight.env" | head -1)
+    dpdk_result_status=$(sed -n 's/^status=//p' "$DPDK_RESULT_FILE" | head -1)
+    dpdk_preflight_status=$(sed -n 's/^preflight_status=//p' "$DPDK_RESULT_FILE" | head -1)
     if test "$dpdk_result_status" = ENVIRONMENT-OPEN && test "$dpdk_preflight_status" = PASS; then
         echo '[OPEN] pci-dpdk-preflight passed; traffic measurements are still open'
     else
@@ -119,7 +122,7 @@ if test "$failures" -eq 0; then overall=PASS; else overall=FAIL; fi
     printf 'vmware_min_pps=%q\n' "$VMWARE_MIN_PPS"
     printf 'vmware_iso=%q\n' "$VMWARE_ISO"
     printf 'vmware_result=%q\n' "$ROOT/build/v016-vmware-vmxnet3.env"
-    printf 'dpdk_result=%q\n' "$ROOT/build/v016-dpdk-preflight.env"
+    printf 'dpdk_result=%q\n' "$DPDK_RESULT_FILE"
     printf 'git_commit=%q\n' "$GIT_COMMIT"
     printf 'utc=%q\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 } > "$RESULT_FILE"
