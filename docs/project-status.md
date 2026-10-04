@@ -24,6 +24,18 @@ independent peer links at 10.10.0.2/24 and 10.20.0.2/24, peer responses/routes f
 30.30.30.2–.5 and return path to 30.30.30.1, and carrier on both I211 ports. A fresh serial
 cold-boot capture with build identity is required to qualify the exact image.
 
+Latest physical follow-up: traffic-runner r3 (`6287fba`, SHA256
+`0715ebacfd9bb76f4ec822793b6d551f805311b44bf732abf031db20a4c638fb`) was written to USB by
+the user and the I211 machine was rebooted successfully. The passive CH340 capture did not
+produce a usable cold-boot transcript: it contained repeated BusyBox prompt/banner fragments
+and ANSI `ESC[6n`, but no `DANOS-INIT-ENTER`, `DANOS-BUILD`, PCI bind diagnostics, or traffic
+result markers. The recorder reports `SKIP`, `identity_status=UNVERIFIED`; the noisy raw
+capture was discarded after preserving that result. This is not evidence that r3 passed or
+failed PCI bind or forwarding. Do not conflate the earlier r1 bind failure with r3. Next
+physical step is to verify the UART TX/RX/GND path, target UART port, and terminal/echo setup,
+then capture before a cold boot. If serial remains unusable, VGA output is auxiliary evidence
+only and cannot bind the run to an ISO digest/commit.
+
 The subsequent controlled cold boot captured the complete r1 identity and all four I211 BDFs.
 It exposed an earlier blocker: binding the first target (`0000:01:00.0`) to `uio_pci_generic`
 failed (`DPDK-PCI-BIND-RESULT FAIL rc=1`). VPP API/stats sockets became ready, but the first
@@ -38,9 +50,9 @@ Diagnostic traffic ISO r2 (`ccb71fc`, SHA256
 context at bind failure. Follow-up r3 (`6287fba46c54eb38edf21f0ffc4628e612a8efab`, SHA256
 `0715ebacfd9bb76f4ec822793b6d551f805311b44bf732abf031db20a4c638fb`) also skips the long traffic
 sequence after PCI bind failure. r3 profile/provenance and QEMU ttyS0 shell/runtime plugin checks
-pass; CTest is 35/35. It has not been written to USB or run on physical I211. No removable USB
-block device is currently visible to the development host, so hardware re-test remains pending
-until the image is transferred to healthy media.
+pass; CTest is 35/35. The user subsequently wrote r3 to USB and reported a successful physical
+reboot, but the attempted UART capture was malformed and yielded only a structured `SKIP`; no
+physical r3 bind or packet-forwarding result is yet qualified.
 
 The full unified gate on clean commit `ed8b4b5` passed and is recorded in
 `build/v016-release-gate-ed8b4b5.env`: CTest 35/35, backend contract, r13 and traffic ISO
