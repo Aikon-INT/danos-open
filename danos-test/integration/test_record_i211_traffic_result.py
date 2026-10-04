@@ -78,6 +78,21 @@ class RecordI211TrafficResultTest(unittest.TestCase):
         with self.assertRaisesRegex(QualificationError, "inconsistent"):
             self.qualify(serial_log().replace("pps=83.33", "pps=800"))
 
+    def test_unbound_log_with_explicit_vpp_failures_is_recorded_as_failure(self):
+        result = self.qualify(
+            "VPP-ECMP-PATH-UP-FLOW-FAIL target=30.30.30.2\\r\\n"
+            "VPP-ECMP-PATH-FAILOVER FAIL interface=GigabitEthernet2/0/0\\r\\n"
+        )
+        self.assertEqual(result["status"], "FAIL")
+        self.assertEqual(result["functional_status"], "FAIL")
+        self.assertEqual(result["identity_status"], "UNVERIFIED")
+        self.assertIn("PATH-UP-FLOW-FAIL", result["failure_reason"])
+
+    def test_unbound_log_without_failure_evidence_remains_skip(self):
+        result = self.qualify("LIVE-SHELL-READY\\r\\n")
+        self.assertEqual(result["status"], "SKIP")
+        self.assertEqual(result["identity_status"], "UNVERIFIED")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

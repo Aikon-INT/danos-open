@@ -33,8 +33,30 @@ def result_from_log(text: str, *, identity: dict[str, str], iso_name: str,
     bdfs = bdfs or BDFS
     boot_start = text.rfind("DANOS-INIT-ENTER")
     if boot_start < 0:
+        observed_failures = re.findall(
+            r"VPP-(?:DPDK-PING-[01]|ECMP-[A-Z0-9-]+)(?:-FLOW)?\s+FAIL[^\r\n]*|"
+            r"VPP-ECMP-[A-Z0-9-]*-FLOW-FAIL[^\r\n]*",
+            text,
+        )
+        if observed_failures:
+            details = "; ".join(dict.fromkeys(
+                re.sub(r"[^\x20-\x7e]", "", marker).strip()
+                for marker in observed_failures
+            ))
+            return {
+                "schema_version": "1", "status": "FAIL",
+                "functional_status": "FAIL",
+                "performance_status": "ENVIRONMENT-OPEN",
+                "stage": "physical-functional", "lane": "i211-vpp-ecmp",
+                "identity_status": "UNVERIFIED",
+                "failure_reason": (
+                    "serial log has no live-init identity marker; explicit VPP failure "
+                    f"evidence was observed: {details}"
+                ),
+            }
         return {"status": "SKIP", "functional_status": "SKIP",
-                "failure_reason": "serial log has no live-init boot marker"}
+                "identity_status": "UNVERIFIED",
+                "failure_reason": "serial log has no live-init boot marker or traffic failure marker"}
     boot_text = text[boot_start:]
     try:
         preflight = boot_result(
@@ -173,6 +195,10 @@ def main() -> int:
     if result["status"] == "PASS":
         print(f"[PASS] physical I211 VPP ping/ECMP/withdraw/restore evidence: {args.out}")
         return 0
+    if result["status"] == "FAIL":
+        print(f"[FAIL] physical I211 traffic failure evidence: {result.get('failure_reason', '')}",
+              file=sys.stderr)
+        return 1
     print(f"[SKIP] physical I211 traffic evidence unavailable: {result.get('failure_reason', '')}")
     return 2
 

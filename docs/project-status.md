@@ -11,8 +11,10 @@ previous USB media had LBA 0 write and unrecovered-read errors; it must not be r
 The 2026-10-04 physical LIVE traffic attempt reached the BusyBox root shell and started VPP;
 serial output included `LIVE-SHELL-READY` and `SERIAL-SHELL-READY`. Its identity markers
 (`DANOS-INIT-ENTER`, `DANOS-BUILD`, PCI bind inventory) were not captured, so the exact ISO
-digest/commit is unverified and the strict recorder returned SKIP. The visible traffic probe
-itself failed: all four ECMP destinations had 5 sent/0 received, FIB had one bucket, and path
+digest/commit is unverified. The initial recorder classified the partial capture as SKIP; its
+parser now preserves explicit failure evidence as `FAIL` with `identity_status=UNVERIFIED`.
+Replay of this log fails as expected, while recorder tests 7/7 and CTest 35/35 pass. The visible
+traffic probe itself failed: all four ECMP destinations had 5 sent/0 received, FIB had one bucket, and path
 failover/restore failed. Only the first interface showed packet counters and it negotiated
 100 Mbps. Physical startup is observed, but two-link forwarding/ECMP is currently FAIL for this
 attempt; PCI performance remains ENVIRONMENT-OPEN. Raw log:
