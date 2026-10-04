@@ -33,6 +33,15 @@ raw UART at `build/i211-live-reboot-20261004-2.serial.log`. Next instrument the 
 state and kernel messages before changing the device-binding procedure; then verify peer
 return routes using the physical runbook.
 
+Diagnostic traffic ISO r2 (`ccb71fc`, SHA256
+`1605cd9c714adb7d5ae25a3cf10772d2f977ddcb82965718df4d165f6969cced`) adds sysfs and kernel-log
+context at bind failure. Follow-up r3 (`6287fba46c54eb38edf21f0ffc4628e612a8efab`, SHA256
+`0715ebacfd9bb76f4ec822793b6d551f805311b44bf732abf031db20a4c638fb`) also skips the long traffic
+sequence after PCI bind failure. r3 profile/provenance and QEMU ttyS0 shell/runtime plugin checks
+pass; CTest is 35/35. It has not been written to USB or run on physical I211. No removable USB
+block device is currently visible to the development host, so hardware re-test remains pending
+until the image is transferred to healthy media.
+
 The full unified gate on clean commit `ed8b4b5` passed and is recorded in
 `build/v016-release-gate-ed8b4b5.env`: CTest 35/35, backend contract, r13 and traffic ISO
 profiles, traffic UART PTY pipeline, runtime plugin, QEMU console/recovery, strict
