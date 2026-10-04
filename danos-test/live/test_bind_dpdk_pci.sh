@@ -30,6 +30,23 @@ if DANOS_DPDK_SYSFS_ROOT="$tmp/sys" \
 fi
 grep -q 'invalid-BDF=not-a-bdf' "$tmp/out"
 
+# Exercise a bind-stage failure and require enough live sysfs state to tell
+# whether the device remained bound to its native driver or became unbound.
+mkdir -p "$tmp/sys/bus/pci/devices/0000:02:00.0"
+printf '0x8086\n' > "$tmp/sys/bus/pci/devices/0000:02:00.0/vendor"
+printf '0x1539\n' > "$tmp/sys/bus/pci/devices/0000:02:00.0/device"
+mkdir "$tmp/sys/bus/pci/drivers/uio_pci_generic/bind"
+if DANOS_DPDK_SYSFS_ROOT="$tmp/sys" \
+   DANOS_BUILD_DPDK_BIND_DRIVER=uio_pci_generic \
+   DANOS_BUILD_DPDK_EXPECTED_PCI_ID=8086:1539 \
+   DANOS_BUILD_DPDK_PORTS=0000:02:00.0 \
+   sh "$bind_script" > "$tmp/out" 2>&1; then
+    echo 'FAIL: bind-stage error was not detected'
+    exit 1
+fi
+grep -q 'DPDK-PCI-BIND FAIL bind=0000:02:00.0 driver=uio_pci_generic rc=' "$tmp/out"
+grep -q 'DPDK-PCI-DIAG bdf=0000:02:00.0 stage=bind current_driver=unbound driver_override=uio_pci_generic' "$tmp/out"
+
 if DANOS_DPDK_SYSFS_ROOT="$tmp/sys" \
    DANOS_BUILD_DPDK_BIND_DRIVER=unknown \
    DANOS_BUILD_DPDK_PORTS=0000:01:00.0 \
@@ -42,4 +59,4 @@ grep -Fq 'DANOS_BUILD_DPDK_BIND_DRIVER="$DANOS_BUILD_DPDK_BIND_DRIVER"' \
     "$ROOT/danos-test/live/init"
 grep -Fq 'DANOS_BUILD_DPDK_EXPECTED_PCI_ID="$DANOS_BUILD_DPDK_EXPECTED_PCI_ID"' \
     "$ROOT/danos-test/live/init"
-echo 'PASS: DPDK PCI binding fails closed on wrong device, malformed BDF and unsupported driver'
+echo 'PASS: DPDK PCI binding fails closed and reports bind-stage sysfs diagnostics'

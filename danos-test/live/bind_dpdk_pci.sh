@@ -23,6 +23,20 @@ expected_device="0x$(printf '%s' "$expected_id" | cut -d: -f2 | tr '[:upper:]' '
 driver_dir="$sysfs_root/bus/pci/drivers/$driver"
 test -d "$driver_dir" || { echo "DPDK-PCI-BIND FAIL driver-unavailable=$driver"; exit 1; }
 
+report_bind_diagnostics() {
+    bdf="$1"
+    stage="$2"
+    device_dir="$sysfs_root/bus/pci/devices/$bdf"
+    current_driver=$(basename "$(readlink "$device_dir/driver" 2>/dev/null || echo unbound)")
+    override=$(cat "$device_dir/driver_override" 2>/dev/null || echo unavailable)
+    echo "DPDK-PCI-DIAG bdf=$bdf stage=$stage current_driver=$current_driver driver_override=$override"
+    if command -v dmesg >/dev/null 2>&1; then
+        dmesg 2>/dev/null | tail -n 12 | while IFS= read -r kernel_line; do
+            echo "DPDK-PCI-KMSG $kernel_line"
+        done
+    fi
+}
+
 bound=0
 for bdf in $ports; do
     printf '%s\n' "$bdf" | grep -Eq '^[[:xdigit:]]{4}:[[:xdigit:]]{2}:[[:xdigit:]]{2}\.[0-7]$' || {
@@ -51,9 +65,14 @@ for bdf in $ports; do
         fi
         printf '%s %s' "${expected_vendor#0x}" "${expected_device#0x}" \
             > "$driver_dir/new_id" 2>/dev/null || true
-        printf '%s' "$bdf" > "$driver_dir/bind" || {
-            echo "DPDK-PCI-BIND FAIL bind=$bdf driver=$driver"; exit 1;
-        }
+        if printf '%s' "$bdf" > "$driver_dir/bind"; then
+            :
+        else
+            bind_rc=$?
+            echo "DPDK-PCI-BIND FAIL bind=$bdf driver=$driver rc=$bind_rc"
+            report_bind_diagnostics "$bdf" bind
+            exit 1
+        fi
         current_driver=$(basename "$(readlink "$device_dir/driver" 2>/dev/null || echo unbound)")
     fi
     test "$current_driver" = "$driver" || {

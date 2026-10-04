@@ -24,6 +24,15 @@ independent peer links at 10.10.0.2/24 and 10.20.0.2/24, peer responses/routes f
 30.30.30.2–.5 and return path to 30.30.30.1, and carrier on both I211 ports. A fresh serial
 cold-boot capture with build identity is required to qualify the exact image.
 
+The subsequent controlled cold boot captured the complete r1 identity and all four I211 BDFs.
+It exposed an earlier blocker: binding the first target (`0000:01:00.0`) to `uio_pci_generic`
+failed (`DPDK-PCI-BIND-RESULT FAIL rc=1`). VPP API/stats sockets became ready, but the first
+peer ping failed; this run therefore did not reach valid DPDK forwarding acceptance. The strict
+result is `build/i211-live-reboot-20261004-2.serial.log.traffic.env` (`FAIL`, bind failure), with
+raw UART at `build/i211-live-reboot-20261004-2.serial.log`. Next instrument the failed sysfs bind
+state and kernel messages before changing the device-binding procedure; then verify peer
+return routes using the physical runbook.
+
 The full unified gate on clean commit `ed8b4b5` passed and is recorded in
 `build/v016-release-gate-ed8b4b5.env`: CTest 35/35, backend contract, r13 and traffic ISO
 profiles, traffic UART PTY pipeline, runtime plugin, QEMU console/recovery, strict
