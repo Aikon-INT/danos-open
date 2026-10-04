@@ -85,7 +85,12 @@ if test "${DANOS_BUILD_DPDK_BIND_DRIVER:-none}" != none; then
         /bin/sh /bin/bind_dpdk_pci.sh > /tmp/dpdk-pci-bind.log 2>&1
     dpdk_bind_rc=$?
     say_live_file /tmp/dpdk-pci-bind.log
-    test "$dpdk_bind_rc" -eq 0 || say_live "DPDK-PCI-BIND-RESULT FAIL rc=$dpdk_bind_rc"
+    if test "$dpdk_bind_rc" -eq 0; then
+        rm -f /run/dpdk-pci-bind.failed
+    else
+        touch /run/dpdk-pci-bind.failed
+        say_live "DPDK-PCI-BIND-RESULT FAIL rc=$dpdk_bind_rc"
+    fi
 fi
 
 ip link set lo up
@@ -215,6 +220,9 @@ if test -e /vpp-dpdk.enabled; then
             say_live "VPP-DPDK-INTERFACES FAIL"
         fi
         if test -e /vpp-dpdk-traffic-test.enabled; then
+            if test -e /run/dpdk-pci-bind.failed; then
+                say_live "VPP-TRAFFIC-TEST SKIP reason=dpdk-pci-bind-failed"
+            else
             say_live "--- VPP DPDK traffic test ---"
             traffic_peer_ready=1
             if test -n "${VPP_TRAFFIC_READY_ENDPOINT:-}"; then
@@ -532,6 +540,7 @@ if test -e /vpp-dpdk.enabled; then
             say_live_file /tmp/vpp-if-after.log
             say_live "VPP-ECMP-DISTRIBUTION PARTIAL (per-interface packet deltas captured; remote high-rate generator required)"
         fi
+            fi
             fi
     fi
     /usr/bin/vppctl -s /run/vpp/cli.sock show interface > /dev/console 2>&1 || true
