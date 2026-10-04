@@ -53,8 +53,12 @@ for bdf in $ports; do
 
     current_driver=$(basename "$(readlink "$device_dir/driver" 2>/dev/null || echo unbound)")
     if test "$current_driver" != "$driver"; then
-        # Pin the override before unbinding so the kernel cannot race-rebind a
-        # native driver; new_id makes uio_pci_generic accept this exact PCI ID.
+        # driver_override scopes matching to this BDF. Do not also register
+        # the PCI ID via driver's new_id: that is global and may auto-bind all
+        # identical NICs before the explicit bind below.
+        test -w "$device_dir/driver_override" || {
+            echo "DPDK-PCI-BIND FAIL driver-override-unavailable=$bdf"; exit 1;
+        }
         printf '%s' "$driver" > "$device_dir/driver_override" || {
             echo "DPDK-PCI-BIND FAIL driver-override=$bdf"; exit 1;
         }
@@ -63,15 +67,20 @@ for bdf in $ports; do
                 echo "DPDK-PCI-BIND FAIL unbind=$bdf driver=$current_driver"; exit 1;
             }
         fi
-        printf '%s %s' "${expected_vendor#0x}" "${expected_device#0x}" \
-            > "$driver_dir/new_id" 2>/dev/null || true
         if printf '%s' "$bdf" > "$driver_dir/bind"; then
             :
         else
             bind_rc=$?
-            echo "DPDK-PCI-BIND FAIL bind=$bdf driver=$driver rc=$bind_rc"
-            report_bind_diagnostics "$bdf" bind
-            exit 1
+            current_driver=$(basename "$(readlink "$device_dir/driver" 2>/dev/null || echo unbound)")
+            # Some kernels report an error while closing the sysfs bind file
+            # even though probe completed and the device is now attached.
+            if test "$current_driver" = "$driver"; then
+                echo "DPDK-PCI-BIND NOTE bind-write rc=$bind_rc but device attached bdf=$bdf driver=$driver"
+            else
+                echo "DPDK-PCI-BIND FAIL bind=$bdf driver=$driver rc=$bind_rc"
+                report_bind_diagnostics "$bdf" bind
+                exit 1
+            fi
         fi
         current_driver=$(basename "$(readlink "$device_dir/driver" 2>/dev/null || echo unbound)")
     fi
