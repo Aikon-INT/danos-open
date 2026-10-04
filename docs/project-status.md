@@ -8,8 +8,19 @@ Latest hardware-runner artifact (2026-10-04) is r13:
 commit `88f4bed22f2490e8aaeb081d015243636f538cb6`. Embedded I211 profile validation,
 QEMU runtime ping-plugin query, USB keyboard/mgrd replay, ttyS0 shell and serial-capture PTY tests pass. The
 previous USB media had LBA 0 write and unrecovered-read errors; it must not be reused.
-No physical r13 or traffic-r1 run has yet been measured; use healthy media and a two-port peer
-topology before claiming physical forwarding/ECMP or performance.
+The 2026-10-04 physical LIVE traffic attempt reached the BusyBox root shell and started VPP;
+serial output included `LIVE-SHELL-READY` and `SERIAL-SHELL-READY`. Its identity markers
+(`DANOS-INIT-ENTER`, `DANOS-BUILD`, PCI bind inventory) were not captured, so the exact ISO
+digest/commit is unverified and the strict recorder returned SKIP. The visible traffic probe
+itself failed: all four ECMP destinations had 5 sent/0 received, FIB had one bucket, and path
+failover/restore failed. Only the first interface showed packet counters and it negotiated
+100 Mbps. Physical startup is observed, but two-link forwarding/ECMP is currently FAIL for this
+attempt; PCI performance remains ENVIRONMENT-OPEN. Raw log:
+`build/i211-live-traffic-20261004.serial.log`. No USB write was performed from this host during
+this run; the previously faulty USB media remains unsuitable. Retest after confirming two
+independent peer links at 10.10.0.2/24 and 10.20.0.2/24, peer responses/routes for
+30.30.30.2–.5 and return path to 30.30.30.1, and carrier on both I211 ports. A fresh serial
+cold-boot capture with build identity is required to qualify the exact image.
 
 The full unified gate on clean commit `ed8b4b5` passed and is recorded in
 `build/v016-release-gate-ed8b4b5.env`: CTest 35/35, backend contract, r13 and traffic ISO
