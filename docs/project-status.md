@@ -36,6 +36,14 @@ physical step is to verify the UART TX/RX/GND path, target UART port, and termin
 then capture before a cold boot. If serial remains unusable, VGA output is auxiliary evidence
 only and cannot bind the run to an ISO digest/commit.
 
+The complete unified v0.16 release gate was rerun on clean commit `9fbb48f` and passed:
+`build/v016-release-gate-9fbb48f.env`. Backend contract, CTest 35/35, QEMU USB HID/mgrd
+recovery, ttyS0 root shell/runtime plugin, topology-140 FRR/VPP lifecycle and four-flow ECMP
+(4000/4000, 0% loss, bucket deltas 3000/1000), and VMware VMXNET3 two-path packets
+(2000/2000, 0% loss) all passed. PCI preflight correctly returned structured `SKIP` /
+`ENVIRONMENT-OPEN` because this development host has no target PCI runner. This gate does not
+change the unqualified status of the physical r3 run.
+
 The subsequent controlled cold boot captured the complete r1 identity and all four I211 BDFs.
 It exposed an earlier blocker: binding the first target (`0000:01:00.0`) to `uio_pci_generic`
 failed (`DPDK-PCI-BIND-RESULT FAIL rc=1`). VPP API/stats sockets became ready, but the first
